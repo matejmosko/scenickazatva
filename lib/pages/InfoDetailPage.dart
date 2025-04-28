@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:scenickazatva_app/models/InfoPost.dart';
 import 'package:scenickazatva_app/providers/InfoProvider.dart';
+import 'package:scenickazatva_app/models/Festival.dart';
+import 'package:scenickazatva_app/providers/FestivalProvider.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/requests/api.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -10,17 +12,24 @@ import 'package:go_router/go_router.dart';
 
 class InfoDetailPage extends StatelessWidget {
   final infoId;
-
   InfoDetailPage({@required this.infoId});
 
   @override
   Widget build(BuildContext context) {
+    Festival festival = Festival();
+
     final InfoProvider infoProvider = Provider.of<InfoProvider>(context);
     InfoPost info = InfoPost();
     List<InfoPost> information = infoProvider.info;
     if (information.where((element) => (element.id == infoId)).length > 0) {
       info = information.where((element) => (element.id == infoId)).toList()[0];
     }
+
+    FestivalProvider festivalProvider =
+    Provider.of<FestivalProvider>(context, listen: false);
+    festivalProvider.fetchFestival();
+    festival = festivalProvider.festival;
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: true,
@@ -32,7 +41,7 @@ class InfoDetailPage extends StatelessWidget {
               context.go("/info");
             }),
         title: Text(
-          "",
+          festival.title,
         ),
       ),
       body: SafeArea(

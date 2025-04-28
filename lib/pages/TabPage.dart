@@ -38,11 +38,6 @@ class _TabPageState extends State<TabPage> {
       initialPage: widget.initialIndex,
       keepPage: true,
     );
-    FestivalProvider festivalProvider =
-    Provider.of<FestivalProvider>(context, listen: false);
-    festivalProvider.fetchFestival();
-    festival = festivalProvider.festival;
-    print(festival.title);
   }
 
   void _itemTapped(int index, newsProvider, eventsProvider, infoProvider) {
@@ -83,6 +78,9 @@ class _TabPageState extends State<TabPage> {
     final NewsProvider newsProvider = Provider.of<NewsProvider>(context);
     final EventsProvider eventsProvider = Provider.of<EventsProvider>(context);
     final InfoProvider infoProvider = Provider.of<InfoProvider>(context);
+    final FestivalProvider festivalProvider = Provider.of<FestivalProvider>(context, listen: false);
+    festivalProvider.fetchFestival();
+    festival = festivalProvider.festival;
 
     return Scaffold(
       appBar: AppBar(

@@ -25,10 +25,10 @@ class CalendarView extends StatefulWidget {
 class _CalendarViewState extends State<CalendarView>
     with TickerProviderStateMixin {
   CalendarFormat _calendarFormat = CalendarFormat.week;
-  DateTime _selectedDay = DateTime.now();
+  DateTime? _selectedDay;
   DateTime _rangeStart = DateTime.utc(2024, 8, 28);
   DateTime _rangeEnd = DateTime.utc(2025, 12, 31);
-  DateTime _focusedDay = DateTime.now();
+  DateTime? _focusedDay;
   // static var _calendarKeyCount = 0;
   AnimationController? _animationController;
   Festival festival = Festival();
@@ -49,14 +49,9 @@ class _CalendarViewState extends State<CalendarView>
       duration: const Duration(milliseconds: 400),
     );
 
-    _focusedDay =
-        (_focusedDay.isBefore(_rangeStart) || _focusedDay.isAfter(_rangeEnd))
-            ? _rangeStart
-            : _focusedDay;
+    _selectedDay = _focusedDay;
 
     _animationController?.forward();
-
-    _selectedDay = _focusedDay;
   }
 
   @override
@@ -64,9 +59,10 @@ class _CalendarViewState extends State<CalendarView>
     super.didChangeDependencies();
   }
 
-  List<Event> _fetchEvents(DateTime day) {
+  List<Event> _fetchEvents(DateTime day){
     EventsProvider eventsProvider =
         Provider.of<EventsProvider>(context, listen: false);
+
     final events = eventsProvider.events;
     return events.where((event) {
       return event.startTime?.year == day.year &&
@@ -78,15 +74,10 @@ class _CalendarViewState extends State<CalendarView>
   Future<Festival> getFestival() async {
     FestivalProvider festivalProvider =
         Provider.of<FestivalProvider>(context, listen: false);
-
     festival = await festivalProvider.fetchFestival();
 
-    _rangeStart = festival.startDate ?? _rangeStart;
-    _rangeEnd = festival.endDate ?? _rangeEnd;
+    if (_focusedDay == null) {setDefaultDay();}
 
-    if (_focusedDay.isBefore(_rangeStart) || _focusedDay.isAfter(_rangeEnd)) {
-      _focusedDay = _rangeStart;
-    }
     foregroundColor = festivalProvider.foregroundColor;
     backgroundColor = festivalProvider.backgroundColor;
     selectedColor = festivalProvider.selectedColor;
@@ -96,19 +87,6 @@ class _CalendarViewState extends State<CalendarView>
     //_calendarKeyCount += 1;
     return festival;
   }
-/*
-  Festival fetchFestival() {
-    FestivalProvider festivalProvider =
-        Provider.of<FestivalProvider>(context, listen: false);
-    final festival = festivalProvider.festival;
-
-    foregroundColor = festivalProvider.foregroundColor;
-    backgroundColor = festivalProvider.backgroundColor;
-    selectedColor = festivalProvider.selectedColor;
-    mainProgramColor = festivalProvider.mainProgramColor;
-    offProgramColor = festivalProvider.offProgramColor;
-    return festival;
-  }*/
 
   @override
   void dispose() {
@@ -123,7 +101,22 @@ class _CalendarViewState extends State<CalendarView>
       _focusedDay = focusedDay;
       setSelectedDay(selectedDay);
     });
-    //_fetchEvents;
+  }
+
+  void setDefaultDay(){
+    final FestivalProvider festivalProvider = Provider.of<FestivalProvider>(context, listen: false);
+    festivalProvider.fetchFestival();
+    festival = festivalProvider.festival;
+
+    _rangeStart = festival.startDate ?? _rangeStart;
+    _rangeEnd = festival.endDate ?? _rangeEnd;
+
+    _focusedDay = DateTime.now();
+    _focusedDay =
+    (_focusedDay!.isBefore(_rangeStart) || _focusedDay!.isAfter(_rangeEnd))
+        ? _rangeStart
+        : _focusedDay;
+    _selectedDay = _focusedDay;
   }
 
   void setSelectedDay(DateTime day) {
@@ -134,6 +127,10 @@ class _CalendarViewState extends State<CalendarView>
 
   @override
   Widget build(BuildContext context) {
+    final FestivalProvider festivalProvider = Provider.of<FestivalProvider>(context, listen: false);
+    festivalProvider.fetchFestival();
+    festival = festivalProvider.festival;
+
     return Column(
       mainAxisSize: MainAxisSize.max,
       children: <Widget>[
@@ -165,7 +162,7 @@ class _CalendarViewState extends State<CalendarView>
                 locale: 'sk_SK',
                 firstDay: snapshot.data!.startDate ?? _rangeStart,
                 lastDay: snapshot.data!.endDate ?? _rangeEnd,
-                focusedDay: _focusedDay,
+                focusedDay: _focusedDay!,
                 headerVisible: false,
                 selectedDayPredicate: (day) {
                   return isSameDay(_selectedDay, day);
@@ -183,7 +180,7 @@ class _CalendarViewState extends State<CalendarView>
                   // No need to call `setState()` here
                   _focusedDay = focusedDay;
                 },
-                eventLoader: _fetchEvents, //(day){ return events;},
+                eventLoader: _fetchEvents,
                 calendarFormat: _calendarFormat,
                 startingDayOfWeek: StartingDayOfWeek.monday,
                 availableGestures: AvailableGestures.all,
@@ -295,6 +292,7 @@ class _CalendarViewState extends State<CalendarView>
 
   Widget _buildEventList() {
     final EventsProvider eventsProvider = Provider.of<EventsProvider>(context);
+    if (_selectedDay == null) {setDefaultDay();}
 
     return Container(
         /* decoration: BoxDecoration(
@@ -308,7 +306,7 @@ class _CalendarViewState extends State<CalendarView>
       duration: Duration(milliseconds: 500),
       child: ListView(
         padding: EdgeInsets.all(8),
-        children: _fetchEvents(_selectedDay)
+        children: _fetchEvents(_selectedDay!)
             .map((event) => EventListItem(event: event, festival: festival))
             .toList(),
       ),
@@ -320,7 +318,8 @@ class EventListItem extends StatelessWidget {
   final event;
   final Festival festival;
 
-  const EventListItem({Key? key, @required this.event, required this.festival}) : super(key: key);
+  const EventListItem({Key? key, @required this.event, required this.festival})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -344,10 +343,9 @@ class EventListItem extends StatelessWidget {
         ? true
         : false; // Check if the event is currently on.
 
-    print(festival.mainProgramColor);
-
     final EventsProvider eventsProvider = Provider.of<EventsProvider>(context);
-    final FestivalProvider festivalProvider = Provider.of<FestivalProvider>(context);
+    final FestivalProvider festivalProvider =
+        Provider.of<FestivalProvider>(context);
     print(festivalProvider.festival.logo);
 
     return GestureDetector(
@@ -429,16 +427,16 @@ class EventListItem extends StatelessWidget {
                             StackTrace? stackTrace) {
                           return Image(
                               image: FirebaseImageProvider(
-                              FirebaseUrl(festival.logo),
+                            FirebaseUrl(festival.logo),
                           ));
 
                           // Image.asset('assets/images/logo_sz.png');
                         },
                       )
                     : Image(
-                    image: FirebaseImageProvider(
-                      FirebaseUrl(festival.logo),
-                    )),
+                        image: FirebaseImageProvider(
+                        FirebaseUrl(festival.logo),
+                      )),
               ),
             ])),
         onTap: () {

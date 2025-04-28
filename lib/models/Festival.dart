@@ -1,4 +1,4 @@
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive.dart';
 part 'Festival.g.dart';
 
 @HiveType(typeId: 1)
@@ -14,9 +14,9 @@ class Festival {
   @HiveField(3)
   DateTime? startDate = DateTime.utc(2022-01-01);
   @HiveField(4)
-  String subtitle = "Multižánrový festival tvorivosti";
+  String subtitle = "Národné osvetové centrum";
   @HiveField(5)
-  String title = "TVOR•BA 2024";
+  String title = "Festivaly NOC";
   @HiveField(6)
   String backgroundColor;
   @HiveField(7)
@@ -41,8 +41,8 @@ class Festival {
       this.news_src =
           "https://www.tvor-ba.sk/2024/wp-json/wp/v2/posts?per_page=20&order=desc&",
       this.startDate,
-      this.subtitle = "Multižánrový festival tvorivosti",
-      this.title = "TVOR•BA 2024",
+      this.subtitle = "Národné osvetové centrum",
+      this.title = "Festivaly NOC",
       this.backgroundColor = "ffffffff",
       this.foregroundColor = "ff000000",
       this.selectedColor = "ff888888",

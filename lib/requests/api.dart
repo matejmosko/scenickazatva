@@ -5,7 +5,8 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_analytics/firebase_analytics.dart'; // imported for firebase messaging to log events
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
-import 'package:dio_cache_interceptor_hive_store/dio_cache_interceptor_hive_store.dart';
+//import 'package:dio_cache_interceptor_hive_store/dio_cache_interceptor_hive_store.dart';
+import 'package:http_cache_hive_store/http_cache_hive_store.dart';
 import 'package:path_provider/path_provider.dart';
 
 class API {
@@ -48,7 +49,7 @@ class API {
       directory = cacheDir!.path;
     }
 
-    var cacheStore = HiveCacheStore(
+    HiveCacheStore cacheStore = HiveCacheStore(
       directory,
       hiveBoxName: "scenickazatva_app",
     );
@@ -57,10 +58,10 @@ class API {
       policy: refresh ? CachePolicy.refresh : CachePolicy.forceCache,
       priority: CachePriority.high,
       maxStale: const Duration(hours: 5),
-      keyBuilder: (request) {
+      /*keyBuilder: (request) {
         return request.uri.toString();
-      },
-      hitCacheOnErrorExcept: [], // for offline behaviour
+      },*/
+      keyBuilder: CacheOptions.defaultCacheKeyBuilder,
     );
     final client = WordpressClient(
         baseUrl: baseUrl,
@@ -68,38 +69,6 @@ class API {
             .withDioInterceptor(DioCacheInterceptor(options: cacheOptions))
             .build());
 
-    //client.initialize();
-/*
-
-INFO This part is custom made cache based on test request for one article. There are problems with multipage responses. I removed it in favor of dio_cache_interceptor
-
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final str = prefs.getString(src) ?? "[]";
-    final cachedData = jsonDecode(str);
-
-    if (page == 0 && cachedData != []) {
-      final cacheTest = ListPostRequest(page: 0, perPage: 1);
-      final testResponse = await client.posts.list(cacheTest);
-      switch (testResponse) {
-        case WordpressSuccessResponse():
-          List<Post> cachedPosts =
-              List<Post>.from(cachedData.map((model) => Post.fromJson(model)));
-          if (testResponse.data[0].id == cachedPosts[0].id) {
-            data = cachedPosts;
-            refreshCache = false;
-          }
-          break;
-
-        case WordpressFailureResponse():
-          print(testResponse.error);
-          List<Post> cachedPosts =
-              List<Post>.from(cachedData.map((model) => Post.fromJson(model)));
-          refreshCache = false;
-          data = cachedPosts;
-          break;
-      }
-    }
-*/
     final request = ListPostRequest(
         page: page, perPage: 20, extra: {"_embed": "wp:featuredmedia"});
 

@@ -32,7 +32,7 @@ class InfoDetailPage extends StatelessWidget {
               context.go("/info");
             }),
         title: Text(
-          "TVOR•BA 2024 ",
+          "",
         ),
       ),
       body: SafeArea(

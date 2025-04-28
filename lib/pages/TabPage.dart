@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/providers/EventsProvider.dart';
 import 'package:scenickazatva_app/providers/InfoProvider.dart';
 import 'package:scenickazatva_app/providers/NewsProvider.dart';
+import 'package:scenickazatva_app/providers/FestivalProvider.dart';
+import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/views/CalendarView.dart';
 import 'package:scenickazatva_app/views/InfoView.dart';
 import 'package:scenickazatva_app/views/NewsView.dart';
@@ -25,7 +27,7 @@ class _TabPageState extends State<TabPage> {
     InfoView(),
 //    MagazineView(),
   ];
-
+  Festival festival = Festival();
   int _selectedIndex = 0;
   PageController _pageController = PageController();
 
@@ -36,6 +38,11 @@ class _TabPageState extends State<TabPage> {
       initialPage: widget.initialIndex,
       keepPage: true,
     );
+    FestivalProvider festivalProvider =
+    Provider.of<FestivalProvider>(context, listen: false);
+    festivalProvider.fetchFestival();
+    festival = festivalProvider.festival;
+    print(festival.title);
   }
 
   void _itemTapped(int index, newsProvider, eventsProvider, infoProvider) {
@@ -80,7 +87,7 @@ class _TabPageState extends State<TabPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _selectedIndex == 0 ? "javisko.sk" : "Scénická žatva",
+          _selectedIndex == 0 ? "javisko.sk" : festival.title,
         ),
         actions: <Widget>[
           kIsWeb == true

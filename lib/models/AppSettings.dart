@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:scenickazatva_app/models/Festival.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive.dart';
 part 'AppSettings.g.dart';
 
 @HiveType(typeId : 0)

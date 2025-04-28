@@ -24,7 +24,9 @@ import 'package:scenickazatva_app/pages/InfoDetailPage.dart';
 import 'package:scenickazatva_app/models/ColorScheme.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'package:flutter_quill/flutter_quill.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 final _router = GoRouter(
   routes: [
@@ -214,6 +216,12 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp.router(
         title: "javisko.sk",
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            FlutterQuillLocalizations.delegate,
+          ],
         theme: ThemeData(
             useMaterial3: true,
             colorScheme: lightColorScheme,

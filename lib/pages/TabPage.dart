@@ -122,7 +122,7 @@ class _TabPageState extends State<TabPage> {
             ),
             NavigationDestination(
               icon: Icon(Icons.date_range),
-              label: 'Program',
+              label: festival.title,
             ),
             NavigationDestination(
               icon: Icon(Icons.notifications),

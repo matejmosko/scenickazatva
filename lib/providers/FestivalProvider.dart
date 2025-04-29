@@ -15,6 +15,9 @@ class FestivalProvider extends ChangeNotifier {
 
   Color get backgroundColor => getColor(_festival.backgroundColor);
   Color get foregroundColor => getColor(_festival.foregroundColor);
+  Color get festivalBackgroundColor => getColor(_festival.festivalBackgroundColor);
+  Color get festivalForegroundColor => getColor(_festival.festivalForegroundColor);
+  Color get festivalThirdColor => getColor(_festival.festivalThirdColor);
   Color get selectedColor => getColor(_festival.selectedColor);
   Color get mainProgramColor => getColor(_festival.mainProgramColor);
   Color get offProgramColor => getColor(_festival.offProgramColor);

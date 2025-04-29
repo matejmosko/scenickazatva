@@ -3,7 +3,6 @@ import 'package:scenickazatva_app/providers/EventsProvider.dart';
 import 'package:scenickazatva_app/providers/FestivalProvider.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:scenickazatva_app/models/ColorScheme.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:scenickazatva_app/models/Event.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
@@ -33,11 +32,6 @@ class _CalendarViewState extends State<CalendarView>
   AnimationController? _animationController;
   Festival festival = Festival();
   List venues = [];
-  Color foregroundColor = darkColor;
-  Color backgroundColor = accentColor;
-  Color selectedColor = lightColor;
-  Color mainProgramColor = accentColor;
-  Color offProgramColor = lightColorDarker;
   // List events;
 
   @override
@@ -77,12 +71,6 @@ class _CalendarViewState extends State<CalendarView>
     festival = await festivalProvider.fetchFestival();
 
     if (_focusedDay == null) {setDefaultDay();}
-
-    foregroundColor = festivalProvider.foregroundColor;
-    backgroundColor = festivalProvider.backgroundColor;
-    selectedColor = festivalProvider.selectedColor;
-    mainProgramColor = festivalProvider.mainProgramColor;
-    offProgramColor = festivalProvider.offProgramColor;
 
     //_calendarKeyCount += 1;
     return festival;
@@ -152,8 +140,10 @@ class _CalendarViewState extends State<CalendarView>
 
   // More advanced TableCalendar configuration (using Builders & Styles)
   Widget _buildTableCalendarWithBuilders() {
+    final FestivalProvider festivalProvider = Provider.of<FestivalProvider>(context, listen: false);
+    festivalProvider.fetchFestival();
     return Container(
-      color: festivalBackgroundColor,
+      color: festivalProvider.festivalBackgroundColor,
       child: FutureBuilder(
           future: getFestival(),
           builder: (BuildContext context, AsyncSnapshot<Festival> snapshot) {
@@ -189,17 +179,17 @@ class _CalendarViewState extends State<CalendarView>
                 },
                 calendarStyle: CalendarStyle(
                   outsideDaysVisible: true,
-                  outsideTextStyle: TextStyle(color: foregroundColor),
-                  defaultTextStyle: TextStyle(color: foregroundColor),
-                  disabledTextStyle: TextStyle(color: foregroundColor),
-                  weekendTextStyle: TextStyle(color: foregroundColor),
+                  outsideTextStyle: TextStyle(color: festivalProvider.foregroundColor),
+                  defaultTextStyle: TextStyle(color: festivalProvider.foregroundColor),
+                  disabledTextStyle: TextStyle(color: festivalProvider.foregroundColor),
+                  weekendTextStyle: TextStyle(color: festivalProvider.foregroundColor),
                 ),
                 daysOfWeekStyle: DaysOfWeekStyle(
                     weekdayStyle: TextStyle(
-                      color: foregroundColor,
+                      color: festivalProvider.foregroundColor,
                     ),
                     weekendStyle: TextStyle(
-                      color: foregroundColor,
+                      color: festivalProvider.foregroundColor,
                     )),
                 calendarBuilders: CalendarBuilders(
                   selectedBuilder: (context, date, _) {
@@ -210,7 +200,7 @@ class _CalendarViewState extends State<CalendarView>
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
-                            shape: BoxShape.rectangle, color: selectedColor),
+                            shape: BoxShape.rectangle, color: festivalProvider.festivalForegroundColor),
                         child: Center(
                           child: Text(
                             '${date.day}',
@@ -272,17 +262,19 @@ class _CalendarViewState extends State<CalendarView>
   }
 
   Widget _buildEventsMarker(DateTime date, List events) {
+    final FestivalProvider festivalProvider = Provider.of<FestivalProvider>(context, listen: false);
+    festivalProvider.fetchFestival();
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       decoration: BoxDecoration(
-          color: festivalForegroundColor, shape: BoxShape.rectangle),
+          color: festivalProvider.festivalThirdColor, shape: BoxShape.rectangle),
       width: 16.0,
       height: 16.0,
       child: Center(
         child: Text(
           '${events.length}',
           style: TextStyle().copyWith(
-            color: festivalThirdColor,
+            color: festivalProvider.festivalForegroundColor,
             fontSize: 10.0,
           ),
         ),

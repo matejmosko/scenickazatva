@@ -33,6 +33,12 @@ class Festival {
   String background;
   @HiveField(13)
   String partnerProgramColor;
+  @HiveField(14)
+  String festivalBackgroundColor;
+  @HiveField(15)
+  String festivalForegroundColor;
+  @HiveField(16)
+  String festivalThirdColor;
 
   Festival(
       {this.endDate,
@@ -45,6 +51,9 @@ class Festival {
       this.title = "Festivaly NOC",
       this.backgroundColor = "ffffffff",
       this.foregroundColor = "ff000000",
+      this.festivalBackgroundColor = "ffffffff",
+      this.festivalForegroundColor = "ff000000",
+      this.festivalThirdColor = "ff000000",
       this.selectedColor = "ff888888",
       this.mainProgramColor = "ffffffff",
       this.offProgramColor = "ffffffff",
@@ -67,6 +76,9 @@ class Festival {
         title: json['title'],
         backgroundColor: json['backgroundColor'],
         foregroundColor: json['foregroundColor'],
+        festivalBackgroundColor: json['festivalBackgroundColor'],
+        festivalForegroundColor: json['festivalForegroundColor'],
+        festivalThirdColor: json['festivalThirdColor'],
         selectedColor: json['selectedColor'],
         mainProgramColor: json['mainProgramColor'],
         partnerProgramColor: json['partnerProgramColor'],
@@ -86,6 +98,9 @@ class Festival {
     data['title'] = this.title;
     data['backgroundColor'] = this.backgroundColor;
     data['foregroundColor'] = this.foregroundColor;
+    data['festivalBackgroundColor'] = this.festivalBackgroundColor;
+    data['festivalForegroundColor'] = this.festivalForegroundColor;
+    data['festivalThirdColor'] = this.festivalThirdColor;
     data['selectedColor'] = this.selectedColor;
     data['mainProgramColor'] = this.mainProgramColor;
     data['offProgramColor'] = this.offProgramColor;

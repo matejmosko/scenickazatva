@@ -8,7 +8,7 @@ part of 'AppSettings.dart';
 
 class AppSettingsAdapter extends TypeAdapter<AppSettings> {
   @override
-  final int typeId = 0;
+  final typeId = 0;
 
   @override
   AppSettings read(BinaryReader reader) {
@@ -17,8 +17,10 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return AppSettings(
-      defaultfestival: fields[0] as String,
-      festivals: (fields[1] as Map?)?.cast<String, Festival>(),
+      defaultfestival: fields[0] == null ? "tvorba2024" : fields[0] as String,
+      festivals: fields[1] == null
+          ? const {}
+          : (fields[1] as Map?)?.cast<String, Festival>(),
     );
   }
 

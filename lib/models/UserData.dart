@@ -25,6 +25,19 @@ class UserData {
         timestamp = data['timestamp'] ?? "",
         fcmtoken = data['fcmtoken'] ?? "";
 
+  factory UserData.fromJson(Map<String, dynamic> json) {
+
+    return UserData(
+        id: json['id'] ?? "",
+        fullName: json['fullName'] ?? "",
+        email: json['email'] ?? "",
+        userRole: json['userRole'] ?? "",
+        notifications: json['notifications'] ?? {},
+        timestamp: json['timestamp'] ?? "",
+        fcmtoken: json['fcmtoken'] ?? ""
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

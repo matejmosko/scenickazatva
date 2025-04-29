@@ -42,17 +42,6 @@ class EventsProvider extends ChangeNotifier {
     _selectedDay = day;
   }
 
-  /*void /*Future<bool>*/ fetchEventsForArrangement(arrangement) async {
-    setLoading(true);
-    API().fetchEventsForArrangement(arrangement).then((data) {
-      if (data.statusCode == 200) {
-        Iterable events = json.decode(data.body);
-        setEvents(
-          events.map((model) => Event.fromJson(model)).toList(),
-        );
-      }
-    });
-  }*/
 
   void fetchAllEvents() async { // returns a bool
     setLoading(true);
@@ -126,14 +115,6 @@ class EventsProvider extends ChangeNotifier {
           _venues = list.map((model) => Location.fromData(model)).toList()
       );
     });
-    /*API().fetchInfo().then((data) {
-      if (data.statusCode == 200) {
-        Iterable list = json.decode(utf8.decode(data.bodyBytes));
-        setInfo(
-          list.map((model) => InfoPost.fromJson(model)).toList(),
-        );
-      }
-    });*/
   }
 
   IconData getLocationIcon(loc){

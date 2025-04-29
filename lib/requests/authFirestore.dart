@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -73,7 +75,12 @@ class authService {
           ));
           _user = await _usersdb.get();
         }
-        result = UserData.fromData(_user.value as Map<String, dynamic>);
+        //var json = jsonEncode(_user.value);
+        //print(json);
+
+        final temp = jsonDecode(jsonEncode(_user.value)) as Map<String, dynamic>;
+
+       result = UserData.fromData(temp); // type '_Map<Object?, Object?>' is not a subtype of type 'Map<String, dynamic>' in type cast
         print(await result.id);
         saveUserData(result);
         return result;

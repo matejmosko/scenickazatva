@@ -63,7 +63,7 @@ class _MagazineViewState extends State<MagazineView>
                                       Expanded(
                                         child: ListTile(
                                           title:
-                                              Text(item.title!.rendered ?? ""),
+                                              Text(item.title!.rendered!.replaceAll('&amp;', '&') ?? ""),
                                           isThreeLine: true,
                                          /* subtitle: Html(
                                             data: item.excerpt!.rendered!

@@ -85,7 +85,7 @@ class NewsDetailPage extends StatelessWidget {
                     Card(
                       child: Column(
                         children: <Widget>[
-                          Text("${news.title!.rendered}",
+                          Text("${news.title!.rendered!.replaceAll('&amp;', '&')}",
                               style: Theme.of(context).textTheme.displayLarge),
                           Padding(
                             padding: EdgeInsets.all(12),

@@ -60,7 +60,7 @@ class _NewsViewState extends State<NewsView> with TickerProviderStateMixin {
                                     children: [
                                       Expanded(
                                         child: ListTile(
-                                          title: Text(item.title!.rendered ?? ""),
+                                          title: Text(item.title!.rendered!.replaceAll('&amp;', '&') ?? ""),
                                           subtitle: Text(stripHtml(item.excerpt!.rendered ?? "").length > 100 ? stripHtml(item.excerpt!.rendered ?? "").substring(1,100)+"..." : stripHtml(item.excerpt!.rendered ?? "")),
                                         ),
                                       ),

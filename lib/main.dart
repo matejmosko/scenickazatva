@@ -89,7 +89,14 @@ final _router = GoRouter(
           ),
         ]),
   ],
-);
+  redirect: (context, state) {
+    if (state.uri
+        .toString()
+        .contains(
+        'sk.panakrala.scenickazatva://google/link?request_ip_version')) {
+      return '/magazine';
+    }
+  });
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // print("Notification shown!");

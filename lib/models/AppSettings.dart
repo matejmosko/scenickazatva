@@ -6,12 +6,12 @@ part 'AppSettings.g.dart';
 @HiveType(typeId : 0)
 class AppSettings {
   @HiveField(0)
-  String defaultfestival = "tvorba2024";
+  String defaultfestival = "sutaze";
   @HiveField(1)
   Map<String, Festival>? festivals = {};
 
   AppSettings({
-    this.defaultfestival = "tvorba2024",
+    this.defaultfestival = "sutaze",
     this.festivals = const {},
   });
 
@@ -24,7 +24,7 @@ class AppSettings {
     });
 
     return AppSettings(
-      defaultfestival: json['defaultfestival'] ?? "tvorba2024",
+      defaultfestival: json['defaultfestival'] ?? "sutaze",
       festivals: festivals,
     );
   }

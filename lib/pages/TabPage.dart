@@ -87,7 +87,7 @@ class _TabPageState extends State<TabPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _selectedIndex == 0 ? "javisko.sk" : festival.title,
+          _selectedIndex == 0 ? "javisko.sk" : _selectedIndex == 1 ? "Program "+festival.title : _selectedIndex == 2 ? "Festník "+festival.title : _selectedIndex == 3 ? "Info "+festival.title : festival.title,
         ),
         actions: <Widget>[
           kIsWeb == true
@@ -125,7 +125,7 @@ class _TabPageState extends State<TabPage> {
             ),
             NavigationDestination(
               icon: Icon(Icons.date_range),
-              label: festival.title,
+              label: festival.menuTitle,
             ),
             NavigationDestination(
               icon: Icon(Icons.notifications),

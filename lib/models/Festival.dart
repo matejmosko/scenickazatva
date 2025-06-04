@@ -39,16 +39,18 @@ class Festival {
   String festivalForegroundColor;
   @HiveField(16)
   String festivalThirdColor;
+  String menuTitle;
 
   Festival(
       {this.endDate,
       this.magazine_src =
           "https://javisko.sk/wp-json/wp/v2/posts?per_page=20&order=desc&",
       this.news_src =
-          "https://www.tvor-ba.sk/2024/wp-json/wp/v2/posts?per_page=20&order=desc&",
+          "https://www.scenickazatva.eu/2025/wp-json/wp/v2/posts?per_page=20&order=desc&",
       this.startDate,
       this.subtitle = "Národné osvetové centrum",
       this.title = "Festivaly NOC",
+      this.menuTitle = "Festivaly",
       this.backgroundColor = "ffffffff",
       this.foregroundColor = "ff000000",
       this.festivalBackgroundColor = "ffffffff",
@@ -74,6 +76,7 @@ class Festival {
         startDate: startDate,
         subtitle: json['subtitle'],
         title: json['title'],
+        menuTitle: json['menuTitle'],
         backgroundColor: json['backgroundColor'],
         foregroundColor: json['foregroundColor'],
         festivalBackgroundColor: json['festivalBackgroundColor'],
@@ -96,6 +99,7 @@ class Festival {
     data['startdate'] = this.startDate;
     data['subtitle'] = this.subtitle;
     data['title'] = this.title;
+    data['menuTitle'] = this.menuTitle;
     data['backgroundColor'] = this.backgroundColor;
     data['foregroundColor'] = this.foregroundColor;
     data['festivalBackgroundColor'] = this.festivalBackgroundColor;

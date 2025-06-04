@@ -75,13 +75,15 @@ class NewsDetailPage extends StatelessWidget {
                   !snapshot.hasError) {
                 return ListView(
                   children: [
-                    CachedNetworkImage(
+                    Container(
+                      constraints: BoxConstraints(minHeight: 200, minWidth: double.infinity, maxHeight: 500),
+                      child: CachedNetworkImage(
                       imageUrl: news.featuredImageSourceUrl(),
                       placeholder: (context, url) =>
                           Image.asset('assets/images/icon512.png'),
                       errorWidget: (context, url, error) =>
                           Image.asset('assets/images/icon512.png'),
-                    ),
+                    ),),
                     Card(
                       child: Column(
                         children: <Widget>[

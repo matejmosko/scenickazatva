@@ -36,7 +36,7 @@ final _router = GoRouter(
           routes: [
             GoRoute(
                 path: 'news',
-                builder: (context, state) => TabPage(initialIndex: 0),
+                builder: (context, state) => TabPage(initialIndex: 2),
                 routes: [
                   GoRoute(
                     path: ':newsId',
@@ -46,7 +46,7 @@ final _router = GoRouter(
                 ]),
             GoRoute(
                 path: 'magazine',
-                builder: (context, state) => TabPage(initialIndex: 2),
+                builder: (context, state) => TabPage(initialIndex: 0),
                 routes: [
                   GoRoute(
                     path: ':magazineId',

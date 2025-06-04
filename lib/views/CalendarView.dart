@@ -338,7 +338,6 @@ class EventListItem extends StatelessWidget {
     final EventsProvider eventsProvider = Provider.of<EventsProvider>(context);
     final FestivalProvider festivalProvider =
         Provider.of<FestivalProvider>(context);
-    print(festivalProvider.festival.logo);
 
     return GestureDetector(
         child: Card(

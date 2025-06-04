@@ -89,8 +89,8 @@ final _router = GoRouter(
             ),
           ]),
     ],
-    onException: (_, state, router) {
-      router.go('/news');
+    onException: (_, state, _router) {
+      _router.go('/magazine');
     });
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {

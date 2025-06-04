@@ -52,7 +52,7 @@ class NewsProvider extends ChangeNotifier {
 
   void /* Future<List<NewsPost>>*/ fetchWpMagazine(src,
       {refresh = false}) async {
-    setLoading("articles", true);
+    setLoading(src, true);
     if (refresh) {
       allarticles = false;
       magazinepage = 1;
@@ -69,7 +69,7 @@ class NewsProvider extends ChangeNotifier {
   }
 
   void /* Future<List<NewsPost>>*/ fetchWpNews(src, {refresh = false}) async {
-    setLoading("news", true);
+    setLoading(src, true);
     if (refresh) {
       allnews = false;
       newspage = 1;
@@ -91,11 +91,11 @@ class NewsProvider extends ChangeNotifier {
 
   void setLoading(String category, bool val) {
     switch (category) {
-      case "news":
+      case "news_src":
         newsLoading = val;
         notifyListeners();
         break;
-      case "magazine":
+      case "magazine_src":
         articlesLoading = val;
         notifyListeners();
         break;

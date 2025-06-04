@@ -119,7 +119,7 @@ class _MagazineViewState extends State<MagazineView>
               Container(
                   child: (newsProvider.articlesLoading)
                       ? Padding(
-                          padding: EdgeInsets.all(20),
+                          padding: EdgeInsets.all(10),
                       child: new CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.greenAccent)))
                       : new Row())
             ],

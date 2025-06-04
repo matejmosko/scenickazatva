@@ -49,7 +49,7 @@ class _MagazineViewState extends State<MagazineView>
                   onEndOfPage: () =>
                       newsProvider.fetchWpMagazine("magazine_src"),
                   isLoading: newsProvider.articlesLoading,
-                  scrollOffset: 10,
+                  scrollOffset: 50,
                   child: RefreshIndicator(
                       child: ListView.builder(
                         itemCount: newsProvider.wparticles.length,

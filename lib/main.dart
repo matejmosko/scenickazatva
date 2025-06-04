@@ -29,74 +29,69 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 final _router = GoRouter(
-  routes: [
-    GoRoute(
-        path: '/',
-        builder: (context, state) => TabPage(initialIndex: 0),
-        routes: [
-          GoRoute(
-              path: 'news',
-              builder: (context, state) => TabPage(initialIndex: 0),
-              routes: [
-                GoRoute(
-                  path: ':newsId',
-                  builder: (context, state) =>
-                      NewsDetailPage(newsId: state.pathParameters["newsId"]),
-                ),
-              ]),
-          GoRoute(
-              path: 'magazine',
-              builder: (context, state) => TabPage(initialIndex: 0),
-              routes: [
-                GoRoute(
-                  path: ':magazineId',
-                  builder: (context, state) => NewsDetailPage(
-                      newsId: state.pathParameters["magazineId"]),
-                ),
-              ]),
-          GoRoute(
-              path: 'events',
-              builder: (context, state) => TabPage(initialIndex: 1),
-              routes: [
-                GoRoute(
-                  path: ':eventId',
-                  builder: (context, state) =>
-                      EventDetailPage(eventId: state.pathParameters["eventId"]),
-                ),
-                GoRoute(
-                  path: ':eventId/edit',
-                  builder: (context, state) =>
-                      EventEditPage(eventId: state.pathParameters["eventId"]),
-                ),
-              ]),
-          GoRoute(
-              path: 'info',
-              builder: (context, state) => TabPage(initialIndex: 2),
-              routes: [
-                GoRoute(
-                  path: ':infoId',
-                  builder: (context, state) =>
-                      InfoDetailPage(infoId: state.pathParameters["infoId"]),
-                )
-              ]),
-          GoRoute(
-            path: 'settings',
-            builder: (context, state) => SettingsPage(),
-          ),
-          GoRoute(
-            path: 'user',
-            builder: (context, state) => SettingsPage(),
-          ),
-        ]),
-  ],
-  redirect: (context, state) {
-    if (state.uri
-        .toString()
-        .contains(
-        'sk.panakrala.scenickazatva://google/link?request_ip_version')) {
-      return '/magazine';
-    }
-  });
+    routes: [
+      GoRoute(
+          path: '/',
+          builder: (context, state) => TabPage(initialIndex: 0),
+          routes: [
+            GoRoute(
+                path: 'news',
+                builder: (context, state) => TabPage(initialIndex: 0),
+                routes: [
+                  GoRoute(
+                    path: ':newsId',
+                    builder: (context, state) =>
+                        NewsDetailPage(newsId: state.pathParameters["newsId"]),
+                  ),
+                ]),
+            GoRoute(
+                path: 'magazine',
+                builder: (context, state) => TabPage(initialIndex: 2),
+                routes: [
+                  GoRoute(
+                    path: ':magazineId',
+                    builder: (context, state) => NewsDetailPage(
+                        newsId: state.pathParameters["magazineId"]),
+                  ),
+                ]),
+            GoRoute(
+                path: 'events',
+                builder: (context, state) => TabPage(initialIndex: 1),
+                routes: [
+                  GoRoute(
+                    path: ':eventId',
+                    builder: (context, state) => EventDetailPage(
+                        eventId: state.pathParameters["eventId"]),
+                  ),
+                  GoRoute(
+                    path: ':eventId/edit',
+                    builder: (context, state) =>
+                        EventEditPage(eventId: state.pathParameters["eventId"]),
+                  ),
+                ]),
+            GoRoute(
+                path: 'info',
+                builder: (context, state) => TabPage(initialIndex: 3),
+                routes: [
+                  GoRoute(
+                    path: ':infoId',
+                    builder: (context, state) =>
+                        InfoDetailPage(infoId: state.pathParameters["infoId"]),
+                  )
+                ]),
+            GoRoute(
+              path: 'settings',
+              builder: (context, state) => SettingsPage(),
+            ),
+            GoRoute(
+              path: 'user',
+              builder: (context, state) => SettingsPage(),
+            ),
+          ]),
+    ],
+    onException: (_, state, router) {
+      router.go('/news');
+    });
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // print("Notification shown!");
@@ -223,12 +218,12 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp.router(
         title: "javisko.sk",
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            FlutterQuillLocalizations.delegate,
-          ],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          FlutterQuillLocalizations.delegate,
+        ],
         theme: ThemeData(
             useMaterial3: true,
             colorScheme: lightColorScheme,

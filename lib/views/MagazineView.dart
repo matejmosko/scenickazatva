@@ -34,7 +34,7 @@ class _MagazineViewState extends State<MagazineView>
             duration: Duration(milliseconds: 500),
             // The green box must be a child of the AnimatedOpacity widget.
             child: Text(
-              "Načítavam..."
+              "Načítavam...",
             ),
           ),
         ),

@@ -91,11 +91,11 @@ class NewsProvider extends ChangeNotifier {
 
   void setLoading(String category, bool val) {
     switch (category) {
-      case "news_src":
+      case "news":
         newsLoading = val;
         notifyListeners();
         break;
-      case "magazine_src":
+      case "magazine":
         articlesLoading = val;
         notifyListeners();
         break;

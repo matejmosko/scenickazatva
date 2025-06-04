@@ -94,6 +94,7 @@ class _MagazineViewState extends State<MagazineView>
                                     ]),
                                 onTap: () {
                                   Analytics().sendEvent(item.title!.rendered);
+                                  Analytics().sendEvent("festník article opened");
                                   context.go("/magazine/" + item.id.toString());
                                 }),
                           );

@@ -84,6 +84,7 @@ class _NewsViewState extends State<NewsView> with TickerProviderStateMixin {
                                     ]),
                                 onTap: () {
                                   Analytics().sendEvent(item.title!.rendered);
+                                  Analytics().sendEvent("javisko article opened");
                                   context.go("/news/" + item.id.toString());
 /*                                Navigator.push(
                                   context,

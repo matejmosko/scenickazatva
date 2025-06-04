@@ -11,6 +11,7 @@ import 'package:scenickazatva_app/views/InfoView.dart';
 import 'package:scenickazatva_app/views/NewsView.dart';
 import 'package:scenickazatva_app/views/MagazineView.dart';
 import 'package:provider/provider.dart';
+import 'package:scenickazatva_app/requests/api.dart';
 
 class TabPage extends StatefulWidget {
   final initialIndex;
@@ -41,6 +42,7 @@ class _TabPageState extends State<TabPage> {
   }
 
   void _itemTapped(int index, newsProvider, eventsProvider, infoProvider) {
+    Analytics().sendEvent("menu: "+index.toString());
     setState(() {
       _selectedIndex = index;
       _pageController.jumpToPage(index);
@@ -94,6 +96,7 @@ class _TabPageState extends State<TabPage> {
                     Icons.settings,
                   ),
                   onPressed: () {
+                    Analytics().sendEvent("menu: settings");
                     context.go('/settings');
                   },
                 )

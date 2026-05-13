@@ -49,7 +49,7 @@ android {
     defaultConfig {
         applicationId "sk.panakrala.scenickazatva"
         minSdkVersion 24
-        targetSdkVersion 34
+        targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"

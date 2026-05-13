@@ -3,9 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:scenickazatva_app/requests/api.dart';
 import 'package:wordpress_client/wordpress_client.dart';
 
-
-
-
 class NewsProvider extends ChangeNotifier {
   //List<NewsPost> _news = [];
   //List<NewsPost> _articles = [];

@@ -40,9 +40,11 @@ class AppSettingsRequest{
   }
 
   void setSettings(AppSettings list) async {
+    defaultfestival = await API().getDefaultFestival();
     _appsettings = list;
     Preferences prefs = await Preferences.getInstance();
     prefs.setPrefs(_appsettings);
-    prefs.setFestival(_appsettings.festivals![_appsettings.defaultfestival]!);
-  }
+   // prefs.setFestival(_appsettings.festivals![_appsettings.defaultfestival]!);
+    prefs.setFestival(_appsettings.festivals![defaultfestival]!);
+    }
 }

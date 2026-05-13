@@ -30,7 +30,8 @@ class API {
     final options = await optionsdb.get();
     if (options.exists) {
       final _options = (options.value as Map);
-      return _options["defaultfestival"];
+      //return _options["defaultfestival"];
+      return "hk2025";
     } else {
       return "";
     }
@@ -40,6 +41,7 @@ class API {
     var _url = await getRestSrc(src);
     final baseUrl = Uri.parse(_url);
     List<Post> data = [];
+    print(baseUrl);
 
     //var cacheStore = MemCacheStore(maxSize: 10485760, maxEntrySize: 1048576);
 
@@ -74,6 +76,7 @@ class API {
 
 
      final wpResponse = await client.posts.list(request);
+     print(wpResponse);
 
      if (wpResponse.code == 304 || wpResponse.code == 200){
        switch (wpResponse) {

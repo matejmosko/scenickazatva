@@ -5,35 +5,34 @@ import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/requests/api.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wordpress_client/wordpress_client.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
+import 'package:wordpress_client/wordpress_client.dart' as wpclient;
 
 class NewsDetailPage extends StatelessWidget {
   final newsId;
 
-  NewsDetailPage({@required this.newsId});
-
+  NewsDetailPage({required this.newsId});
   @override
   Widget build(BuildContext context) {
-    Post news = Post(
+    wpclient.Post news = wpclient.Post(
       id: 0,
       slug: "",
-      status: getContentStatusFromValue(null),
+      status: wpclient.getContentStatusFromValue(null),
       link: "",
       author: 0,
-      commentStatus: getStatusFromValue(null),
-      pingStatus: getStatusFromValue(null),
+      commentStatus: wpclient.getStatusFromValue(null),
+      pingStatus: wpclient.getStatusFromValue(null),
       sticky: false,
-      format: getFormatFromValue(null),
+      format: wpclient.getFormatFromValue(null),
       self: {},
     );
 
     var title = GoRouterState.of(context).uri.toString().contains("news") ? "Festivalové novinky" : "javisko.sk";
 
-    Future<Post> getArticle() async {
+    Future<wpclient.Post> getArticle() async {
       final NewsProvider newsProvider = Provider.of<NewsProvider>(context);
-      List<Post> allNews = newsProvider.wpnews;
-      List<Post> allArticles = newsProvider.wparticles;
+      List<wpclient.Post> allNews = newsProvider.wpnews;
+      List<wpclient.Post> allArticles = newsProvider.wparticles;
 
       if (GoRouterState.of(context).uri.toString().contains("magazine") &&
           allArticles.map((element) => (element.id == newsId)).length > 0) {

@@ -82,9 +82,23 @@ class Festival {
   });
 
   factory Festival.fromJson(Map<String, dynamic> json, {String? id}) {
+    DateTime? parseDateTime(dynamic value) {
+      if (value == null) return null;
+      try {
+        DateTime? dt = DateTime.tryParse(value.toString());
+        if (dt == null) return null;
+        if (dt.isUtc) {
+          return DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.millisecond, dt.microsecond);
+        }
+        return dt;
+      } catch (e) {
+        return null;
+      }
+    }
+
     // Safety parsing for dates to prevent crashes on bad data
-    DateTime? parsedStart = json['startdate'] != null ? DateTime.tryParse(json['startdate'].toString()) : null;
-    DateTime? parsedEnd = json['enddate'] != null ? DateTime.tryParse(json['enddate'].toString()) : null;
+    DateTime? parsedStart = parseDateTime(json['startdate']);
+    DateTime? parsedEnd = parseDateTime(json['enddate']);
 
     return Festival(
       endDate: parsedEnd,

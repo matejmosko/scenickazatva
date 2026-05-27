@@ -151,6 +151,79 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
+  ThemeData _buildTheme(Brightness brightness, double fontSizeFactor) {
+    final isDark = brightness == Brightness.dark;
+    final colorScheme = isDark ? darkColorScheme : lightColorScheme;
+    final textColor = isDark ? lightColor : darkColor;
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      fontFamily: 'Space Grotesk',
+      scaffoldBackgroundColor: colorScheme.surface,
+      appBarTheme: AppBarTheme(
+        iconTheme: IconThemeData(color: lightColor),
+        backgroundColor: darkColor,
+        foregroundColor: lightColor,
+        titleTextStyle: const TextStyle(
+          fontFamily: 'Space Grotesk',
+          fontSize: 20.0,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: isDark ? colorScheme.surface : accentColor,
+        indicatorColor: isDark ? accentColor.withValues(alpha: 0.3) : accentColorDarker,
+        indicatorShape: const BeveledRectangleBorder(),
+        labelTextStyle: WidgetStateProperty.all(
+          TextStyle(
+            color: isDark ? lightColor : darkColor,
+            fontSize: 12.0,
+          ),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: isDark ? colorScheme.surfaceContainerHighest : lightColor,
+        elevation: isDark ? 0 : 1,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      listTileTheme: ListTileThemeData(
+        textColor: isDark ? lightColor : darkColorLighter,
+        titleTextStyle: TextStyle(
+          fontFamily: 'Space Grotesk',
+          fontVariations: const [FontVariation('wght', 700)],
+          color: isDark ? lightColor : darkColor,
+          fontSize: 18.0 * fontSizeFactor,
+        ),
+      ),
+      textTheme: TextTheme(
+        displayLarge: TextStyle(
+            fontSize: 24.0 * fontSizeFactor,
+            fontVariations: const [FontVariation('wght', 700)],
+            color: textColor),
+        displayMedium: TextStyle(
+            fontSize: 18.0 * fontSizeFactor,
+            fontStyle: FontStyle.italic,
+            color: textColor),
+        displaySmall: TextStyle(
+            fontSize: 16.0 * fontSizeFactor,
+            fontWeight: FontWeight.bold,
+            color: textColor),
+        titleLarge: TextStyle(
+            fontSize: 19.0 * fontSizeFactor,
+            color: textColor),
+        titleMedium: TextStyle(
+            fontSize: 16.0 * fontSizeFactor,
+            fontWeight: FontWeight.w600,
+            color: textColor),
+        bodyLarge: TextStyle(fontSize: 14.0 * fontSizeFactor, color: textColor),
+        bodyMedium: TextStyle(fontSize: 14.0 * fontSizeFactor, color: textColor),
+        bodySmall: TextStyle(fontSize: 12.0 * fontSizeFactor, color: textColor),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -181,59 +254,23 @@ class MyApp extends StatelessWidget {
         ),
       ],
 
-      child: MaterialApp.router(
-        title: "javisko.sk",
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          FlutterQuillLocalizations.delegate,
-        ],
-        theme: ThemeData(
-            useMaterial3: true,
-            colorScheme: lightColorScheme,
-            fontFamily: 'Space Grotesk',
-            appBarTheme: AppBarTheme(
-                iconTheme: IconThemeData(color: lightColor),
-                backgroundColor: darkColor,
-                foregroundColor: lightColor),
-            navigationBarTheme: NavigationBarThemeData(
-              backgroundColor: accentColor,
-              indicatorColor: accentColorDarker,
-              indicatorShape: BeveledRectangleBorder(),
-              labelTextStyle:
-                  WidgetStateProperty.all(TextStyle(color: darkColor)),
-            ),
-            listTileTheme: ListTileThemeData(
-              textColor: darkColorLighter,
-              titleTextStyle: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  fontVariations: [FontVariation('wght', 700)],
-                  color: darkColor,
-                  fontSize: 18.0),
-            ),
-            textTheme: TextTheme(
-              displayLarge: TextStyle(
-                  fontSize: 24.0,
-                  fontVariations: [FontVariation('wght', 700)],
-                  color: darkColor),
-              displayMedium: TextStyle(
-                  fontSize: 18.0,
-                  fontStyle: FontStyle.italic,
-                  color: darkColor),
-              displaySmall: TextStyle(
-                  fontSize: 16.0,
-                  fontWeight: FontWeight.bold,
-                  color: darkColor),
-              titleLarge: TextStyle(
-                  fontSize: 19.0,
-                  color: darkColor),
-              bodyLarge: TextStyle(fontSize: 14.0, color: darkColor),
-              bodyMedium: TextStyle(fontSize: 14.0, color: darkColor),
-            )),
-        darkTheme: ThemeData(useMaterial3: true, colorScheme: darkColorScheme),
-        debugShowCheckedModeBanner: false,
-        routerConfig: _router,
+      child: Consumer<AppSettingsProvider>(
+        builder: (context, settingsProvider, child) {
+          final fontSizeFactor = settingsProvider.settings.fontSizeFactor;
+          return MaterialApp.router(
+            title: "javisko.sk",
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              FlutterQuillLocalizations.delegate,
+            ],
+            theme: _buildTheme(Brightness.light, fontSizeFactor),
+            darkTheme: _buildTheme(Brightness.dark, fontSizeFactor),
+            debugShowCheckedModeBanner: false,
+            routerConfig: _router,
+          );
+        },
       ),
     );
   }

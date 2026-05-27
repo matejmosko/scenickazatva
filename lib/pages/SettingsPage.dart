@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
@@ -7,6 +8,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:scenickazatva_app/providers/FestivalProvider.dart';
+import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:provider/provider.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -94,7 +96,9 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final providers = [EmailAuthProvider()];
-    final festival = Provider.of<FestivalProvider>(context).festival;
+    final festivalProvider = Provider.of<FestivalProvider>(context);
+    final festival = festivalProvider.festival;
+    final settingsProvider = Provider.of<AppSettingsProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -106,93 +110,103 @@ class _SettingsPageState extends State<SettingsPage> {
             onPressed: () {
               context.go("/");
             }),
-        title: Text(
-          festival.title,
+        title: const Text(
+          "Nastavenia",
         ),
       ),
-      body: Card(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text("Konto", style: Theme.of(context).textTheme.displaySmall),
-            Flexible(
-              child: Container(
-                child: StreamBuilder(
-                  stream: FirebaseAuth.instance.authStateChanges(),
-                  // If the user is already signed-in, use it as initial data
-                  initialData: FirebaseAuth.instance.currentUser,
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      final user = snapshot.data;
-                      if (FirebaseAuth.instance.currentUser!.isAnonymous) {
-                        return SignInScreen(
-                          providers: providers,
-                          actions: [
-                            AuthStateChangeAction<SignedIn>((context, state) {
-                              Navigator.pushReplacementNamed(
-                                  context, '/profile');
-                            }),
-                          ],
-                        );
-                      } else {
-                        return ProfileScreen(
-                          providers: providers,
-                          actions: [
-                            SignedOutAction((context) {
-                              Navigator.pushReplacementNamed(
-                                  context, '/sign-in'); // FIXME here
-                            }),
-                          ],
-                          children: [buildForm(context, user)],
-                        );
-                      }
-                    } else
-                      return SizedBox();
-                    // Render your application if authenticated
-                  },
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Card(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text("Veľkosť písma", style: Theme.of(context).textTheme.displaySmall),
+                    Row(
+                      children: [
+                        const Icon(Icons.text_fields, size: 16),
+                        Expanded(
+                          child: Slider(
+                            value: settingsProvider.settings.fontSizeFactor,
+                            min: 0.8,
+                            max: 1.6,
+                            divisions: 8,
+                            label: "${(settingsProvider.settings.fontSizeFactor * 100).toInt()}%",
+                            onChanged: (double value) {
+                              settingsProvider.updateFontSizeFactor(value);
+                            },
+                          ),
+                        ),
+                        const Icon(Icons.text_fields, size: 28),
+                      ],
+                    ),
+                    const Divider(),
+                    if (kIsWeb) ...[
+                      Text("Konto", style: Theme.of(context).textTheme.displaySmall),
+                      SizedBox(
+                        height: 400, // Fixed height for profile section to coexist with other settings
+                        child: StreamBuilder(
+                          stream: FirebaseAuth.instance.authStateChanges(),
+                          initialData: FirebaseAuth.instance.currentUser,
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData) {
+                              final user = snapshot.data;
+                              if (FirebaseAuth.instance.currentUser!.isAnonymous) {
+                                return SignInScreen(
+                                  providers: providers,
+                                  actions: [
+                                    AuthStateChangeAction<SignedIn>((context, state) {
+                                      Navigator.pushReplacementNamed(context, '/profile');
+                                    }),
+                                  ],
+                                );
+                              } else {
+                                return ProfileScreen(
+                                  providers: providers,
+                                  actions: [
+                                    SignedOutAction((context) {
+                                      Navigator.pushReplacementNamed(context, '/sign-in');
+                                    }),
+                                  ],
+                                  children: [buildForm(context, user)],
+                                );
+                              }
+                            } else {
+                              return const SizedBox();
+                            }
+                          },
+                        ),
+                      ),
+                      const Divider(),
+                    ],
+                    Text("Push notifikácie", style: Theme.of(context).textTheme.displaySmall),
+                    SwitchListTile(
+                      title: const Text("Povoliť push notifikácie"),
+                      subtitle: const Text(
+                          'Krátke správy o tom, že sa blíži predstavenie, ktoré sa zobrazujú medzi upozorneniami.'),
+                      value: settingsProvider.settings.notificationsEnabled,
+                      onChanged: (bool value) {
+                        settingsProvider.updateNotificationsEnabled(value);
+                      },
+                    ),
+                    const Divider(),
+                    Text("Pripomienky", style: Theme.of(context).textTheme.displaySmall),
+                    SwitchListTile(
+                      title: const Text("Pripomienky pre obľúbené"),
+                      subtitle: const Text(
+                          'Dostávať lokálne upozornenia na podujatia, ktoré máte označené ako obľúbené.'),
+                      value: settingsProvider.settings.remindersEnabled,
+                      onChanged: (bool value) {
+                        settingsProvider.updateRemindersEnabled(value);
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
-            Text("Push notifikácie",
-                style: Theme.of(context).textTheme.displaySmall),
-            Text(
-                'Push notifikácie sú krátke správy o tom, že sa blíži predstavenie, ktoré sa zobrazujú medzi upozorneniami. Vyberte si tie podujatia, o ktorých chcete dostávať upozornenia.'),
-            /*StreamBuilder(
-                stream: _pushStream(),
-                builder:
-                    (context, AsyncSnapshot<Map<Object, Object>> snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return _buildLoadingScreen();
-                  }
-                  if (snapshot.hasData) {
-                    // bool x;
-                    final _festivals = snapshot.data;
-                    final _keys = _festivals.keys.toList();
-                    return Flexible(
-                      fit: FlexFit.tight,
-                      child: ListView.builder(
-                        itemCount: _keys != null ? _keys.length : 0,
-                        itemBuilder: (BuildContext context, int index) {
-                          String item = _keys[index].toString();
-                          return SwitchListTile(
-                            title: Text(item),
-                            secondary: Icon(Icons.notifications),
-                            onChanged: (value) {
-                              setState(() {
-                                changeSubscription(item, value);
-                              });
-                            },
-                            value: _festivals[item],
-                          );
-                        },
-                      ),
-                    );
-                  } else {
-                    return _buildLoadingScreen();
-                  }
-                }),*/
-          ]),
+          ],
         ),
       ),
     );

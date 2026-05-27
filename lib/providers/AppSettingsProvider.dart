@@ -130,6 +130,53 @@ class AppSettingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateFontSizeFactor(double newFactor) {
+    _settings.fontSizeFactor = newFactor;
+    
+    // Update Local Cache
+    Preferences.getInstance().then((prefs) {
+      prefs.saveAppSettings(_settings);
+    });
+
+    // Update Firebase User Profile if needed, or just keep it local.
+    // Given the request, local is probably fine, but let's sync it to Firebase
+    // so it persists across devices for the same user.
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      FirebaseDatabase.instance
+          .ref("users/${user.uid}/settings")
+          .update({"fontSizeFactor": newFactor});
+    }
+
+    notifyListeners();
+  }
+
+  void updateNotificationsEnabled(bool enabled) {
+    _settings.notificationsEnabled = enabled;
+    Preferences.getInstance().then((prefs) => prefs.saveAppSettings(_settings));
+    
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      FirebaseDatabase.instance
+          .ref("users/${user.uid}/settings")
+          .update({"notificationsEnabled": enabled});
+    }
+    notifyListeners();
+  }
+
+  void updateRemindersEnabled(bool enabled) {
+    _settings.remindersEnabled = enabled;
+    Preferences.getInstance().then((prefs) => prefs.saveAppSettings(_settings));
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      FirebaseDatabase.instance
+          .ref("users/${user.uid}/settings")
+          .update({"remindersEnabled": enabled});
+    }
+    notifyListeners();
+  }
+
   Map<String, dynamic> _deepConvertMap(dynamic map) {
     if (map == null) return {};
     if (map is! Map) return {};

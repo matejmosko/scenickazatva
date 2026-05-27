@@ -23,12 +23,23 @@ class Event {
   });
 
   factory Event.fromJson(Map<String, dynamic> json){
-    var startTime = json['startTime'].runtimeType == String
-        ? DateTime.parse(json['startTime'])
-        : null;
-    var endTime = json['endTime'].runtimeType == String
-        ? DateTime.parse(json['endTime'])
-        : null;
+    DateTime? parseDateTime(dynamic value) {
+      if (value is! String) return null;
+      try {
+        DateTime dt = DateTime.parse(value);
+        // We always want to treat the time from the database as the "wall-clock" time.
+        // If it's UTC, we convert it to local with the same hour/minute to avoid shifts.
+        if (dt.isUtc) {
+          return DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.millisecond, dt.microsecond);
+        }
+        return dt;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    var startTime = parseDateTime(json['startTime']);
+    var endTime = parseDateTime(json['endTime']);
 
     return Event(
       id: json['id'] ?? "",

@@ -42,12 +42,16 @@ class InfoView extends StatelessWidget {
                 itemBuilder: (BuildContext context, int index) {
                   final item = infoProvider.info[index];
                   return ListTile(
-                      title: Text(item.title),
+                      title: Text(
+                        item.title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       isThreeLine: true,
                       leading: Icon(
                           IconData(item.icon, fontFamily: 'MaterialIcons')),
                       subtitle: Text(
                         stripHtml(item.description),
+                        style: Theme.of(context).textTheme.bodyMedium,
                         overflow: TextOverflow.fade,
                         maxLines: 2,
                       ),

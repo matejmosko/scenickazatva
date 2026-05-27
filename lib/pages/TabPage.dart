@@ -91,12 +91,12 @@ class _TabPageState extends State<TabPage> {
           _selectedIndex == 0
               ? "javisko.sk"
               : _selectedIndex == 1
-              ? "Program ${festival.title}" // Use local reference
+              ? "Program"
               : _selectedIndex == 2
-              ? "Festník ${festival.title}"
+              ? "Festník"
               : _selectedIndex == 3
-              ? "Info ${festival.title}"
-              : festival.title,
+              ? "Info"
+              : "Festival",
         ),
         actions: <Widget>[
           // --- FESTIVAL SELECTOR DROPDOWN ---
@@ -108,9 +108,10 @@ class _TabPageState extends State<TabPage> {
                   dropdownColor: Theme.of(context).primaryColor,
 
                   // Bind the text color of the selected item and items in the menu
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
+                  style: const TextStyle(
+                    fontFamily: 'Space Grotesk',
+                    color: Colors.white,
+                    fontSize: 16,
                   ),
                   value: settings.allFestivals.any((f) => f.id == settings.defaultfestival)
                       ? settings.defaultfestival
@@ -127,24 +128,25 @@ class _TabPageState extends State<TabPage> {
                           (f.id == settings.defaultfestival && festivalProvider.festival.title.isNotEmpty)
                               ? festivalProvider.festival.title
                               : (f.title.isEmpty ? f.id : f.title),
-                          style: TextStyle(
-                              color: Colors.white70,
+                          style: const TextStyle(
+                              fontFamily: 'Space Grotesk',
+                              color: Colors.white,
                               fontWeight: FontWeight.bold),
                         ),
                       );
                     }).toList();
                   },
-// This builds the list of choices when opened
+                  // This builds the list of choices when opened
                   items: settings.allFestivals.map((f) {
-
                     return DropdownMenuItem<String>(
                       value: f.id,
                       child: Text(
                         (f.title.isEmpty) ? f.id : f.title,
                         style: TextStyle(
+                          fontFamily: 'Space Grotesk',
                           fontSize: 14,
-                          // Use provider colors for consistency
-                          color: Colors.black87
+                          // Use theme onSurface color for adaptive support
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     );
@@ -165,28 +167,13 @@ class _TabPageState extends State<TabPage> {
               context.go('/favorites');
             },
           ),
-          kIsWeb == true
-              ? IconButton(
-                  icon: Icon(
-                    Icons.settings,
-                  ),
-                  onPressed: () {
-                    Analytics().sendEvent("menu: settings");
-                    context.go('/settings');
-                  },
-                )
-              : SizedBox(),
-          kIsWeb == true
-              ? IconButton(
-                  icon: Icon(
-                    Icons.person,
-                  ),
-                  onPressed: () {
-                    // TODO Pridať možnosť prihlásiť sa na webe.
-                    context.go('/settings');
-                  },
-                )
-              : SizedBox(),
+          IconButton(
+            icon: Icon(Icons.settings, color: Colors.white70),
+            onPressed: () {
+              Analytics().sendEvent("menu: settings");
+              context.go('/settings');
+            },
+          ),
         ],
       ),
       body: Center(

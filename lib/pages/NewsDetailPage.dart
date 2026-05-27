@@ -89,16 +89,19 @@ class NewsDetailPage extends StatelessWidget {
                           Text("${news.title!.rendered!.replaceAll('&amp;', '&')}",
                               style: Theme.of(context).textTheme.displayLarge),
                           Padding(
-                            padding: EdgeInsets.all(12),
-                            child: //Text("${news.content ?? ''}"),
-                                Html(
+                            padding: const EdgeInsets.all(12),
+                            child: Html(
                               data: news.content!.rendered,
                               onLinkTap: (url, map, element) =>
                                   SystemServices().launchURL(url!),
-                              style:{
+                              style: {
+                                "body": Style(
+                                  fontSize: FontSize(Theme.of(context).textTheme.bodyLarge?.fontSize ?? 14.0),
+                                ),
                                 "img": Style(
-                                    width: Width(MediaQuery.of(context).size.width - 80), // not working as intended.
-                              )},
+                                  width: Width(MediaQuery.of(context).size.width - 80),
+                                ),
+                              },
                               extensions: [
                                 ImageExtension(builder: (extensionContext) {
                                   final element = extensionContext.styledElement

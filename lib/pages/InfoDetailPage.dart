@@ -35,8 +35,8 @@ class InfoDetailPage extends StatelessWidget {
             onPressed: () {
               context.go("/info");
             }),
-        title: Text(
-          festival.title,
+        title: const Text(
+          "Informácie",
         ),
       ),
       body: SafeArea(

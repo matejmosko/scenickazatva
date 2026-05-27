@@ -190,7 +190,7 @@ class EventEditPageState extends State<EventEditPage> {
                     },
                     controller: TextEditingController(
                         text:
-                            "${DateFormat("E, d.M. yyyy", "sk_SK").format(startDate?.toLocal() ?? DateTime.now())}"),
+                            "${DateFormat("E, d.M. yyyy", "sk_SK").format(startDate ?? DateTime.now())}"),
                     readOnly: true,
                     decoration: InputDecoration(
                       border: UnderlineInputBorder(),
@@ -203,7 +203,7 @@ class EventEditPageState extends State<EventEditPage> {
                       return null;
                     },
                     onTap: () {
-                      displayDateDialog(context, startDate?.toLocal() ?? DateTime.now(), "start");
+                      displayDateDialog(context, startDate ?? DateTime.now(), "start");
                     },
                   ),
                 ),
@@ -211,7 +211,7 @@ class EventEditPageState extends State<EventEditPage> {
                   child: TextFormField(
                     controller: TextEditingController(
                         text:
-                            "${DateFormat("HH:mm", "sk_SK").format(startDate?.toLocal() ?? DateTime.now())}"),
+                            "${DateFormat("HH:mm", "sk_SK").format(startDate ?? DateTime.now())}"),
                     readOnly: true,
                     decoration: InputDecoration(
                       border: UnderlineInputBorder(),
@@ -224,7 +224,7 @@ class EventEditPageState extends State<EventEditPage> {
                       return null;
                     },
                     onTap: () {
-                      displayTimeDialog(context, startDate?.toLocal() ?? DateTime.now(), "start");
+                      displayTimeDialog(context, startDate ?? DateTime.now(), "start");
                     },
                   ),
                 ),
@@ -239,7 +239,7 @@ class EventEditPageState extends State<EventEditPage> {
                     },
                     controller: TextEditingController(
                         text:
-                            "${DateFormat("E, d.M. yyyy", "sk_SK").format(endDate?.toLocal() ?? DateTime.now())}"),
+                            "${DateFormat("E, d.M. yyyy", "sk_SK").format(endDate ?? DateTime.now())}"),
                     readOnly: true,
                     decoration: InputDecoration(
                       border: UnderlineInputBorder(),
@@ -252,7 +252,7 @@ class EventEditPageState extends State<EventEditPage> {
                       return null;
                     },
                     onTap: () {
-                      displayDateDialog(context, endDate?.toLocal() ?? DateTime.now(), "end");
+                      displayDateDialog(context, endDate ?? DateTime.now(), "end");
                     },
                   ),
                 ),
@@ -260,7 +260,7 @@ class EventEditPageState extends State<EventEditPage> {
                   child: TextFormField(
                     controller: TextEditingController(
                         text:
-                            "${DateFormat("HH:mm", "sk_SK").format(endDate?.toLocal() ?? DateTime.now())}"),
+                            "${DateFormat("HH:mm", "sk_SK").format(endDate ?? DateTime.now())}"),
                     readOnly: true,
                     decoration: InputDecoration(
                       border: UnderlineInputBorder(),
@@ -273,7 +273,7 @@ class EventEditPageState extends State<EventEditPage> {
                       return null;
                     },
                     onTap: () {
-                      displayTimeDialog(context, endDate?.toLocal() ?? DateTime.now(), "end");
+                      displayTimeDialog(context, endDate ?? DateTime.now(), "end");
                     },
                   ),
                 ),
@@ -328,8 +328,8 @@ class EventEditPageState extends State<EventEditPage> {
             onPressed: () {
               context.go("/events/" + widget.eventId);
             }),
-        title: Text(
-          "TVOR•BA 2024 ",
+        title: const Text(
+          "Upraviť podujatie",
         ),
         actions: <Widget>[
           IconButton(

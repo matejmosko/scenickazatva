@@ -10,9 +10,21 @@ class AppSettings {
   @HiveField(1)
   Map<String, Festival> festivals = {}; // Removed nullability for easier access
 
+  @HiveField(2)
+  double fontSizeFactor = 1.0;
+
+  @HiveField(3)
+  bool notificationsEnabled = true;
+
+  @HiveField(4)
+  bool remindersEnabled = true;
+
   AppSettings({
     this.defaultfestival = "sutaze",
     this.festivals = const {},
+    this.fontSizeFactor = 1.0,
+    this.notificationsEnabled = true,
+    this.remindersEnabled = true,
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -37,6 +49,9 @@ class AppSettings {
       // 3. Fix the null check at caret
       defaultfestival: json['defaultfestival']?.toString() ?? "sutaze",
       festivals: festivalsMap,
+      fontSizeFactor: (json['fontSizeFactor'] ?? 1.0).toDouble(),
+      notificationsEnabled: json['notificationsEnabled'] ?? true,
+      remindersEnabled: json['remindersEnabled'] ?? true,
     );
   }
 
@@ -44,6 +59,9 @@ class AppSettings {
     return {
       'defaultfestival': defaultfestival,
       'festivals': festivals.map((key, value) => MapEntry(key, value.toJson())),
+      'fontSizeFactor': fontSizeFactor,
+      'notificationsEnabled': notificationsEnabled,
+      'remindersEnabled': remindersEnabled,
     };
   }
 }

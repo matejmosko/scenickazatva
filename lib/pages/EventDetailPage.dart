@@ -30,13 +30,13 @@ class EventDetailPage extends StatelessWidget {
 
     final startDate = event.startTime != null
         ? new DateFormat("E, d.M.", "sk_SK")
-            .format(event.startTime?.toLocal() ?? DateTime.now())
+            .format(event.startTime!)
         : '';
     final startTime = event.startTime != null
-        ? new DateFormat("HH:mm").format(event.startTime?.toLocal() ?? DateTime.now())
+        ? new DateFormat("HH:mm").format(event.startTime!)
         : '';
     final endTime = event.endTime != null
-        ? "\n${new DateFormat("HH:mm").format(event.endTime?.toLocal() ?? DateTime.now())}"
+        ? "\n${new DateFormat("HH:mm").format(event.endTime!)}"
         : '';
 
     if (event.id == "") {
@@ -169,6 +169,11 @@ class EventDetailPage extends StatelessWidget {
                           data: MD.markdownToHtml(event.description),
                           onLinkTap: (url, map, element) =>
                               SystemServices().launchURL(url!),
+                          style: {
+                            "body": Style(
+                              fontSize: FontSize(Theme.of(context).textTheme.bodyLarge?.fontSize ?? 14.0),
+                            ),
+                          },
                         ))
                     : SizedBox.shrink()
               ]),

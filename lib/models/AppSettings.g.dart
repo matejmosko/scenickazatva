@@ -21,17 +21,26 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       festivals: fields[1] == null
           ? const {}
           : (fields[1] as Map).cast<String, Festival>(),
+      fontSizeFactor: fields[2] == null ? 1.0 : fields[2] as double,
+      notificationsEnabled: fields[3] == null ? true : fields[3] as bool,
+      remindersEnabled: fields[4] == null ? true : fields[4] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(2)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.defaultfestival)
       ..writeByte(1)
-      ..write(obj.festivals);
+      ..write(obj.festivals)
+      ..writeByte(2)
+      ..write(obj.fontSizeFactor)
+      ..writeByte(3)
+      ..write(obj.notificationsEnabled)
+      ..writeByte(4)
+      ..write(obj.remindersEnabled);
   }
 
   @override

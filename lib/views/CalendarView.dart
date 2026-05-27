@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/providers/EventsProvider.dart';
@@ -67,22 +66,14 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
 
     // Safety: If the app opens and 'today' is outside the festival,
     // focus on the festival start date instead.
-    print("DEBUG: Festival start date: ${fest.startDate}");
-    //debugPrint("DEBUG: FestivalProvider has this data: ${festivalProvider.festival}");
-    inspect(festivalProvider.festival);
-    print("DEBUG: Focused day: ${_focusedDay}");
-    print("DEBUG: Selected day: ${_selectedDay}");
-    if (fest.startDate != null && _focusedDay!.isBefore(fest.startDate!)) {
+    if (fest.startDate != null && _focusedDay!.isBefore(fest.startDate!) && !isSameDay(_focusedDay, fest.startDate)) {
       _focusedDay = fest.startDate;
       _selectedDay = fest.startDate;
     }
-    else if (fest.endDate != null && _focusedDay!.isAfter(fest.endDate!)) {
+    else if (fest.endDate != null && _focusedDay!.isAfter(fest.endDate!) && !isSameDay(_focusedDay, fest.endDate)) {
       _focusedDay = fest.startDate; // Or fest.endDate
       _selectedDay = fest.startDate;
     }
-    print("DEBUG2: Festival start date: ${fest.startDate}");
-    print("DEBUG2: Focused day: ${_focusedDay}");
-    print("DEBUG2: Selected day: ${_selectedDay}");
 
     return Column(
       children: <Widget>[
@@ -140,26 +131,50 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
         availableCalendarFormats: const {CalendarFormat.week: 'Týždeň'},
         calendarStyle: CalendarStyle(
           outsideDaysVisible: true,
-          defaultTextStyle: TextStyle(color: festivalProvider.foregroundColor),
-          weekendTextStyle: TextStyle(color: festivalProvider.foregroundColor),
+          defaultTextStyle: TextStyle(color: festivalProvider.foregroundColor, fontSize: 14.0),
+          weekendTextStyle: TextStyle(color: festivalProvider.foregroundColor, fontSize: 14.0),
         ),
         daysOfWeekStyle: DaysOfWeekStyle(
-          weekdayStyle: TextStyle(color: festivalProvider.foregroundColor),
-          weekendStyle: TextStyle(color: festivalProvider.foregroundColor),
+          weekdayStyle: TextStyle(color: festivalProvider.foregroundColor, fontSize: 12.0),
+          weekendStyle: TextStyle(color: festivalProvider.foregroundColor, fontSize: 12.0),
         ),
         calendarBuilders: CalendarBuilders(
           selectedBuilder: (context, date, _) => Container(
             margin: const EdgeInsets.all(4.0),
-            decoration: BoxDecoration(shape: BoxShape.rectangle, color: festivalProvider.festivalForegroundColor),
-            child: Center(child: Text('${date.day}', style: TextStyle(color: festivalProvider.festivalBackgroundColor))),
+            decoration: BoxDecoration(
+              shape: BoxShape.rectangle,
+              color: festivalProvider.festivalForegroundColor,
+            ),
+            child: Center(
+              child: Text(
+                '${date.day}',
+                style: TextStyle(
+                  color: festivalProvider.festivalBackgroundColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14.0,
+                ),
+              ),
+            ),
           ),
           todayBuilder: (context, date, _) => Container(
             margin: const EdgeInsets.all(4.0),
             decoration: BoxDecoration(
-              border: Border.all(color: festivalProvider.festivalForegroundColor, width: 2.0),
+              border: Border.all(
+                color: festivalProvider.festivalForegroundColor,
+                width: 2.0,
+              ),
               borderRadius: BorderRadius.circular(4.0),
             ),
-            child: Center(child: Text('${date.day}', style: TextStyle(color: festivalProvider.foregroundColor))),
+            child: Center(
+              child: Text(
+                '${date.day}',
+                style: TextStyle(
+                  color: festivalProvider.foregroundColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14.0,
+                ),
+              ),
+            ),
           ),
           markerBuilder: (context, date, events) {
             if (events.isNotEmpty) {
@@ -212,22 +227,33 @@ class EventListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final startTime = DateFormat("HH:mm").format(event.startTime.toLocal());
+    final startTime = DateFormat("HH:mm").format(event.startTime);
     final location = event.location ?? '';
     final now = DateTime.now();
     final playing = event.startTime.isBefore(now) && event.endTime.isAfter(now);
 
     final eventsProvider = Provider.of<EventsProvider>(context, listen: false);
     final fp = Provider.of<FestivalProvider>(context, listen: false);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final baseColor = event.type == "offprogram"
+        ? fp.offProgramColor
+        : event.type == "partner"
+            ? fp.partnerProgramColor
+            : fp.mainProgramColor;
+
+    final cardColor = isDark
+        ? Color.alphaBlend(baseColor.withValues(alpha: 0.1), Theme.of(context).cardTheme.color!)
+        : baseColor;
 
     return GestureDetector(
       onTap: () => context.go("/events/${event.id}"),
       child: Card(
         shape: RoundedRectangleBorder(
-          side: playing ? const BorderSide(color: Colors.black, width: 2.0) : BorderSide.none,
+          side: playing ? BorderSide(color: isDark ? Colors.white54 : Colors.black, width: 2.0) : BorderSide.none,
           borderRadius: BorderRadius.circular(5.0),
         ),
-        color: event.type == "offprogram" ? fp.offProgramColor : event.type == "partner" ? fp.partnerProgramColor : fp.mainProgramColor,
+        color: cardColor,
         child: Row(
           children: [
             Padding(
@@ -237,8 +263,15 @@ class EventListItem extends StatelessWidget {
                 child: Column(
                   children: [
                     Icon(eventsProvider.getLocationIcon(location), color: eventsProvider.getLocationColor(location), size: 26),
-                    Text(location, style: TextStyle(color: eventsProvider.getLocationColor(location)), textAlign: TextAlign.center),
-                    Text(startTime, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(
+                      location,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: eventsProvider.getLocationColor(location)),
+                      textAlign: TextAlign.center,
+                    ),
+                    Text(
+                      startTime,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
               ),
@@ -249,7 +282,12 @@ class EventListItem extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text(event.title ?? '', style: Theme.of(context).textTheme.titleMedium)),
+                      Expanded(
+                        child: Text(
+                          event.title ?? '',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
                       Consumer<UserProvider>(
                         builder: (context, userProvider, child) {
                           final isFav = userProvider.isFavorite(festival.id, event.id);
@@ -269,7 +307,16 @@ class EventListItem extends StatelessWidget {
                   ),
                   LimitedBox(
                     maxHeight: 70,
-                    child: Html(data: MD.markdownToHtml(event.description ?? '')),
+                    child: Html(
+                      data: MD.markdownToHtml(event.description ?? ''),
+                      style: {
+                        "body": Style(
+                          fontSize: FontSize(Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14.0),
+                          margin: Margins.zero,
+                          padding: HtmlPaddings.zero,
+                        ),
+                      },
+                    ),
                   ),
                 ],
               ),

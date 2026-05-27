@@ -20,7 +20,7 @@ class InfoProvider extends ChangeNotifier {
     if(!kIsWeb){database.setPersistenceEnabled(true);}
 
 
-    String festival = await API().getDefaultFestival();
+    String festival = await API().getdefaultfestival();
     final infodb = FirebaseDatabase.instance.ref("festivals/$festival/info").orderByChild("id");
     if(!kIsWeb){infodb.keepSynced(true);}
     // Get the Stream

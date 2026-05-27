@@ -1,116 +1,135 @@
-import 'package:hive_ce/hive.dart';
-part 'Festival.g.dart';
+import 'package:hive_ce/hive.dart';part 'Festival.g.dart';
 
 @HiveType(typeId: 1)
 class Festival {
   @HiveField(0)
-  DateTime? endDate = DateTime.utc(2030-12-31);
+  DateTime? endDate;
+
   @HiveField(1)
-  String magazine_src =
-      "https://javisko.sk/wp-json/wp/v2/posts?per_page=20&order=desc&";
+  String magazine_src;
+
   @HiveField(2)
-  String news_src =
-      "https://www.tvor-ba.sk/2024/wp-json/wp/v2/posts?per_page=20&order=desc&";
+  String news_src;
+
   @HiveField(3)
-  DateTime? startDate = DateTime.utc(2022-01-01);
+  DateTime? startDate;
+
   @HiveField(4)
-  String subtitle = "Národné osvetové centrum";
+  String subtitle;
+
   @HiveField(5)
-  String title = "Festivaly NOC";
+  String title;
+
   @HiveField(6)
   String backgroundColor;
-  @HiveField(7)
+
+  @HiveField(7) // FIXED: Removed the word 'title' stuck to the annotation
   String foregroundColor;
+
   @HiveField(8)
   String selectedColor;
+
   @HiveField(9)
   String mainProgramColor;
+
   @HiveField(10)
   String offProgramColor;
+
   @HiveField(11)
   String logo;
+
   @HiveField(12)
   String background;
+
   @HiveField(13)
   String partnerProgramColor;
+
   @HiveField(14)
   String festivalBackgroundColor;
+
   @HiveField(15)
   String festivalForegroundColor;
+
   @HiveField(16)
   String festivalThirdColor;
+
+  @HiveField(17)
   String menuTitle;
 
-  Festival(
-      {this.endDate,
-      this.magazine_src =
-          "https://javisko.sk/wp-json/wp/v2/posts?per_page=20&order=desc&",
-      this.news_src =
-          "https://www.scenickazatva.eu/2025/wp-json/wp/v2/posts?per_page=20&order=desc&",
-      this.startDate,
-      this.subtitle = "Národné osvetové centrum",
-      this.title = "Festivaly NOC",
-      this.menuTitle = "Festivaly",
-      this.backgroundColor = "ffffffff",
-      this.foregroundColor = "ff000000",
-      this.festivalBackgroundColor = "ffffffff",
-      this.festivalForegroundColor = "ff000000",
-      this.festivalThirdColor = "ff000000",
-      this.selectedColor = "ff888888",
-      this.mainProgramColor = "ffffffff",
-      this.offProgramColor = "ffffffff",
-      this.partnerProgramColor = "ffffffff",
-      this.logo = "gs://scenickazatva-343517.appspot.com/default.png",
-      this.background = "gs://scenickazatva-343517.appspot.com/default.png"});
+  @HiveField(18)
+  String id;
 
-  factory Festival.fromJson(Map<String, dynamic> json) {
-    //Map<String, dynamic> festivals = jsonDecode(json['festivals'] ?? {});
+  Festival({
+    this.endDate,
+    this.startDate,
+    this.magazine_src = "https://javisko.sk/wp-json/wp/v2/posts?per_page=20&order=desc&",
+    this.news_src = "https://www.scenickazatva.eu/2025/wp-json/wp/v2/posts?per_page=20&order=desc&",
+    this.subtitle = "Národné osvetové centrum",
+    this.title = "Festivaly NOC",
+    this.menuTitle = "Festivaly",
+    this.backgroundColor = "ffffffff",
+    this.foregroundColor = "ff000000",
+    this.festivalBackgroundColor = "ffffffff",
+    this.festivalForegroundColor = "ff000000",
+    this.festivalThirdColor = "ff000000",
+    this.selectedColor = "ff888888",
+    this.mainProgramColor = "ffffffff",
+    this.offProgramColor = "ffffffff",
+    this.partnerProgramColor = "ffffffff",
+    this.logo = "gs://scenickazatva-343517.appspot.com/default.png",
+    this.background = "gs://scenickazatva-343517.appspot.com/default.png",
+    this.id = "default",
+  });
 
-    var startDate = DateTime.parse(json['startdate']);
-    var endDate = DateTime.parse(json['enddate']);
+  factory Festival.fromJson(Map<String, dynamic> json, {String? id}) {
+    // Safety parsing for dates to prevent crashes on bad data
+    DateTime? parsedStart = json['startdate'] != null ? DateTime.tryParse(json['startdate'].toString()) : null;
+    DateTime? parsedEnd = json['enddate'] != null ? DateTime.tryParse(json['enddate'].toString()) : null;
 
     return Festival(
-        endDate: endDate,
-        magazine_src: json['magazine_src'],
-        news_src: json['news_src'],
-        startDate: startDate,
-        subtitle: json['subtitle'],
-        title: json['title'],
-        menuTitle: json['menuTitle'],
-        backgroundColor: json['backgroundColor'],
-        foregroundColor: json['foregroundColor'],
-        festivalBackgroundColor: json['festivalBackgroundColor'],
-        festivalForegroundColor: json['festivalForegroundColor'],
-        festivalThirdColor: json['festivalThirdColor'],
-        selectedColor: json['selectedColor'],
-        mainProgramColor: json['mainProgramColor'],
-        partnerProgramColor: json['partnerProgramColor'],
-        offProgramColor: json['offProgramColor'],
-        logo: json['logo'],
-        background: json['background']
+      endDate: parsedEnd,
+      startDate: parsedStart,
+      magazine_src: json['magazine_src'] ?? "",
+      news_src: json['news_src'] ?? "",
+      subtitle: json['subtitle'] ?? "",
+      title: json['title'] ?? "",
+      menuTitle: json['menuTitle'] ?? "",
+      backgroundColor: json['backgroundColor'] ?? "ffffffff",
+      foregroundColor: json['foregroundColor'] ?? "ff000000",
+      festivalBackgroundColor: json['festivalBackgroundColor'] ?? "ffffffff",
+      festivalForegroundColor: json['festivalForegroundColor'] ?? "ff000000",
+      festivalThirdColor: json['festivalThirdColor'] ?? "ff000000",
+      selectedColor: json['selectedColor'] ?? "ff888888",
+      mainProgramColor: json['mainProgramColor'] ?? "ffffffff",
+      partnerProgramColor: json['partnerProgramColor'] ?? "ffffffff",
+      offProgramColor: json['offProgramColor'] ?? "ffffffff",
+      logo: json['logo'] ?? "gs://scenickazatva-343517.appspot.com/default.png",
+      background: json['background'] ?? "gs://scenickazatva-343517.appspot.com/default.png",
+      id: id ?? json['id'] ?? "default",
     );
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['enddate'] = this.endDate;
-    data['magazine_src'] = this.magazine_src;
-    data['news_src'] = this.magazine_src;
-    data['startdate'] = this.startDate;
-    data['subtitle'] = this.subtitle;
-    data['title'] = this.title;
-    data['menuTitle'] = this.menuTitle;
-    data['backgroundColor'] = this.backgroundColor;
-    data['foregroundColor'] = this.foregroundColor;
-    data['festivalBackgroundColor'] = this.festivalBackgroundColor;
-    data['festivalForegroundColor'] = this.festivalForegroundColor;
-    data['festivalThirdColor'] = this.festivalThirdColor;
-    data['selectedColor'] = this.selectedColor;
-    data['mainProgramColor'] = this.mainProgramColor;
-    data['offProgramColor'] = this.offProgramColor;
-    data['partnerProgramColor'] = this.partnerProgramColor;
-    data['logo'] = this.logo;
-    data['background'] = this.background;
-    return data;
+    return {
+      'enddate': endDate?.toIso8601String(),
+      'startdate': startDate?.toIso8601String(),
+      'magazine_src': magazine_src,
+      'news_src': news_src, // FIXED: was magazine_src previously
+      'subtitle': subtitle,
+      'title': title,
+      'menuTitle': menuTitle,
+      'backgroundColor': backgroundColor,
+      'foregroundColor': foregroundColor,
+      'festivalBackgroundColor': festivalBackgroundColor,
+      'festivalForegroundColor': festivalForegroundColor,
+      'festivalThirdColor': festivalThirdColor,
+      'selectedColor': selectedColor,
+      'mainProgramColor': mainProgramColor,
+      'offProgramColor': offProgramColor,
+      'partnerProgramColor': partnerProgramColor,
+      'logo': logo,
+      'background': background,
+      'id': id,
+    };
   }
 }

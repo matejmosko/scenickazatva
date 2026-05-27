@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1074295223145",
+    "firebase_url": "https://scenickazatva-343517-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "scenickazatva-343517",
+    "storage_bucket": "scenickazatva-343517.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1074295223145:android:b0c4202e2ccb15d70243f8",
+        "android_client_info": {
+          "package_name": "sk.panakrala.scenickazatva"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1074295223145-uqr18fm95hnko8881u3ui96m5s5i8ner.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgHwxABEwAc3qbxd_mBtebYfVZO2X6nkE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1074295223145-uqr18fm95hnko8881u3ui96m5s5i8ner.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1074295223145-78ccho5aimjv9i9v6ek5i2paddoltof0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "sk.panakrala.scenickazatva"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

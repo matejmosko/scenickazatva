@@ -5,6 +5,7 @@ import 'package:scenickazatva_app/providers/EventsProvider.dart';
 import 'package:scenickazatva_app/providers/InfoProvider.dart';
 import 'package:scenickazatva_app/providers/NewsProvider.dart';
 import 'package:scenickazatva_app/providers/FestivalProvider.dart';
+import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/views/CalendarView.dart';
 import 'package:scenickazatva_app/views/InfoView.dart';
@@ -51,16 +52,25 @@ class _TabPageState extends State<TabPage> {
 
   void pageChanged(
       int index, newsProvider, eventsProvider, infoProvider) async {
+
+    // Access settings to get the current festival ID
+    final settings = Provider.of<AppSettingsProvider>(context, listen: false);
+    final String festivalId = settings.defaultfestival;
+
     if (index == 2) {
       newsProvider.fetchWpNews("news_src");
     } else if (index == 1) {
-      await eventsProvider.fetchAllEvents();
-      await eventsProvider.fetchLocations();
+      // FIX: Pass the festivalId argument here
+      if (festivalId.isNotEmpty) {
+        await eventsProvider.fetchAllEvents(festivalId);
+        await eventsProvider.fetchLocations(festivalId);
+      }
     } else if (index == 3) {
       await infoProvider.fetchInfo();
     } else if (index == 0) {
       newsProvider.fetchWpMagazine("magazine_src");
     }
+
     setState(() {
       _selectedIndex = index;
     });
@@ -81,15 +91,81 @@ class _TabPageState extends State<TabPage> {
     final EventsProvider eventsProvider = Provider.of<EventsProvider>(context);
     final InfoProvider infoProvider = Provider.of<InfoProvider>(context);
     final FestivalProvider festivalProvider = Provider.of<FestivalProvider>(context, listen: false);
-    festivalProvider.fetchFestival();
     festival = festivalProvider.festival;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _selectedIndex == 0 ? "javisko.sk" : _selectedIndex == 1 ? "Program "+festival.title : _selectedIndex == 2 ? "Festník "+festival.title : _selectedIndex == 3 ? "Info "+festival.title : festival.title,
+          _selectedIndex == 0
+              ? "javisko.sk"
+              : _selectedIndex == 1
+              ? "Program ${festival.title}" // Use local reference
+              : _selectedIndex == 2
+              ? "Festník ${festival.title}"
+              : _selectedIndex == 3
+              ? "Info ${festival.title}"
+              : festival.title,
         ),
         actions: <Widget>[
+          // --- FESTIVAL SELECTOR DROPDOWN ---
+          Consumer<AppSettingsProvider>(
+            builder: (context, settings, child) {
+              if (settings.allFestivals.isEmpty) return const SizedBox();
+              return DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  dropdownColor: Theme.of(context).primaryColor,
+
+                  // Bind the text color of the selected item and items in the menu
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                  value: settings.allFestivals.any((f) => f.id == settings.defaultfestival)
+                      ? settings.defaultfestival
+                      : (settings.allFestivals.isNotEmpty ? settings.allFestivals.first.id : null),
+                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+
+                  // This builds the widget inside the AppBar when closed
+                  selectedItemBuilder: (context) {
+                    return settings.allFestivals.map((f) {
+                      return Center(
+                        child: Text(
+                          // Use the active festival title from the provider if IDs match
+                          // This acts as a secondary buffer against empty titles in the list
+                          (f.id == settings.defaultfestival && festivalProvider.festival.title.isNotEmpty)
+                              ? festivalProvider.festival.title
+                              : (f.title.isEmpty ? f.id : f.title),
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      );
+                    }).toList();
+                  },
+// This builds the list of choices when opened
+                  items: settings.allFestivals.map((f) {
+                    bool isActive = f.id == settings.defaultfestival;
+                    return DropdownMenuItem<String>(
+                      value: f.id,
+                      child: Text(
+                        (f.title.isEmpty) ? f.id : f.title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          // Use provider colors for consistency
+                          color: Colors.black87
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (String? newId) {
+                    if (newId != null) {
+                      settings.changeFestival(newId);
+                    }
+                  },
+                ),
+              );
+            },
+          ),
           kIsWeb == true
               ? IconButton(
                   icon: Icon(

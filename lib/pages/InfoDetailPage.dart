@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:scenickazatva_app/models/InfoPost.dart';
 import 'package:scenickazatva_app/providers/InfoProvider.dart';
-import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/providers/FestivalProvider.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/requests/api.dart';
@@ -12,23 +11,19 @@ import 'package:go_router/go_router.dart';
 
 class InfoDetailPage extends StatelessWidget {
   final infoId;
-  InfoDetailPage({@required this.infoId});
+  InfoDetailPage({required this.infoId});
 
   @override
   Widget build(BuildContext context) {
-    Festival festival = Festival();
+    // 1. Get the current festival (and watch for changes)
+    final festival = context.watch<FestivalProvider>().festival;
 
-    final InfoProvider infoProvider = Provider.of<InfoProvider>(context);
-    InfoPost info = InfoPost();
-    List<InfoPost> information = infoProvider.info;
-    if (information.where((element) => (element.id == infoId)).length > 0) {
-      info = information.where((element) => (element.id == infoId)).toList()[0];
-    }
-
-    FestivalProvider festivalProvider =
-    Provider.of<FestivalProvider>(context, listen: false);
-    festivalProvider.fetchFestival();
-    festival = festivalProvider.festival;
+    // 2. Get the info post data
+    final infoProvider = Provider.of<InfoProvider>(context);
+    final info = infoProvider.info.firstWhere(
+          (element) => element.id == infoId,
+      orElse: () => InfoPost(),
+    );
 
     return Scaffold(
       appBar: AppBar(

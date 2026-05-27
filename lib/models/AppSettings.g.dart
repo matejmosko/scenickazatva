@@ -17,10 +17,10 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return AppSettings(
-      defaultfestival: fields[0] == null ? "tvorba2024" : fields[0] as String,
+      defaultfestival: fields[0] == null ? "sutaze" : fields[0] as String,
       festivals: fields[1] == null
           ? const {}
-          : (fields[1] as Map?)?.cast<String, Festival>(),
+          : (fields[1] as Map).cast<String, Festival>(),
     );
   }
 

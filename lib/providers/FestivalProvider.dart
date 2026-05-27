@@ -1,50 +1,61 @@
-import 'dart:ui';
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+import 'package:flutter/material.dart'; // Change dart:ui to material for more features
 import 'package:scenickazatva_app/models/Festival.dart';
+import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/HivePreferences.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class FestivalProvider extends ChangeNotifier {
   Festival _festival = Festival();
-  bool loading = false;
+  bool loading = false; // Set to false by default now
 
   FestivalProvider() {
-    fetchFestival();
+    _loadFromHive();
   }
 
   Festival get festival => _festival;
 
-  Color get backgroundColor => getColor(_festival.backgroundColor);
-  Color get foregroundColor => getColor(_festival.foregroundColor);
-  Color get festivalBackgroundColor => getColor(_festival.festivalBackgroundColor);
-  Color get festivalForegroundColor => getColor(_festival.festivalForegroundColor);
-  Color get festivalThirdColor => getColor(_festival.festivalThirdColor);
-  Color get selectedColor => getColor(_festival.selectedColor);
-  Color get mainProgramColor => getColor(_festival.mainProgramColor);
-  Color get offProgramColor => getColor(_festival.offProgramColor);
-  Color get partnerProgramColor => getColor(_festival.partnerProgramColor);
+  // Accessors with Null-Safety/Fallback logic
+  Color get backgroundColor => _getColor(_festival.backgroundColor, Colors.white);
+  Color get foregroundColor => _getColor(_festival.foregroundColor, Colors.black);
+  Color get festivalBackgroundColor => _getColor(_festival.festivalBackgroundColor, Colors.white);
+  Color get festivalForegroundColor => _getColor(_festival.festivalForegroundColor, Colors.black);
+  Color get festivalThirdColor => _getColor(_festival.festivalThirdColor, Colors.grey);
+  Color get selectedColor => _getColor(_festival.selectedColor, Colors.blue);
+  Color get mainProgramColor => _getColor(_festival.mainProgramColor, Colors.red);
+  Color get offProgramColor => _getColor(_festival.offProgramColor, Colors.orange);
+  Color get partnerProgramColor => _getColor(_festival.partnerProgramColor, Colors.green);
 
-  Future<Festival> fetchFestival() async {
-    Preferences prefs = await Preferences.getInstance();
-    Festival festival = prefs.getFestival();
+  // This is the only method needed to keep data in sync
+  void updateFromSettings(AppSettings settings) {
+    String activeId = settings.defaultfestival;
 
-    setFestival(festival);
-    return festival;
+    if (settings.festivals.containsKey(activeId)) {
+      _festival = settings.festivals[activeId]!;
+      loading = false;
+      notifyListeners();
+    }
   }
 
-  void setLoading(bool val) {
-    loading = val;
-    notifyListeners();
+  Future<void> _loadFromHive() async {
+    try {
+      Preferences prefs = await Preferences.getInstance();
+      _festival = prefs.getFestival();
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error loading festival from Hive: $e");
+    }
   }
 
-  void setFestival(Festival fest) {
-    _festival = fest;
-    notifyListeners();
-    setLoading(false);
-  }
-
-  Color getColor(String colorString) {
-    int colorInt = int.parse(colorString, radix: 16);
-    Color color = new Color(colorInt);
-    return color;
+  // Helper method for color parsing
+  Color _getColor(String? colorString, Color fallback) {
+    if (colorString == null || colorString.isEmpty) return fallback;
+    try {
+      String cleanHex = colorString.replaceAll('#', '');
+      if (cleanHex.length == 6) cleanHex = "FF$cleanHex";
+      return Color(int.parse(cleanHex, radix: 16));
+    } catch (e) {
+      return fallback;
+    }
   }
 }

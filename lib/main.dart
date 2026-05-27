@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:scenickazatva_app/requests/AppSettingsRequest.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +23,7 @@ import 'package:scenickazatva_app/pages/InfoDetailPage.dart';
 import 'package:scenickazatva_app/models/ColorScheme.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
+import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -104,6 +104,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  if (!kIsWeb) {
+    FirebaseDatabase.instance.setPersistenceEnabled(true);
+  }
   await authService().authFirebase();
 
   FirebaseAuth.instance.idTokenChanges().listen((User? user) async {
@@ -113,7 +116,6 @@ void main() async {
       print('User is signed in with UID: ' + user.uid);
       var fcmToken = "";
       if (!kIsWeb) {
-        FirebaseDatabase.instance.setPersistenceEnabled(true);
         fcmToken = await authService().getFCMtoken();
       }
 
@@ -189,9 +191,6 @@ void main() async {
     // https://stackoverflow.com/questions/58459483/unsupported-operation-platform-operatingsystem
   }*/
 
-  AppSettingsRequest appSettingsRequest = AppSettingsRequest();
-  appSettingsRequest.fetchSettings();
-
   initializeDateFormatting('sk_SK').then((_) => runApp(MyApp()));
 }
 
@@ -200,22 +199,27 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<NewsProvider>.value(
-          value: NewsProvider(),
+        // 1. AppSettings is the "Master" provider
+        ChangeNotifierProvider(create: (_) => AppSettingsProvider()),
+
+        // 2. FestivalProvider depends on AppSettings
+        ChangeNotifierProxyProvider<AppSettingsProvider, FestivalProvider>(
+          create: (_) => FestivalProvider(),
+          update: (context, settingsProvider, festivalProvider) {
+            // We pass the whole settings object which already contains the pre-loaded metadata
+            return festivalProvider!..updateFromSettings(settingsProvider.settings);
+          },
         ),
-        ChangeNotifierProvider<EventsProvider>.value(
-          value: EventsProvider(),
+        ChangeNotifierProxyProvider<AppSettingsProvider, EventsProvider>(
+          create: (_) => EventsProvider(),
+          update: (_, settings, events) => events!..updateFromSettings(settings),
         ),
-        ChangeNotifierProvider<FestivalProvider>.value(
-          value: FestivalProvider(),
-        ),
-        ChangeNotifierProvider<InfoProvider>.value(
-          value: InfoProvider(),
-        ),
-        ChangeNotifierProvider<ArrangementProvider>.value(
-          value: ArrangementProvider(),
-        ),
+        ChangeNotifierProvider(create: (_) => NewsProvider()),
+        ChangeNotifierProvider(create: (_) => InfoProvider()),
+        ChangeNotifierProvider(create: (_) => ArrangementProvider()),
+
       ],
+
       child: MaterialApp.router(
         title: "javisko.sk",
         localizationsDelegates: const [

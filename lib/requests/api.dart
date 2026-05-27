@@ -25,13 +25,13 @@ class API {
     }
   }
 
-  Future<String> getDefaultFestival() async {
+  Future<String> getdefaultfestival() async {
     DatabaseReference optionsdb = FirebaseDatabase.instance.ref("appsettings");
     final options = await optionsdb.get();
     if (options.exists) {
       final _options = (options.value as Map);
-      //return _options["defaultfestival"];
-      return "hk2025";
+      return _options["defaultfestival"];
+      //return "hk2025";
     } else {
       return "";
     }
@@ -53,7 +53,7 @@ class API {
 
     HiveCacheStore cacheStore = HiveCacheStore(
       directory,
-      hiveBoxName: "scenickazatva_app",
+      hiveBoxName: "scenickazatva",
     );
     var cacheOptions = CacheOptions(
       store: cacheStore,

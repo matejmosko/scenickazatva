@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:hive_ce/hive.dart';
 part 'AppSettings.g.dart';
@@ -7,8 +6,9 @@ part 'AppSettings.g.dart';
 class AppSettings {
   @HiveField(0)
   String defaultfestival = "sutaze";
+
   @HiveField(1)
-  Map<String, Festival>? festivals = {};
+  Map<String, Festival> festivals = {}; // Removed nullability for easier access
 
   AppSettings({
     this.defaultfestival = "sutaze",
@@ -16,23 +16,34 @@ class AppSettings {
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
-    final Map<String, dynamic> f = jsonDecode(jsonEncode(json["festivals"]));
-    Map<String, Festival> festivals = {};
+    // 1. Safely handle the festivals map
+    final dynamic rawFestivals = json["festivals"];
+    Map<String, Festival> festivalsMap = {};
 
-    f.forEach((key, value) {
-      festivals[key] = Festival.fromJson(value);
-    });
+    if (rawFestivals is Map) {
+      rawFestivals.forEach((key, value) {
+        if (value is Map) {
+          // 2. CRITICAL: Pass the 'key' (id) into the Festival factory
+          // so the Festival object knows it is "zp2026", "bm2025", etc.
+          festivalsMap[key.toString()] = Festival.fromJson(
+              Map<String, dynamic>.from(value),
+              id: key.toString()
+          );
+        }
+      });
+    }
 
     return AppSettings(
-      defaultfestival: json['defaultfestival'] ?? "sutaze",
-      festivals: festivals,
+      // 3. Fix the null check at caret
+      defaultfestival: json['defaultfestival']?.toString() ?? "sutaze",
+      festivals: festivalsMap,
     );
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['defaultfestival'] = this.defaultfestival;
-    data['festivals'] = this.festivals;
-    return data;
+    return {
+      'defaultfestival': defaultfestival,
+      'festivals': festivals.map((key, value) => MapEntry(key, value.toJson())),
+    };
   }
 }

@@ -14,7 +14,7 @@ import 'package:vsc_quill_delta_to_html/vsc_quill_delta_to_html.dart';
 class EventEditPage extends StatefulWidget {
   //const EventEditPage({super.key, @required this.event});
   final eventId;
-  const EventEditPage({Key? key, @required this.eventId}) : super(key: key);
+  const EventEditPage({Key? key, required this.eventId}) : super(key: key);
 
   @override
   EventEditPageState createState() => EventEditPageState();

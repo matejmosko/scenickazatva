@@ -41,7 +41,7 @@ dependencies:
   pointer_interceptor: ^0.10.1+2
   go_router: ^17.2.3
   firebase_ui_auth: ^3.0.1
-  wordpress_client: 8.5.4
+  wordpress_client: ^9.3.0
   intl: any
   firebase_analytics_web: any
   firebase_auth_web: any

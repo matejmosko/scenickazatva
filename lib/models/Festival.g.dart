@@ -18,16 +18,17 @@ class FestivalAdapter extends TypeAdapter<Festival> {
     };
     return Festival(
       endDate: fields[0] as DateTime?,
+      startDate: fields[3] as DateTime?,
       magazine_src: fields[1] == null
           ? "https://javisko.sk/wp-json/wp/v2/posts?per_page=20&order=desc&"
           : fields[1] as String,
       news_src: fields[2] == null
-          ? "https://www.tvor-ba.sk/2024/wp-json/wp/v2/posts?per_page=20&order=desc&"
+          ? "https://www.scenickazatva.eu/2025/wp-json/wp/v2/posts?per_page=20&order=desc&"
           : fields[2] as String,
-      startDate: fields[3] as DateTime?,
       subtitle:
           fields[4] == null ? "Národné osvetové centrum" : fields[4] as String,
       title: fields[5] == null ? "Festivaly NOC" : fields[5] as String,
+      menuTitle: fields[17] == null ? "Festivaly" : fields[17] as String,
       backgroundColor: fields[6] == null ? "ffffffff" : fields[6] as String,
       foregroundColor: fields[7] == null ? "ff000000" : fields[7] as String,
       festivalBackgroundColor:
@@ -47,13 +48,14 @@ class FestivalAdapter extends TypeAdapter<Festival> {
       background: fields[12] == null
           ? "gs://scenickazatva-343517.appspot.com/default.png"
           : fields[12] as String,
+      id: fields[18] == null ? "default" : fields[18] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Festival obj) {
     writer
-      ..writeByte(17)
+      ..writeByte(19)
       ..writeByte(0)
       ..write(obj.endDate)
       ..writeByte(1)
@@ -87,7 +89,11 @@ class FestivalAdapter extends TypeAdapter<Festival> {
       ..writeByte(15)
       ..write(obj.festivalForegroundColor)
       ..writeByte(16)
-      ..write(obj.festivalThirdColor);
+      ..write(obj.festivalThirdColor)
+      ..writeByte(17)
+      ..write(obj.menuTitle)
+      ..writeByte(18)
+      ..write(obj.id);
   }
 
   @override

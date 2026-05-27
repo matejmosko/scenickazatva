@@ -72,7 +72,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                DropdownButtonFormField(
-                  value: roleValue,
+                  initialValue: roleValue,
                   items: <String>["admin", "editor", "user"]
                       .map<DropdownMenuItem<String>>((String value) {
                     return DropdownMenuItem<String>(

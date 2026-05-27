@@ -15,7 +15,7 @@ import 'package:flutter/scheduler.dart';
 class EventDetailPage extends StatelessWidget {
   final eventId;
 
-  EventDetailPage({@required this.eventId});
+  EventDetailPage({required this.eventId});
 
   @override
   Widget build(BuildContext context) {

@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/providers/NewsProvider.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:scenickazatva_app/requests/api.dart';
+import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:lazy_load_scrollview/lazy_load_scrollview.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
 
@@ -44,7 +44,7 @@ class _NewsViewState extends State<NewsView> with TickerProviderStateMixin {
             children: <Widget>[
               Flexible(
                 child: LazyLoadScrollView(
-                  onEndOfPage: () => newsProvider.fetchWpNews("news_src"),
+                  onEndOfPage: () => newsProvider.fetchWpNews(),
                   isLoading: newsProvider.newsLoading,
                   scrollOffset: 50,
                   child: RefreshIndicator(
@@ -107,7 +107,7 @@ class _NewsViewState extends State<NewsView> with TickerProviderStateMixin {
                           /// build method will run again otherwise
                           /// list will not show all elements
                           setState(() {
-                            newsProvider.fetchWpNews("news_src", refresh: true);
+                            newsProvider.fetchWpNews(refresh: true);
                           });
                         });
                       }),

@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/providers/EventsProvider.dart';
 import 'package:scenickazatva_app/providers/FestivalProvider.dart';
 import 'package:intl/intl.dart';
@@ -24,6 +25,7 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
   DateTime? _selectedDay;
   DateTime? _focusedDay;
   AnimationController? _animationController;
+  bool _showFavoritesOnly = false;
 
   @override
   void initState() {
@@ -85,6 +87,30 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
     return Column(
       children: <Widget>[
         _buildTableCalendarWithBuilders(festivalProvider, fest),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                "Iba obľúbené",
+                style: TextStyle(
+                  color: festivalProvider.foregroundColor.withValues(alpha: 0.7),
+                  fontSize: 12,
+                ),
+              ),
+              Switch(
+                value: _showFavoritesOnly,
+                activeThumbColor: festivalProvider.festivalForegroundColor,
+                onChanged: (val) {
+                  setState(() {
+                    _showFavoritesOnly = val;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
         Expanded(child: _buildEventList(fest)),
       ],
     );
@@ -156,7 +182,13 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
 
   Widget _buildEventList(Festival festival) {
     final eventsProvider = Provider.of<EventsProvider>(context);
-    final filteredEvents = eventsProvider.events.where((e) => isSameDay(e.startTime, _selectedDay)).toList();
+    final userProvider = Provider.of<UserProvider>(context);
+    
+    var filteredEvents = eventsProvider.events.where((e) => isSameDay(e.startTime, _selectedDay)).toList();
+
+    if (_showFavoritesOnly) {
+      filteredEvents = filteredEvents.where((e) => userProvider.isFavorite(festival.id, e.id)).toList();
+    }
 
     return AnimatedOpacity(
       opacity: 1.0,
@@ -180,7 +212,7 @@ class EventListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final startTime = DateFormat("HH:mm").format(event.startTime);
+    final startTime = DateFormat("HH:mm").format(event.startTime.toLocal());
     final location = event.location ?? '';
     final now = DateTime.now();
     final playing = event.startTime.isBefore(now) && event.endTime.isAfter(now);
@@ -215,7 +247,26 @@ class EventListItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(event.title ?? '', style: Theme.of(context).textTheme.titleMedium),
+                  Row(
+                    children: [
+                      Expanded(child: Text(event.title ?? '', style: Theme.of(context).textTheme.titleMedium)),
+                      Consumer<UserProvider>(
+                        builder: (context, userProvider, child) {
+                          final isFav = userProvider.isFavorite(festival.id, event.id);
+                          return IconButton(
+                            icon: Icon(
+                              isFav ? Icons.favorite : Icons.favorite_border,
+                              color: isFav ? Colors.red : null,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              userProvider.toggleFavorite(festival.id, event);
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                   LimitedBox(
                     maxHeight: 70,
                     child: Html(data: MD.markdownToHtml(event.description ?? '')),

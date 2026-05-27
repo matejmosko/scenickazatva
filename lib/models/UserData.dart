@@ -3,38 +3,41 @@ class UserData {
   String fullName = "";
   String email = "";
   String userRole = "";
-  late Map? notifications;
+  Map notifications = {};
+  Map<String, List<String>> favorites = {}; // Key: Festival ID, Value: List of Event IDs
   String timestamp = "";
   String fcmtoken = "";
 
-  UserData(
-      {this.id = "",
-      this.fullName = "",
-      this.email = "",
-      this.userRole = "",
-      this.notifications,
-      this.timestamp = "",
-      this.fcmtoken = ""});
+  UserData({
+    this.id = "",
+    this.fullName = "",
+    this.email = "",
+    this.userRole = "",
+    this.notifications = const {},
+    this.favorites = const {},
+    this.timestamp = "",
+    this.fcmtoken = "",
+  });
 
-  UserData.fromData(Map<String, dynamic> data)
-      : id = data['id'] ?? "",
-        fullName = data['fullName'] ?? "",
-        email = data['email'] ?? "",
-        userRole = data['userRole'] ?? "",
-        notifications = data['notifications'] ?? {},
-        timestamp = data['timestamp'] ?? "",
-        fcmtoken = data['fcmtoken'] ?? "";
-
-  factory UserData.fromJson(Map<String, dynamic> json) {
+  factory UserData.fromData(Map<String, dynamic> data) {
+    Map<String, List<String>> parsedFavorites = {};
+    if (data['favorites'] is Map) {
+      (data['favorites'] as Map).forEach((key, value) {
+        if (value is List) {
+          parsedFavorites[key.toString()] = List<String>.from(value);
+        }
+      });
+    }
 
     return UserData(
-        id: json['id'] ?? "",
-        fullName: json['fullName'] ?? "",
-        email: json['email'] ?? "",
-        userRole: json['userRole'] ?? "",
-        notifications: json['notifications'] ?? {},
-        timestamp: json['timestamp'] ?? "",
-        fcmtoken: json['fcmtoken'] ?? ""
+      id: data['id'] ?? "",
+      fullName: data['fullName'] ?? "",
+      email: data['email'] ?? "",
+      userRole: data['userRole'] ?? "",
+      notifications: data['notifications'] ?? {},
+      favorites: parsedFavorites,
+      timestamp: data['timestamp'] ?? "",
+      fcmtoken: data['fcmtoken'] ?? "",
     );
   }
 
@@ -45,8 +48,9 @@ class UserData {
       'email': email,
       'userRole': userRole,
       'notifications': notifications,
+      'favorites': favorites,
       'timestamp': timestamp,
-      'fcmtoken': fcmtoken
+      'fcmtoken': fcmtoken,
     };
   }
 }

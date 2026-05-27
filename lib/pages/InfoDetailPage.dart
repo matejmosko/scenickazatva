@@ -3,7 +3,7 @@ import 'package:scenickazatva_app/models/InfoPost.dart';
 import 'package:scenickazatva_app/providers/InfoProvider.dart';
 import 'package:scenickazatva_app/providers/FestivalProvider.dart';
 import 'package:provider/provider.dart';
-import 'package:scenickazatva_app/requests/api.dart';
+import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:markdown/markdown.dart' as MD;
@@ -57,7 +57,7 @@ class InfoDetailPage extends StatelessWidget {
                     child: Html(
                       data: MD.markdownToHtml(info.description),
                       onLinkTap: (url, map, element) =>
-                          API().launchURL(url),
+                          SystemServices().launchURL(url!),
                     ))
               ],
             ))

@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
-//import 'package:scenickazatva_app/requests/authFirestore.dart'; // TODO Pridať ukladanie zmien pri úprave profilu.
-
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
+
+import 'package:scenickazatva_app/providers/FestivalProvider.dart';
+import 'package:provider/provider.dart';
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -93,6 +94,8 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final providers = [EmailAuthProvider()];
+    final festival = Provider.of<FestivalProvider>(context).festival;
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: true,
@@ -104,7 +107,7 @@ class _SettingsPageState extends State<SettingsPage> {
               context.go("/");
             }),
         title: Text(
-          "TVOR•BA 2024 ",
+          festival.title,
         ),
       ),
       body: Card(

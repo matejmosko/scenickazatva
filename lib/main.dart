@@ -8,8 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:scenickazatva_app/requests/authFirestore.dart';
-import 'package:scenickazatva_app/providers/ArrangementProvider.dart';
+import 'package:scenickazatva_app/requests/FirestoreService.dart';
 import 'package:scenickazatva_app/providers/EventsProvider.dart';
 import 'package:scenickazatva_app/providers/FestivalProvider.dart';
 import 'package:scenickazatva_app/providers/InfoProvider.dart';
@@ -20,10 +19,13 @@ import 'package:scenickazatva_app/pages/EventDetailPage.dart';
 import 'package:scenickazatva_app/pages/NewsDetailPage.dart';
 import 'package:scenickazatva_app/pages/EventEditPage.dart';
 import 'package:scenickazatva_app/pages/InfoDetailPage.dart';
+import 'package:scenickazatva_app/pages/FavoritesPage.dart';
 import 'package:scenickazatva_app/models/ColorScheme.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
+import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
+import 'package:scenickazatva_app/requests/NotificationService.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -84,6 +86,10 @@ final _router = GoRouter(
               builder: (context, state) => SettingsPage(),
             ),
             GoRoute(
+              path: 'favorites',
+              builder: (context, state) => FavoritesPage(),
+            ),
+            GoRoute(
               path: 'user',
               builder: (context, state) => SettingsPage(),
             ),
@@ -98,7 +104,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 void main() async {
-  //if (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.android) {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
@@ -106,61 +111,15 @@ void main() async {
   );
   if (!kIsWeb) {
     FirebaseDatabase.instance.setPersistenceEnabled(true);
+    await NotificationService().init();
   }
-  await authService().authFirebase();
 
+  // Initialize Authentication
   FirebaseAuth.instance.idTokenChanges().listen((User? user) async {
     if (user == null) {
-      print('User is currently signed out! We cannot get data');
+      await authService().authFirebase();
     } else {
-      print('User is signed in with UID: ' + user.uid);
-      var fcmToken = "";
-      if (!kIsWeb) {
-        fcmToken = await authService().getFCMtoken();
-      }
-
-      /*final Map<String, Object> initialSettings = {
-        "timestamp": DateTime.now().toString(),
-        "fcmtoken": fcmToken != null ? fcmToken : "",
-        "id": user.uid,
-      };*/
-
-      var userSettings = await authService().getUserData(user);
-
-      userSettings.timestamp = DateTime.now().toString();
-      userSettings.fcmtoken = fcmToken;
-      userSettings.id = user.uid;
-/*
-      DatabaseReference festivals =
-          await FirebaseDatabase.instance.ref("appsettings/festivals");
-      var _uid = user.uid;
-
-      festivals.onValue.listen((DatabaseEvent event) async {
-        DatabaseReference _usersdb =
-            FirebaseDatabase.instance.ref("users/$_uid/notifications");
-        final _users = await _usersdb.get();
-        print(_users.value);
-        final _currentUser = (_users.value as Map);
-
-        final data = (event.snapshot.value as Map);
-        final _notifications = {};
-
-        data.forEach((key, value) {
-          _notifications[key] = _currentUser != null ? _currentUser[key] : true;
-
-        });
-
-        userSettings.notifications = _notifications;
-
-        FirebaseDatabase.instance
-            .ref("users/" + user.uid)
-            .update(userSettings.toJson())
-            .then((_) {
-          //   print("Firebase save success");
-        }).catchError((error) {
-          print(error);
-        });
-      });*/
+      print('Auth state changed: ${user.uid}');
     }
   });
 
@@ -168,28 +127,25 @@ void main() async {
   Hive.registerAdapter(FestivalAdapter());
   Hive.registerAdapter(AppSettingsAdapter());
 
-  FirebaseMessaging.instance.onTokenRefresh.listen((fcmToken) {
-    // Note: This callback is fired at each app startup and whenever a new
-    // token is generated.
-    print("Token changed: $fcmToken");
+  FirebaseMessaging.instance.onTokenRefresh.listen((fcmToken) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      var userSettings = await authService().getUserData(user);
+      userSettings.fcmtoken = fcmToken;
+      await authService().saveUserData(userSettings);
+    }
   }).onError((err) {
-    // Error getting token.
+    print("Token refresh error: $err");
   });
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     print('Got a message whilst in the foreground!');
-    print('Message data: ${message.data}');
-
     if (message.notification != null) {
       print('Message also contained a notification: ${message.notification}');
     }
   });
-  /*} else {
-    // Some web specific code there
-    // https://stackoverflow.com/questions/58459483/unsupported-operation-platform-operatingsystem
-  }*/
 
   initializeDateFormatting('sk_SK').then((_) => runApp(MyApp()));
 }
@@ -199,14 +155,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // 1. AppSettings is the "Master" provider
         ChangeNotifierProvider(create: (_) => AppSettingsProvider()),
-
-        // 2. FestivalProvider depends on AppSettings
+        ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProxyProvider<AppSettingsProvider, FestivalProvider>(
           create: (_) => FestivalProvider(),
           update: (context, settingsProvider, festivalProvider) {
-            // We pass the whole settings object which already contains the pre-loaded metadata
             return festivalProvider!..updateFromSettings(settingsProvider.settings);
           },
         ),
@@ -214,10 +167,18 @@ class MyApp extends StatelessWidget {
           create: (_) => EventsProvider(),
           update: (_, settings, events) => events!..updateFromSettings(settings),
         ),
-        ChangeNotifierProvider(create: (_) => NewsProvider()),
-        ChangeNotifierProvider(create: (_) => InfoProvider()),
-        ChangeNotifierProvider(create: (_) => ArrangementProvider()),
-
+        ChangeNotifierProxyProvider<FestivalProvider, NewsProvider>(
+          create: (_) => NewsProvider(),
+          update: (context, festivalProvider, newsProvider) {
+            return newsProvider!..updateFromFestival(festivalProvider.festival);
+          },
+        ),
+        ChangeNotifierProxyProvider<FestivalProvider, InfoProvider>(
+          create: (_) => InfoProvider(),
+          update: (context, festivalProvider, infoProvider) {
+            return infoProvider!..updateFromFestival(festivalProvider.festival);
+          },
+        ),
       ],
 
       child: MaterialApp.router(
@@ -266,15 +227,12 @@ class MyApp extends StatelessWidget {
                   color: darkColor),
               titleLarge: TextStyle(
                   fontSize: 19.0,
-                  //fontWeight: FontWeight.bold,
                   color: darkColor),
               bodyLarge: TextStyle(fontSize: 14.0, color: darkColor),
               bodyMedium: TextStyle(fontSize: 14.0, color: darkColor),
             )),
         darkTheme: ThemeData(useMaterial3: true, colorScheme: darkColorScheme),
-
         debugShowCheckedModeBanner: false,
-        //home: TabPage(),
         routerConfig: _router,
       ),
     );

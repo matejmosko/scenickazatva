@@ -4,7 +4,7 @@ import 'package:scenickazatva_app/providers/NewsProvider.dart';
 import 'package:lazy_load_scrollview/lazy_load_scrollview.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:scenickazatva_app/requests/api.dart';
+import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
 
 class MagazineView extends StatefulWidget {
@@ -47,7 +47,7 @@ class _MagazineViewState extends State<MagazineView>
               Flexible(
                 child: LazyLoadScrollView(
                   onEndOfPage: () =>
-                      newsProvider.fetchWpMagazine("magazine_src"),
+                      newsProvider.fetchWpMagazine(),
                   isLoading: newsProvider.articlesLoading,
                   scrollOffset: 50,
                   child: RefreshIndicator(
@@ -109,7 +109,7 @@ class _MagazineViewState extends State<MagazineView>
                           /// build method will run again otherwise
                           /// list will not show all elements
                           setState(() {
-                            newsProvider.fetchWpMagazine("magazine_src",
+                            newsProvider.fetchWpMagazine(
                                 refresh: true);
                           });
                         });

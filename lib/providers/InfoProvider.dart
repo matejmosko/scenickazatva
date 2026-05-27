@@ -1,55 +1,68 @@
-import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:scenickazatva_app/models/InfoPost.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:scenickazatva_app/requests/api.dart';
+import 'package:scenickazatva_app/models/Festival.dart';
 
 class InfoProvider extends ChangeNotifier {
   List<InfoPost> _info = [InfoPost()];
   bool loading = false;
+  StreamSubscription<DatabaseEvent>? _infoSubscription;
+  String? _currentFestivalId;
 
-  InfoProvider() {
-    fetchInfo();
-  }
+  InfoProvider();
 
   List<InfoPost> get info => _info;
 
-  void /*Future<List<InfoPost>>*/ fetchInfo() async {
+  void updateFromFestival(Festival festival) {
+    if (_currentFestivalId != festival.id) {
+      debugPrint("InfoProvider: Festival changed to ${festival.id}, updating subscription.");
+      _currentFestivalId = festival.id;
+      _fetchInfo(festival.id);
+    }
+  }
+
+  void _fetchInfo(String festivalId) async {
+    await _infoSubscription?.cancel();
     setLoading(true);
-    FirebaseDatabase database = FirebaseDatabase.instance;
-    if(!kIsWeb){database.setPersistenceEnabled(true);}
 
+    final infodb = FirebaseDatabase.instance.ref("festivals/$festivalId/info").orderByChild("id");
+    
+    if (!kIsWeb) {
+      infodb.keepSynced(true);
+    }
 
-    String festival = await API().getdefaultfestival();
-    final infodb = FirebaseDatabase.instance.ref("festivals/$festival/info").orderByChild("id");
-    if(!kIsWeb){infodb.keepSynced(true);}
-    // Get the Stream
-    Stream<DatabaseEvent> stream = infodb.onValue;
+    _infoSubscription = infodb.onValue.listen((DatabaseEvent event) {
+      if (event.snapshot.exists) {
+        try {
+          // Firebase returns a Map or List. If it's ordered, it might come back as a Map with keys.
+          final data = event.snapshot.value;
+          List<dynamic> list = [];
 
-// Subscribe to the stream!
-    stream.listen((DatabaseEvent info) {
-      List<dynamic> list = [];
-      Map validMap = json.decode(json.encode(info.snapshot.value));
-      var sortedKeys = validMap.keys.toList()..sort();
-      for (var it = 0; it < sortedKeys.length; it++) {
-        list.add(validMap[sortedKeys[it]]);
+          if (data is Map) {
+            // Sort by keys if it's a map to maintain order
+            var sortedKeys = data.keys.toList()..sort();
+            for (var key in sortedKeys) {
+              list.add(data[key]);
+            }
+          } else if (data is List) {
+            list = data;
+          }
+
+          setInfo(
+            list.where((e) => e != null).map((model) => InfoPost.fromJson(Map<String, dynamic>.from(model))).toList(),
+          );
+        } catch (e) {
+          debugPrint("Error parsing info data: $e");
+          setLoading(false);
+        }
+      } else {
+        setInfo([]);
       }
-/*      for (var e in validMap.values) {
-        list.add(e);
-      }*/
-
-      setInfo(
-        list.map((model) => InfoPost.fromJson(model)).toList(),
-      );
+    }, onError: (error) {
+      debugPrint("Info subscription error: $error");
+      setLoading(false);
     });
-    /*API().fetchInfo().then((data) {
-      if (data.statusCode == 200) {
-        Iterable list = json.decode(utf8.decode(data.bodyBytes));
-        setInfo(
-          list.map((model) => InfoPost.fromJson(model)).toList(),
-        );
-      }
-    });*/
   }
 
   void setLoading(bool val) {
@@ -59,7 +72,13 @@ class InfoProvider extends ChangeNotifier {
 
   void setInfo(List<InfoPost> list) {
     _info = list;
-    notifyListeners();
     setLoading(false);
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _infoSubscription?.cancel();
+    super.dispose();
   }
 }

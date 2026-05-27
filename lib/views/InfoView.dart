@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:scenickazatva_app/providers/InfoProvider.dart';
 import 'package:provider/provider.dart';
-import 'package:scenickazatva_app/requests/api.dart';
+import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:go_router/go_router.dart';
 
 class InfoView extends StatelessWidget {

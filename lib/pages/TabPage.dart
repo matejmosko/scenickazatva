@@ -12,7 +12,7 @@ import 'package:scenickazatva_app/views/InfoView.dart';
 import 'package:scenickazatva_app/views/NewsView.dart';
 import 'package:scenickazatva_app/views/MagazineView.dart';
 import 'package:provider/provider.dart';
-import 'package:scenickazatva_app/requests/api.dart';
+import 'package:scenickazatva_app/requests/SystemServices.dart';
 
 class TabPage extends StatefulWidget {
   final initialIndex;
@@ -53,22 +53,14 @@ class _TabPageState extends State<TabPage> {
   void pageChanged(
       int index, newsProvider, eventsProvider, infoProvider) async {
 
-    // Access settings to get the current festival ID
-    final settings = Provider.of<AppSettingsProvider>(context, listen: false);
-    final String festivalId = settings.defaultfestival;
-
     if (index == 2) {
-      newsProvider.fetchWpNews("news_src");
+      newsProvider.fetchWpNews();
     } else if (index == 1) {
-      // FIX: Pass the festivalId argument here
-      if (festivalId.isNotEmpty) {
-        await eventsProvider.fetchAllEvents(festivalId);
-        await eventsProvider.fetchLocations(festivalId);
-      }
+      // Events are updated automatically via ProxyProvider
     } else if (index == 3) {
-      await infoProvider.fetchInfo();
+      // Info is updated automatically via ProxyProvider
     } else if (index == 0) {
-      newsProvider.fetchWpMagazine("magazine_src");
+      newsProvider.fetchWpMagazine();
     }
 
     setState(() {
@@ -144,7 +136,7 @@ class _TabPageState extends State<TabPage> {
                   },
 // This builds the list of choices when opened
                   items: settings.allFestivals.map((f) {
-                    bool isActive = f.id == settings.defaultfestival;
+
                     return DropdownMenuItem<String>(
                       value: f.id,
                       child: Text(
@@ -164,6 +156,13 @@ class _TabPageState extends State<TabPage> {
                   },
                 ),
               );
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.favorite, color: Colors.white70),
+            onPressed: () {
+              Analytics().sendEvent("menu: favorites");
+              context.go('/favorites');
             },
           ),
           kIsWeb == true

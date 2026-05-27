@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:scenickazatva_app/providers/NewsProvider.dart';
 import 'package:provider/provider.dart';
-import 'package:scenickazatva_app/requests/api.dart';
+import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
@@ -94,7 +94,7 @@ class NewsDetailPage extends StatelessWidget {
                                 Html(
                               data: news.content!.rendered,
                               onLinkTap: (url, map, element) =>
-                                  API().launchURL(url),
+                                  SystemServices().launchURL(url!),
                               style:{
                                 "img": Style(
                                     width: Width(MediaQuery.of(context).size.width - 80), // not working as intended.

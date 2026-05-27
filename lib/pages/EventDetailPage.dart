@@ -4,8 +4,9 @@ import 'package:scenickazatva_app/models/Event.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/providers/EventsProvider.dart';
 import 'package:scenickazatva_app/providers/FestivalProvider.dart';
+import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:intl/intl.dart';
-import 'package:scenickazatva_app/requests/api.dart';
+import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:firebase_cached_image/firebase_cached_image.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:markdown/markdown.dart' as MD;
@@ -29,13 +30,13 @@ class EventDetailPage extends StatelessWidget {
 
     final startDate = event.startTime != null
         ? new DateFormat("E, d.M.", "sk_SK")
-            .format(event.startTime ?? DateTime.now())
+            .format(event.startTime?.toLocal() ?? DateTime.now())
         : '';
     final startTime = event.startTime != null
-        ? new DateFormat("HH:mm").format(event.startTime ?? DateTime.now())
+        ? new DateFormat("HH:mm").format(event.startTime?.toLocal() ?? DateTime.now())
         : '';
     final endTime = event.endTime != null
-        ? "\n${new DateFormat("HH:mm").format(event.endTime ?? DateTime.now())}"
+        ? "\n${new DateFormat("HH:mm").format(event.endTime?.toLocal() ?? DateTime.now())}"
         : '';
 
     if (event.id == "") {
@@ -63,6 +64,22 @@ class EventDetailPage extends StatelessWidget {
         title: Text(
           event.title,
         ),
+        actions: [
+          Consumer<UserProvider>(
+            builder: (context, userProvider, child) {
+              final isFav = userProvider.isFavorite(festival.id, event.id);
+              return IconButton(
+                icon: Icon(
+                  isFav ? Icons.favorite : Icons.favorite_border,
+                  color: isFav ? Colors.red : null,
+                ),
+                onPressed: () {
+                  userProvider.toggleFavorite(festival.id, event);
+                },
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -151,7 +168,7 @@ class EventDetailPage extends StatelessWidget {
                         child: Html(
                           data: MD.markdownToHtml(event.description),
                           onLinkTap: (url, map, element) =>
-                              API().launchURL(url),
+                              SystemServices().launchURL(url!),
                         ))
                     : SizedBox.shrink()
               ]),

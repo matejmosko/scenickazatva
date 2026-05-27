@@ -3,7 +3,6 @@ import 'package:flutter/material.dart'; // Change dart:ui to material for more f
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/HivePreferences.dart';
-import 'package:firebase_database/firebase_database.dart';
 
 class FestivalProvider extends ChangeNotifier {
   Festival _festival = Festival();

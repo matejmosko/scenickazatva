@@ -6,10 +6,13 @@ class SystemServices {
   factory SystemServices() => _instance;
   SystemServices._internal();
 
-  launchURL(String url) async {
+  launchURL(String url, {bool forceExternal = false}) async {
     final Uri _url = Uri.parse(url);
+    final LaunchMode mode = forceExternal
+        ? LaunchMode.externalApplication
+        : LaunchMode.inAppWebView;
     if (await canLaunchUrl(_url)) {
-      await launchUrl(_url, mode: LaunchMode.inAppWebView);
+      await launchUrl(_url, mode: mode);
     } else {
       throw 'Could not launch $url';
     }

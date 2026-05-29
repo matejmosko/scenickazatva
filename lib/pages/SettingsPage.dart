@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
-
+import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:provider/provider.dart';
 
@@ -59,6 +59,15 @@ class _SettingsPageState extends State<SettingsPage> {
             icon: const Icon(Icons.arrow_back_ios),
             onPressed: () => context.go("/")),
         title: const Text("Nastavenia"),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white70),
+            onPressed: () {
+              Analytics().sendEvent("menu: settings");
+              context.go('/settings');
+            },
+          )
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),

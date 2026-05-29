@@ -20,7 +20,7 @@ class AppSettingsProvider extends ChangeNotifier {
 
 
   AppSettingsProvider() {
-    print("DEBUG: AppSettingsProvider constructor started");
+    debugPrint("DEBUG: AppSettingsProvider constructor started");
     loadSettings();
     syncWithFirebase();
   }
@@ -33,7 +33,7 @@ class AppSettingsProvider extends ChangeNotifier {
         _settings = prefs.getAppSettings();
         _allFestivals = _settings.festivals.values.toList();
         _allFestivals.sort((a, b) => (b.startDate ?? DateTime(0)).compareTo(a.startDate ?? DateTime(0)));
-        print("DEBUG: Hive load complete. ID: ${_settings.defaultfestival}");
+        debugPrint("DEBUG: Hive load complete. ID: ${_settings.defaultfestival}");
         
         // If we have a valid-looking ID from Hive, we can mark as initialized
         if (_settings.defaultfestival.isNotEmpty && _settings.defaultfestival != "sutaze") {
@@ -42,7 +42,7 @@ class AppSettingsProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print("DEBUG: Hive error: $e");
+      debugPrint("DEBUG: Hive error: $e");
     }
   }
 
@@ -70,14 +70,14 @@ class AppSettingsProvider extends ChangeNotifier {
             if (userSnap.exists && userSnap.value != null) {
               // 2. If user has setting, use it
               selectedId = userSnap.value.toString();
-              print("DEBUG: Using User Preference: $selectedId");
+              debugPrint("DEBUG: Using User Preference: $selectedId");
             } else {
               // 1. If user doesn't have setting, use global default and CREATE it for them
-              print("DEBUG: Creating user preference with global default: $selectedId");
+              debugPrint("DEBUG: Creating user preference with global default: $selectedId");
               await userPrefRef.set(selectedId);
             }
           } catch (e) {
-            print("DEBUG: Error processing user preferences: $e");
+            debugPrint("DEBUG: Error processing user preferences: $e");
           }
         }
 
@@ -93,7 +93,7 @@ class AppSettingsProvider extends ChangeNotifier {
         if (_allFestivals.isNotEmpty) {
           bool exists = _allFestivals.any((f) => f.id == _settings.defaultfestival);
           if (!exists) {
-            print("DEBUG: Selected ID ${_settings.defaultfestival} not found in database. Falling back to ${_allFestivals.first.id}");
+            debugPrint("DEBUG: Selected ID ${_settings.defaultfestival} not found in database. Falling back to ${_allFestivals.first.id}");
             _settings.defaultfestival = _allFestivals.first.id;
           }
         }
@@ -106,7 +106,7 @@ class AppSettingsProvider extends ChangeNotifier {
         notifyListeners();
       }
     }, onError: (error) {
-      print("DEBUG: Firebase Subscription Error: $error");
+      debugPrint("DEBUG: Firebase Subscription Error: $error");
     });
   }
 

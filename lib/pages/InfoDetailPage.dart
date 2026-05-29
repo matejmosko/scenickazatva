@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:scenickazatva_app/models/InfoPost.dart';
 import 'package:scenickazatva_app/providers/InfoProvider.dart';
@@ -36,6 +35,15 @@ class InfoDetailPage extends StatelessWidget {
         title: const Text(
           "Informácie",
         ),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white70),
+            onPressed: () {
+              Analytics().sendEvent("menu: settings");
+              context.go('/settings');
+            },
+          )
+        ],
       ),
       body: SafeArea(
         child: ListView(

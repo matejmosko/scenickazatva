@@ -28,7 +28,8 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
   }
 
   Future<wpclient.Post> _loadArticle() async {
-    final NewsProvider newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    final NewsProvider newsProvider =
+        Provider.of<NewsProvider>(context, listen: false);
     List<wpclient.Post> allNews = newsProvider.wpnews;
     List<wpclient.Post> allArticles = newsProvider.wparticles;
     final String currentUri = GoRouterState.of(context).uri.toString();
@@ -36,12 +37,16 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
     wpclient.Post? found;
 
     if (currentUri.contains("magazine")) {
-      final matches = allArticles.where((element) => element.id.toString() == widget.newsId.toString()).toList();
+      final matches = allArticles
+          .where((element) => element.id.toString() == widget.newsId.toString())
+          .toList();
       if (matches.isNotEmpty) {
         found = matches[0];
       }
     } else if (currentUri.contains("news")) {
-      final matches = allNews.where((element) => element.id.toString() == widget.newsId.toString()).toList();
+      final matches = allNews
+          .where((element) => element.id.toString() == widget.newsId.toString())
+          .toList();
       if (matches.isNotEmpty) {
         found = matches[0];
       }
@@ -63,8 +68,8 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    var title = GoRouterState.of(context).uri.toString().contains("news") 
-        ? "Festivalové novinky" 
+    var title = GoRouterState.of(context).uri.toString().contains("news")
+        ? "Festivalové novinky"
         : "javisko.sk";
 
     return Scaffold(
@@ -82,18 +87,31 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
         title: Text(
           title,
         ),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white70),
+            onPressed: () {
+              Analytics().sendEvent("menu: settings");
+              context.go('/settings');
+            },
+          )
+        ],
       ),
       body: SafeArea(
         child: FutureBuilder<wpclient.Post>(
             future: _articleFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.waiting &&
-                  !snapshot.hasError && snapshot.hasData) {
+                  !snapshot.hasError &&
+                  snapshot.hasData) {
                 final news = snapshot.data!;
                 return ListView(
                   children: [
                     Container(
-                      constraints: BoxConstraints(minHeight: 200, minWidth: double.infinity, maxHeight: 500),
+                      constraints: BoxConstraints(
+                          minHeight: 200,
+                          minWidth: double.infinity,
+                          maxHeight: 500),
                       child: CachedNetworkImage(
                         imageUrl: news.featuredImageSourceUrl(),
                         placeholder: (context, url) =>
@@ -116,18 +134,33 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
                             padding: const EdgeInsets.all(12),
                             child: Html(
                               data: news.content?.rendered ?? '',
-                              onLinkTap: (url, map, element) =>
-                                  SystemServices().launchURL(url!),
+                              onLinkTap: (url, map, element) {
+                                if (url != null) {
+                                  // 1. Check if the URL points to a PDF file
+                                  if (url.toLowerCase().endsWith('.pdf')) {
+                                    // Open in external browser/app so the device handles the PDF download/viewing
+                                    SystemServices().launchURL(url, forceExternal: true);
+                                  } else {
+                                    // Fallback for regular web articles
+                                    SystemServices().launchURL(url);
+                                  }
+                                }
+                              },
                               style: {
                                 "body": Style(
-                                  fontSize: FontSize(Theme.of(context).textTheme.bodyLarge?.fontSize ?? 14.0),
+                                  fontSize: FontSize(Theme.of(context)
+                                          .textTheme
+                                          .bodyLarge
+                                          ?.fontSize ??
+                                      14.0),
                                 ),
                                 "a": Style(
                                   color: Colors.blue,
                                   textDecoration: TextDecoration.underline,
                                 ),
                                 "img": Style(
-                                  width: Width(MediaQuery.of(context).size.width - 80),
+                                  width: Width(
+                                      MediaQuery.of(context).size.width - 80),
                                 ),
                               },
                               extensions: [

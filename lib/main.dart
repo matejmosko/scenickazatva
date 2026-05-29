@@ -106,7 +106,7 @@ final _router = GoRouter(
     });
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // print("Notification shown!");
+  // debugPrint("Notification shown!");
 }
 
 void main() async {
@@ -129,7 +129,7 @@ void main() async {
     if (user == null) {
       await authService().authFirebase();
     } else {
-      print('Auth state changed: ${user.uid}');
+      debugPrint('Auth state changed: ${user.uid}');
     }
   });
 
@@ -145,15 +145,15 @@ void main() async {
       await authService().saveUserData(userSettings);
     }
   }).onError((err) {
-    print("Token refresh error: $err");
+    debugPrint("Token refresh error: $err");
   });
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    print('Got a message whilst in the foreground!');
+    debugPrint('Got a message whilst in the foreground!');
     if (message.notification != null) {
-      print('Message also contained a notification: ${message.notification}');
+      debugPrint('Message also contained a notification: ${message.notification}');
     }
   });
 

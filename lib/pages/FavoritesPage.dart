@@ -4,6 +4,7 @@ import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/providers/EventsProvider.dart';
 import 'package:scenickazatva_app/providers/FestivalProvider.dart';
 import 'package:scenickazatva_app/views/CalendarView.dart'; // We can reuse EventListItem
+import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:go_router/go_router.dart';
 
 class FavoritesPage extends StatelessWidget {
@@ -27,6 +28,15 @@ class FavoritesPage extends StatelessWidget {
           icon: Icon(Icons.arrow_back_ios),
           onPressed: () => context.go('/'),
         ),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white70),
+            onPressed: () {
+              Analytics().sendEvent("menu: settings");
+              context.go('/settings');
+            },
+          )
+        ],
       ),
       body: favoriteEvents.isEmpty
           ? Center(

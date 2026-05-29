@@ -7,8 +7,6 @@ import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:firebase_cached_image/firebase_cached_image.dart';
-import 'package:flutter_html/flutter_html.dart';
-import 'package:markdown/markdown.dart' as MD;
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/utils/StringUtils.dart';
 

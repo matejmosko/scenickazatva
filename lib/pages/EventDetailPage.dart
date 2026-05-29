@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:scenickazatva_app/models/Event.dart';
 import 'package:provider/provider.dart';
@@ -79,6 +78,14 @@ class EventDetailPage extends StatelessWidget {
               );
             },
           ),
+            IconButton(
+              icon: const Icon(Icons.settings, color: Colors.white70),
+              onPressed: () {
+                Analytics().sendEvent("menu: settings");
+                context.go('/settings');
+              },
+            )
+
         ],
       ),
       body: SafeArea(

@@ -173,6 +173,10 @@ class EventDetailPage extends StatelessWidget {
                             "body": Style(
                               fontSize: FontSize(Theme.of(context).textTheme.bodyLarge?.fontSize ?? 14.0),
                             ),
+                            "a": Style(
+                              color: Colors.blue,
+                              textDecoration: TextDecoration.underline,
+                            ),
                           },
                         ))
                     : SizedBox.shrink()
@@ -181,7 +185,7 @@ class EventDetailPage extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: kIsWeb == true
+      floatingActionButton: (kIsWeb == true && context.watch<UserProvider>().canEdit)
           ? FloatingActionButton(
               onPressed: () {
                 context.go("/events/" + event.id + "/edit");

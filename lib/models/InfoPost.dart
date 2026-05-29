@@ -17,8 +17,18 @@ class InfoPost {
     id = json['id'] ?? "";
     title = json['title'] ?? "";
     description = json['description'] ?? "";
-    icon = json['icon'] ?? "";
+    icon = json['icon'] is int ? json['icon'] : (int.tryParse(json['icon']?.toString() ?? "0") ?? 0);
     image = json['image'] ?? "";
+  }
+
+  InfoPost copy() {
+    return InfoPost(
+      id: id,
+      title: title,
+      description: description,
+      image: image,
+      icon: icon,
+    );
   }
 
   Map<String, dynamic> toJson() {

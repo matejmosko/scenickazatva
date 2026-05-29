@@ -6,6 +6,7 @@ import 'package:scenickazatva_app/providers/InfoProvider.dart';
 import 'package:scenickazatva_app/providers/NewsProvider.dart';
 import 'package:scenickazatva_app/providers/FestivalProvider.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
+import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/views/CalendarView.dart';
 import 'package:scenickazatva_app/views/InfoView.dart';
@@ -179,10 +180,26 @@ class _TabPageState extends State<TabPage> {
       body: Center(
         child: buildPageView(newsProvider, eventsProvider, infoProvider),
       ),
+      floatingActionButton: (kIsWeb && (_selectedIndex == 1 || _selectedIndex == 3) && context.watch<UserProvider>().canEdit)
+          ? FloatingActionButton(
+              onPressed: () {
+                if (_selectedIndex == 1) {
+                  context.go("/events/new/edit");
+                } else if (_selectedIndex == 3) {
+                  context.go("/info/new/edit");
+                }
+              },
+              child: const Icon(Icons.add),
+            )
+          : null,
       bottomNavigationBar: NavigationBar(
           destinations: <Widget>[
             NavigationDestination(
-              icon: Icon(Icons.menu_book),
+              icon: Badge(
+                label: Text(newsProvider.unreadMagazineCount.toString()),
+                isLabelVisible: newsProvider.unreadMagazineCount > 0,
+                child: Icon(Icons.menu_book),
+              ),
               label: 'javisko.sk',
             ),
             NavigationDestination(

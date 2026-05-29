@@ -53,4 +53,17 @@ class UserData {
       'fcmtoken': fcmtoken,
     };
   }
+
+  // Version that EXCLUDES userRole to prevent users from elevating their own permissions
+  Map<String, dynamic> toSafeJson() {
+    return {
+      'id': id,
+      'fullName': fullName,
+      'email': email,
+      'notifications': notifications,
+      'favorites': favorites,
+      'timestamp': timestamp,
+      'fcmtoken': fcmtoken,
+    };
+  }
 }

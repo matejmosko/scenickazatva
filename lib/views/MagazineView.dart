@@ -39,11 +39,65 @@ class _MagazineViewState extends State<MagazineView>
           ),
         ),
         AnimatedOpacity(
-          opacity: newsProvider.wparticles.length > 0 ? 1.0 : 0.0,
+          opacity: 1.0,
           duration: Duration(milliseconds: 500),
           child: Container(
               child: Column(
             children: <Widget>[
+              if (newsProvider.magazineCategories.isNotEmpty)
+                Container(
+                  height: 60,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: newsProvider.magazineCategories.length + 1,
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: ChoiceChip(
+                            label: Text("Všetky"),
+                            selected: newsProvider.selectedMagazineCategoryId == null,
+                            onSelected: (selected) {
+                              newsProvider.setMagazineCategory(null);
+                            },
+                          ),
+                        );
+                      }
+                      final category = newsProvider.magazineCategories[index - 1];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: ChoiceChip(
+                          label: Text(category.name ?? ""),
+                          selected: newsProvider.selectedMagazineCategoryId == category.id,
+                          onSelected: (selected) {
+                            newsProvider.setMagazineCategory(selected ? category.id : null);
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              if (newsProvider.unreadMagazineCount > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "${newsProvider.unreadMagazineCount} neprečítaných",
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      TextButton(
+                        onPressed: () => newsProvider.markAllMagazineAsRead(),
+                        child: Text(
+                          "Označiť všetky ako prečítané",
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Flexible(
                 child: LazyLoadScrollView(
                   onEndOfPage: () =>
@@ -62,9 +116,28 @@ class _MagazineViewState extends State<MagazineView>
                                     children: [
                                       Expanded(
                                         child: ListTile(
-                                          title: Text(
-                                            item.title!.rendered!.replaceAll('&amp;', '&') ?? "",
-                                            style: Theme.of(context).textTheme.titleMedium,
+                                          title: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              if (!newsProvider.isRead(item.id))
+                                                Padding(
+                                                  padding: const EdgeInsets.only(top: 6.0, right: 8.0),
+                                                  child: Container(
+                                                    width: 8,
+                                                    height: 8,
+                                                    decoration: BoxDecoration(
+                                                      color: Theme.of(context).colorScheme.primary,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                  ),
+                                                ),
+                                              Expanded(
+                                                child: Text(
+                                                  item.title?.rendered?.replaceAll('&amp;', '&') ?? "",
+                                                  style: Theme.of(context).textTheme.titleMedium,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                           isThreeLine: true,
                                           subtitle: Text(
@@ -94,6 +167,7 @@ class _MagazineViewState extends State<MagazineView>
                                       ),
                                     ]),
                                 onTap: () {
+                                  newsProvider.markAsRead(item.id);
                                   Analytics().sendEvent(item.title!.rendered);
                                   Analytics().sendEvent("festník article opened");
                                   context.go("/magazine/" + item.id.toString());

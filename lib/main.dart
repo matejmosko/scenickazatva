@@ -18,6 +18,7 @@ import 'package:scenickazatva_app/pages/TabPage.dart';
 import 'package:scenickazatva_app/pages/EventDetailPage.dart';
 import 'package:scenickazatva_app/pages/NewsDetailPage.dart';
 import 'package:scenickazatva_app/pages/EventEditPage.dart';
+import 'package:scenickazatva_app/pages/InfoEditPage.dart';
 import 'package:scenickazatva_app/pages/InfoDetailPage.dart';
 import 'package:scenickazatva_app/pages/FavoritesPage.dart';
 import 'package:scenickazatva_app/models/ColorScheme.dart';
@@ -68,7 +69,7 @@ final _router = GoRouter(
                   GoRoute(
                     path: ':eventId/edit',
                     builder: (context, state) =>
-                        EventEditPage(eventId: state.pathParameters["eventId"]),
+                        EventEditPage(eventId: state.pathParameters["eventId"] ?? ""),
                   ),
                 ]),
             GoRoute(
@@ -79,6 +80,11 @@ final _router = GoRouter(
                     path: ':infoId',
                     builder: (context, state) =>
                         InfoDetailPage(infoId: state.pathParameters["infoId"]),
+                  ),
+                  GoRoute(
+                    path: ':infoId/edit',
+                    builder: (context, state) =>
+                        InfoEditPage(infoId: state.pathParameters["infoId"] ?? ""),
                   )
                 ]),
             GoRoute(
@@ -112,6 +118,10 @@ void main() async {
   if (!kIsWeb) {
     FirebaseDatabase.instance.setPersistenceEnabled(true);
     await NotificationService().init();
+    
+    // Subscribe to global topics for new articles
+    FirebaseMessaging.instance.subscribeToTopic('magazine_updates');
+    FirebaseMessaging.instance.subscribeToTopic('news_updates');
   }
 
   // Initialize Authentication
@@ -236,9 +246,12 @@ class MyApp extends StatelessWidget {
             return festivalProvider!..updateFromSettings(settingsProvider.settings);
           },
         ),
-        ChangeNotifierProxyProvider<AppSettingsProvider, EventsProvider>(
+        ChangeNotifierProxyProvider2<AppSettingsProvider, UserProvider, EventsProvider>(
           create: (_) => EventsProvider(),
-          update: (_, settings, events) => events!..updateFromSettings(settings),
+          update: (_, settings, user, events) {
+            events!.updateFromUser(user.canEdit);
+            return events..updateFromSettings(settings);
+          },
         ),
         ChangeNotifierProxyProvider<FestivalProvider, NewsProvider>(
           create: (_) => NewsProvider(),
@@ -246,10 +259,11 @@ class MyApp extends StatelessWidget {
             return newsProvider!..updateFromFestival(festivalProvider.festival);
           },
         ),
-        ChangeNotifierProxyProvider<FestivalProvider, InfoProvider>(
+        ChangeNotifierProxyProvider2<FestivalProvider, UserProvider, InfoProvider>(
           create: (_) => InfoProvider(),
-          update: (context, festivalProvider, infoProvider) {
-            return infoProvider!..updateFromFestival(festivalProvider.festival);
+          update: (context, festivalProvider, user, infoProvider) {
+            infoProvider!.updateFromUser(user.canEdit);
+            return infoProvider..updateFromFestival(festivalProvider.festival);
           },
         ),
       ],

@@ -16,8 +16,8 @@ Color festivalThirdColor = Colors.white;
 
 var lightColorScheme = ColorScheme(
   brightness: Brightness.light,
-  primary: lightColor,
-  onPrimary: darkColor,
+  primary: accentColor,
+  onPrimary: Colors.white,
   primaryContainer: lightColorDarker,
   onPrimaryContainer: darkColor,
   secondary: lightColorDarker,

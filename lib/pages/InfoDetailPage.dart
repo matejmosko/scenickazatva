@@ -1,7 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:scenickazatva_app/models/InfoPost.dart';
 import 'package:scenickazatva_app/providers/InfoProvider.dart';
-import 'package:scenickazatva_app/providers/FestivalProvider.dart';
+import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -15,10 +16,7 @@ class InfoDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Get the current festival (and watch for changes)
-    final festival = context.watch<FestivalProvider>().festival;
-
-    // 2. Get the info post data
+    // Get the info post data
     final infoProvider = Provider.of<InfoProvider>(context);
     final info = infoProvider.info.firstWhere(
           (element) => element.id == infoId,
@@ -58,12 +56,24 @@ class InfoDetailPage extends StatelessWidget {
                       data: MD.markdownToHtml(info.description),
                       onLinkTap: (url, map, element) =>
                           SystemServices().launchURL(url!),
+                      style: {
+                        "a": Style(
+                          color: Colors.blue,
+                          textDecoration: TextDecoration.underline,
+                        ),
+                      },
                     ))
               ],
             ))
           ],
         ),
       ),
+      floatingActionButton: (kIsWeb && context.watch<UserProvider>().canEdit)
+          ? FloatingActionButton(
+              onPressed: () => context.go("/info/${info.id}/edit"),
+              child: const Icon(Icons.edit),
+            )
+          : null,
     );
   }
 }

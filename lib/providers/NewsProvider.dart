@@ -2,10 +2,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:scenickazatva_app/requests/WordPressService.dart';
 import 'package:wordpress_client/wordpress_client.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
+import 'package:hive_ce/hive.dart';
 
 class NewsProvider extends ChangeNotifier {
   List<Post> _wpnews = [];
   List<Post> _wparticles = [];
+  List<Category> _magazineCategories = [];
+  int? _selectedMagazineCategoryId;
   bool newsLoading = false;
   bool articlesLoading = false;
   bool allnews = false;
@@ -13,12 +16,47 @@ class NewsProvider extends ChangeNotifier {
   int newspage = 1;
   int magazinepage = 1;
 
+  Set<int> _readArticleIds = {};
+  Box? _readArticlesBox;
+
   String? _currentFestivalId;
   String? _newsSrc;
   String? _magazineSrc;
 
+  NewsProvider() {
+    _initReadArticles();
+  }
+
+  Future<void> _initReadArticles() async {
+    _readArticlesBox = await Hive.openBox('read_articles');
+    final List<dynamic> ids = _readArticlesBox!.get('ids', defaultValue: []);
+    _readArticleIds = ids.cast<int>().toSet();
+    notifyListeners();
+  }
+
   List<Post> get wpnews => _wpnews;
   List<Post> get wparticles => _wparticles;
+  List<Category> get magazineCategories => _magazineCategories;
+  int? get selectedMagazineCategoryId => _selectedMagazineCategoryId;
+  int get unreadMagazineCount => _wparticles.where((p) => !_readArticleIds.contains(p.id)).length;
+
+  bool isRead(int? id) => id == null || _readArticleIds.contains(id);
+
+  void markAsRead(int? id) {
+    if (id != null && !_readArticleIds.contains(id)) {
+      _readArticleIds.add(id);
+      _readArticlesBox?.put('ids', _readArticleIds.toList());
+      notifyListeners();
+    }
+  }
+
+  void markAllMagazineAsRead() {
+    for (var post in _wparticles) {
+      _readArticleIds.add(post.id);
+    }
+    _readArticlesBox?.put('ids', _readArticleIds.toList());
+    notifyListeners();
+  }
 
   void updateFromFestival(Festival festival) {
     if (_currentFestivalId != festival.id) {
@@ -30,6 +68,8 @@ class NewsProvider extends ChangeNotifier {
       // Clear data when festival changes
       _wpnews = [];
       _wparticles = [];
+      _magazineCategories = [];
+      _selectedMagazineCategoryId = null;
       newspage = 1;
       magazinepage = 1;
       allnews = false;
@@ -42,6 +82,7 @@ class NewsProvider extends ChangeNotifier {
       // Initial fetch for new festival
       fetchWpNews(refresh: false); // Initially try cache
       fetchWpMagazine(refresh: false);
+      fetchMagazineCategories();
     }
   }
 
@@ -78,7 +119,7 @@ class NewsProvider extends ChangeNotifier {
     }
 
     try {
-      final data = await WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh);
+      final data = await WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, categoryId: _selectedMagazineCategoryId);
       if (data.isEmpty) {
         allarticles = true;
       }
@@ -86,6 +127,25 @@ class NewsProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint("Error fetching WP magazine: $e");
       setLoading("magazine_src", false);
+    }
+  }
+
+  Future<void> fetchMagazineCategories() async {
+    if (_magazineSrc == null || _magazineSrc!.isEmpty) return;
+    try {
+      final categories = await WordPressService().fetchCategories(_magazineSrc!);
+      _magazineCategories = List<Category>.from(categories);
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error fetching categories: $e");
+    }
+  }
+
+  void setMagazineCategory(int? categoryId) {
+    if (_selectedMagazineCategoryId != categoryId) {
+      _selectedMagazineCategoryId = categoryId;
+      fetchWpMagazine(refresh: true);
+      notifyListeners();
     }
   }
 

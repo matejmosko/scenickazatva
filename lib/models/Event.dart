@@ -54,6 +54,20 @@ class Event {
     );
   }
 
+  Event copy() {
+    return Event(
+      id: id,
+      title: title,
+      description: description,
+      location: location,
+      type: type,
+      startTime: startTime,
+      endTime: endTime,
+      image: image,
+      artist: artist,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -61,8 +75,8 @@ class Event {
       'description': description,
       'location': location,
       'type': type,
-      'startTime': startTime.toString(),
-      'endTime': endTime.toString(),
+      'startTime': startTime?.toIso8601String(),
+      'endTime': endTime?.toIso8601String(),
       'image': image,
       'artist': artist
     };

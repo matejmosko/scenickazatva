@@ -108,7 +108,8 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
   }
 
   Widget _buildTableCalendarWithBuilders(FestivalProvider festivalProvider, Festival fest) {
-    if (festivalProvider.loading && fest.title.isEmpty) {
+    final eventsProvider = Provider.of<EventsProvider>(context);
+    if ((festivalProvider.loading || eventsProvider.loading) && fest.title.isEmpty) {
       return const Center(child: Padding(
         padding: EdgeInsets.all(20.0),
         child: CircularProgressIndicator(),
@@ -314,6 +315,10 @@ class EventListItem extends StatelessWidget {
                           fontSize: FontSize(Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14.0),
                           margin: Margins.zero,
                           padding: HtmlPaddings.zero,
+                        ),
+                        "a": Style(
+                          color: Colors.blue,
+                          textDecoration: TextDecoration.underline,
                         ),
                       },
                     ),

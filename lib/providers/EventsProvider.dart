@@ -1,4 +1,4 @@
-import 'dart:async'; // <--- Add this line
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:scenickazatva_app/models/Event.dart';
@@ -6,17 +6,26 @@ import 'package:scenickazatva_app/models/Location.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:firebase_database/firebase_database.dart';
 
+/// Provider responsible for fetching, storing and managing festival events.
+/// Handles real-time synchronization with Firebase and role-based editing permissions.
 class EventsProvider extends ChangeNotifier {
   StreamSubscription<DatabaseEvent>? _eventsSubscription;
   StreamSubscription<DatabaseEvent>? _locationsSubscription;
+  
+  // Events grouped by day for the calendar view
   Map<DateTime, List<Event>> _mappedEvents = {};
-  List<Event> _events = [Event()];
-  List<Location> _venues = [Location()];
+  
+  // Flat list of all events for the current festival
+  List<Event> _events = [];
+  
+  // List of venues/locations for the current festival
+  List<Location> _venues = [];
+  
   DateTime _selectedDay = DateTime.now();
-  bool _loading = false;
+  bool _loading = true;
+  bool _canEdit = false;
 
-  EventsProvider() {
-  }
+  EventsProvider();
 
   @override
   void dispose() {
@@ -25,17 +34,14 @@ class EventsProvider extends ChangeNotifier {
     super.dispose();
   }
 
+  // Getters
   DateTime get selectedDay => _selectedDay;
-
   Map<DateTime, List> get mappedEvents => _mappedEvents;
-
-  List<Event> get events => _events != [] ? _events : [];
-
+  List<Event> get events => _events;
   List<Location> get venues => _venues;
-
   bool get loading => _loading;
 
-
+  /// Returns events scheduled for the currently selected day in the calendar
   List<Event> get selectedEvents {
     return _events.where((event) {
       return event.startTime?.year == _selectedDay.year &&
@@ -48,17 +54,22 @@ class EventsProvider extends ChangeNotifier {
     _selectedDay = day;
   }
 
+  /// Updates editing permissions based on the logged-in user's role
+  void updateFromUser(bool canEdit) {
+    _canEdit = canEdit;
+  }
+
   String? _lastFetchedId;
 
+  /// Reaction to AppSettings changes - triggers re-fetch if festival ID changes
   void updateFromSettings(AppSettingsProvider settingsProvider) {
     if (settingsProvider.isInitialized) {
       String newFestivalId = settingsProvider.defaultfestival;
 
-      // Check if the ID changed to prevent infinite loops
-      if (newFestivalId.isNotEmpty && newFestivalId != _lastFetchedId) {
+      // Re-fetch if ID changed OR if initial load is needed
+      if (newFestivalId.isNotEmpty && (newFestivalId != _lastFetchedId || (_events.isEmpty && !_loading))) {
         _lastFetchedId = newFestivalId;
 
-        // Wrap both calls inside the same microtask
         Future.microtask(() {
           fetchAllEvents(newFestivalId);
           fetchLocations(newFestivalId);
@@ -67,36 +78,43 @@ class EventsProvider extends ChangeNotifier {
     }
   }
 
-
-  void fetchAllEvents(String festivalId) async { // returns a bool
+  /// Subscribes to the real-time stream of events for a specific festival
+  void fetchAllEvents(String festivalId) async {
     await _eventsSubscription?.cancel();
     setLoading(true);
-    //FirebaseDatabase database = FirebaseDatabase.instance;
+    
     DatabaseReference eventsdb = FirebaseDatabase.instance.ref("festivals/$festivalId/events");
 
+    // Offline support
+    if (!kIsWeb) {
+      eventsdb.keepSynced(true);
+    }
 
-    if (!kIsWeb){eventsdb.keepSynced(true);}
+    _eventsSubscription = eventsdb.onValue.listen((DatabaseEvent event) {
+      final Object? rawData = event.snapshot.value;
+      if (rawData != null) {
+        Iterable? items;
+        if (rawData is Map) {
+          items = rawData.values;
+        } else if (rawData is List) {
+          items = rawData;
+        }
 
-
-// Subscribe to the stream!
-_eventsSubscription = eventsdb.onValue.listen((DatabaseEvent event) {
-//    stream.listen((DatabaseEvent event){
-      final data = event.snapshot.value as Map<dynamic, dynamic>?;
-      if (data != null) {
-        final List<Event> fetchedEvents = data.values.map((e) {
-          return Event.fromJson(Map<String, dynamic>.from(e as Map));
-        }).toList();
-        setEvents(fetchedEvents);
+        if (items != null) {
+          final List<Event> fetchedEvents = items
+              .where((e) => e != null)
+              .map((e) => Event.fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList();
+          setEvents(fetchedEvents);
+        } else {
+          setEvents([]);
+        }
+      } else {
+        setEvents([]);
       }
-/*
-      List<dynamic> _events = [];
-      Map validMap = json.decode(json.encode(event.snapshot.value));
-      for (var e in validMap.values){
-        _events.add(e);
-      }
-     setEvents(
-        _events.map((model) => Event.fromJson(model)).toList(),
-      );*/
+    }, onError: (err) {
+      debugPrint("Firebase Events Error: $err");
+      setLoading(false);
     });
   }
 
@@ -104,33 +122,14 @@ _eventsSubscription = eventsdb.onValue.listen((DatabaseEvent event) {
     _loading = val;
     notifyListeners();
   }
-/*
-  void setEvents(List<Event> events) async {
-    _events = events;
-    _mappedEvents.clear();
-    //Todo: Refactor to not have so many lists... and do it in parent method fetchEventsForArrangement
-    _events.forEach((event) async {
-      var key = DateTime(
-          event.startTime!.year, event.startTime!.month, event.startTime!.day);
 
-      if (!_mappedEvents.containsKey(key)) {
-        _mappedEvents.putIfAbsent(key, () => [event]);
-      } else {
-        _mappedEvents[key]!.addAll([event]);
-      }
-    });
-
-    _events.sort((a, b) => a.startTime!.compareTo(b.startTime!));
-    notifyListeners();
-  }
-*/
-  void setEvents(List<Event> events) { // Removed async, not needed here
-    _events = events;
+  /// Updates local state with new events, including grouping by day and sorting
+  void setEvents(List<Event> events) {
+    // Safety check: Filter out corrupted data
+    _events = events.where((e) => e.startTime != null).toList();
     _mappedEvents.clear();
 
     for (var event in _events) {
-      if (event.startTime == null) continue;
-
       var key = DateTime(
           event.startTime!.year,
           event.startTime!.month,
@@ -140,51 +139,66 @@ _eventsSubscription = eventsdb.onValue.listen((DatabaseEvent event) {
       _mappedEvents.putIfAbsent(key, () => []).add(event);
     }
 
+    // Always keep events chronologically ordered
     _events.sort((a, b) => a.startTime!.compareTo(b.startTime!));
-    notifyListeners();
+    setLoading(false);
   }
 
-  void fetchLocations(String festivalId) async {setLoading(true);
+  /// Fetches venue data for the current festival
+  void fetchLocations(String festivalId) async {
+    final locationdb = FirebaseDatabase.instance.ref("festivals/$festivalId/locations");
 
-  final locationdb = FirebaseDatabase.instance.ref("festivals/$festivalId/locations");
-
-  if(!kIsWeb){locationdb.keepSynced(true);}
-
-  // CANCEL the old subscription before starting a new one
-  await _locationsSubscription?.cancel();
-
-  // Assign to the subscription variable
-  _locationsSubscription = locationdb.onValue.listen((DatabaseEvent venue) {
-    final data = venue.snapshot.value as Map<dynamic, dynamic>?;
-    if (data != null) {
-      List<Location> list = data.values.map((model) {
-        return Location.fromData(Map<String, dynamic>.from(model as Map));
-      }).toList();
-      setLocations(list);
+    if (!kIsWeb) {
+      locationdb.keepSynced(true);
     }
-  });
+
+    await _locationsSubscription?.cancel();
+
+    _locationsSubscription = locationdb.onValue.listen((DatabaseEvent venue) {
+      final Object? rawData = venue.snapshot.value;
+      if (rawData != null) {
+        Iterable? items;
+        if (rawData is Map) {
+          items = rawData.values;
+        } else if (rawData is List) {
+          items = rawData;
+        }
+
+        if (items != null) {
+          List<Location> list = items
+              .where((e) => e != null)
+              .map((model) => Location.fromData(Map<String, dynamic>.from(model as Map)))
+              .toList();
+          setLocations(list);
+        } else {
+          setLocations([]);
+        }
+      } else {
+        setLocations([]);
+      }
+    });
   }
 
+  /// Helper: Gets the Material Icon for a specific location ID
   IconData getLocationIcon(loc) {
-    Location _venue = Location();
+    Location? venue;
     var foundVenues = _venues.where((element) => element.id == loc);
 
     if (foundVenues.isNotEmpty) {
-      _venue = foundVenues.first;
+      venue = foundVenues.first;
     }
 
-    // Check if icon is empty or not a number to prevent crash
-    if (_venue.icon.isEmpty) return Icons.location_on;
+    if (venue == null || venue.icon.isEmpty) return Icons.location_on;
 
     try {
-      return IconData(int.parse(_venue.icon), fontFamily: 'MaterialIcons');
+      return IconData(int.parse(venue.icon), fontFamily: 'MaterialIcons');
     } catch (e) {
-      return Icons.location_on; // Fallback icon
+      return Icons.location_on;
     }
   }
 
+  /// Helper: Gets the brand color for a specific location
   Color getLocationColor(loc) {
-    // Use .firstWhereOrNull logic to be cleaner
     final venue = _venues.cast<Location?>().firstWhere(
             (e) => e?.id == loc,
         orElse: () => null
@@ -195,54 +209,96 @@ _eventsSubscription = eventsdb.onValue.listen((DatabaseEvent event) {
     try {
       return Color(int.parse(colorString, radix: 16));
     } catch (e) {
-      return Colors.black; // Safe fallback
+      return Colors.black;
     }
   }
 
-  // Optimized and safer version of your getLocationName
+  /// Helper: Gets the human-readable name of a location
   String getLocationName(dynamic loc) {
-    // Search for the venue once
     final venue = _venues.cast<Location?>().firstWhere(
             (e) => e?.id == loc,
         orElse: () => null
     );
 
-    // Return the name if found, or a fallback string if not
     return venue?.displayName ?? "Neznáme miesto";
   }
 
-  void validateSelectedDay(DateTime start, DateTime end) {
-    if (_selectedDay.isBefore(start) || _selectedDay.isAfter(end)) {
-      _selectedDay = start;
-      notifyListeners();
-    }
-  }
-
+  /// Blocks/Updates an existing event in Firebase (Admin/Editor only)
   void updateEvent(Event _e) async {
+    if (!_canEdit) {
+      debugPrint("Unauthorized update attempt blocked");
+      return;
+    }
     try {
       setLoading(true);
-      // Use the ID we already have in the provider
       String? _festival = _lastFetchedId;
 
       if (_festival != null && _e.id.isNotEmpty) {
         await FirebaseDatabase.instance
             .ref("festivals/$_festival/events/${_e.id}/")
             .update(_e.toJson());
-        print("Firebase save success");
+        debugPrint("Firebase save success");
       }
     } catch (error) {
-      print("Firebase update error: $error");
+      debugPrint("Firebase update error: $error");
     } finally {
       setLoading(false);
     }
   }
 
+  /// Pushes a new event to Firebase (Admin/Editor only)
+  Future<String?> createEvent(Event e) async {
+    if (!_canEdit) {
+      debugPrint("Unauthorized create attempt blocked");
+      return null;
+    }
+    try {
+      setLoading(true);
+      String? _festival = _lastFetchedId;
+
+      if (_festival != null) {
+        DatabaseReference newEventRef = FirebaseDatabase.instance
+            .ref("festivals/$_festival/events")
+            .push();
+        e.id = newEventRef.key ?? "";
+        await newEventRef.set(e.toJson());
+        debugPrint("Firebase create success: ${e.id}");
+        return e.id;
+      }
+    } catch (error) {
+      debugPrint("Firebase create error: $error");
+    } finally {
+      setLoading(false);
+    }
+    return null;
+  }
+
+  /// Removes an event from Firebase (Admin/Editor only)
+  void deleteEvent(String eventId) async {
+    if (!_canEdit) {
+      debugPrint("Unauthorized delete attempt blocked");
+      return;
+    }
+    try {
+      setLoading(true);
+      String? _festival = _lastFetchedId;
+
+      if (_festival != null && eventId.isNotEmpty) {
+        await FirebaseDatabase.instance
+            .ref("festivals/$_festival/events/$eventId")
+            .remove();
+        debugPrint("Firebase delete success");
+      }
+    } catch (error) {
+      debugPrint("Firebase delete error: $error");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   void setLocations(List<Location> list) {
     _venues = list;
     notifyListeners();
     setLoading(false);
   }
-
-
 }

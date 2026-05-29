@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:scenickazatva_app/models/Event.dart';
-import 'package:scenickazatva_app/models/Location.dart';
+import 'package:scenickazatva_app/models/InfoPost.dart';
 import 'package:provider/provider.dart';
-import 'package:scenickazatva_app/providers/EventsProvider.dart';
+import 'package:scenickazatva_app/providers/InfoProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
-import 'package:intl/intl.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/scheduler.dart';
@@ -13,21 +11,19 @@ import 'package:flutter_quill_delta_from_html/flutter_quill_delta_from_html.dart
 import 'package:vsc_quill_delta_to_html/vsc_quill_delta_to_html.dart';
 import 'package:firebase_cached_image/firebase_cached_image.dart';
 
-/// Page for editing existing events or creating new ones.
-/// Restricted to users with admin or editor roles.
-class EventEditPage extends StatefulWidget {
-  final String eventId;
-  const EventEditPage({Key? key, required this.eventId}) : super(key: key);
+/// Page for managing festival-specific information posts.
+/// Only accessible by users with editing privileges.
+class InfoEditPage extends StatefulWidget {
+  final String infoId;
+  const InfoEditPage({Key? key, required this.infoId}) : super(key: key);
 
   @override
-  EventEditPageState createState() => EventEditPageState();
+  InfoEditPageState createState() => InfoEditPageState();
 }
 
-class EventEditPageState extends State<EventEditPage> {
+class InfoEditPageState extends State<InfoEditPage> {
   final _formKey = GlobalKey<FormState>();
-  DateTime? startDate;
-  DateTime? endDate;
-  late Event edited;
+  late InfoPost edited;
   late QuillController _controller;
   bool _isInitialized = false;
   bool _isNew = false;
@@ -36,49 +32,44 @@ class EventEditPageState extends State<EventEditPage> {
   void initState() {
     super.initState();
     _controller = QuillController.basic();
-    _isNew = widget.eventId == "new";
+    _isNew = widget.infoId == "new";
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_isInitialized) {
-      // 1. Check permissions first
+      // 1. Authorization guard
       final userProvider = Provider.of<UserProvider>(context);
       if (!userProvider.canEdit) {
         SchedulerBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            context.go('/events');
+            context.go('/info');
           }
         });
         return;
       }
 
-      // 2. Initialize data
+      // 2. Data source initialization
       if (_isNew) {
-        edited = Event(
+        edited = InfoPost(
           id: "",
           title: "",
-          startTime: DateTime.now(),
-          endTime: DateTime.now().add(const Duration(hours: 1)),
+          description: "",
         );
-        startDate = edited.startTime;
-        endDate = edited.endTime;
         _isInitialized = true;
       } else {
-        final eventsProvider = Provider.of<EventsProvider>(context);
-        final foundEvent = eventsProvider.events.cast<Event?>().firstWhere(
-              (e) => e?.id == widget.eventId,
+        final infoProvider = Provider.of<InfoProvider>(context);
+        final foundPost = infoProvider.info.cast<InfoPost?>().firstWhere(
+              (e) => e?.id == widget.infoId,
               orElse: () => null,
             );
 
-        if (foundEvent != null) {
-          // Clone the event to avoid editing the global state directly
-          edited = foundEvent.copy();
-          startDate = edited.startTime;
-          endDate = edited.endTime;
+        if (foundPost != null) {
+          // Edit a clone to maintain local/global separation until save
+          edited = foundPost.copy();
 
-          // Convert HTML description to Quill Delta
+          // Initialize Quill editor with HTML content
           if (edited.description.isNotEmpty) {
             try {
               var delta = HtmlToDelta().convert(edited.description, transformTableAsEmbed: false);
@@ -89,11 +80,11 @@ class EventEditPageState extends State<EventEditPage> {
           }
           _isInitialized = true;
         } else {
-          // If event not found and not loading, redirect back
-          if (!eventsProvider.loading) {
+          // Redirect if post not found and app finished loading
+          if (!infoProvider.loading) {
             SchedulerBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
-                context.go('/events');
+                context.go('/info');
               }
             });
           }
@@ -102,51 +93,10 @@ class EventEditPageState extends State<EventEditPage> {
     }
   }
 
-  /// Displays time picker and updates local state
-  Future<void> _displayTimeDialog(BuildContext context, DateTime iniTime, String field) async {
-    final TimeOfDay? time = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(iniTime),
-        builder: (ctx, child) => PointerInterceptor(child: child!));
-    if (time != null) {
-      setState(() {
-        if (field == "start") {
-          startDate = DateTime(iniTime.year, iniTime.month, iniTime.day,
-              time.hour, time.minute);
-        } else if (field == "end") {
-          endDate = DateTime(iniTime.year, iniTime.month, iniTime.day,
-              time.hour, time.minute);
-        }
-      });
-    }
-  }
-
-  /// Displays date picker and updates local state
-  Future<void> _displayDateDialog(BuildContext context, DateTime iniDate, String field) async {
-    final DateTime? date = await showDatePicker(
-        context: context,
-        initialDate: iniDate,
-        firstDate: DateTime(1970),
-        lastDate: DateTime(2201),
-        builder: (ctx, child) => PointerInterceptor(child: child!));
-
-    if (date != null) {
-      setState(() {
-        if (field == "start") {
-          startDate = DateTime(
-              date.year, date.month, date.day, iniDate.hour, iniDate.minute);
-        } else if (field == "end") {
-          endDate = DateTime(
-              date.year, date.month, date.day, iniDate.hour, iniDate.minute);
-        }
-      });
-    }
-  }
-
-  /// Validates the form, converts Delta to HTML and saves to Firebase via Provider
+  /// Handles form submission and Firebase update
   void _saveForm() async {
     if (_formKey.currentState!.validate()) {
-      // 1. Get HTML from Quill
+      // Convert Quill Delta back to HTML for storage
       var delta = _controller.document.toDelta().toJson();
       final converter = QuillDeltaToHtmlConverter(
         List.castFrom(delta),
@@ -155,39 +105,36 @@ class EventEditPageState extends State<EventEditPage> {
 
       String desc = converter.convert();
       
-      // 2. Save form fields
       _formKey.currentState!.save();
       edited.description = desc;
-      edited.startTime = startDate;
-      edited.endTime = endDate;
 
-      final provider = Provider.of<EventsProvider>(context, listen: false);
+      final provider = Provider.of<InfoProvider>(context, listen: false);
       if (_isNew) {
-        final newId = await provider.createEvent(edited);
+        final newId = await provider.createInfoPost(edited);
         if (newId != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Vytvorené')),
           );
-          context.go("/events/$newId");
+          context.go("/info/$newId");
         }
       } else {
-        provider.updateEvent(edited);
+        await provider.updateInfoPost(edited);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Uložené')),
         );
-        context.go("/events/${widget.eventId}");
+        context.go("/info/${widget.infoId}");
       }
     }
   }
 
-  /// Shows confirmation dialog before deleting an event
+  /// Modal confirmation for safe deletion
   void _confirmDelete() {
     showDialog(
       context: context,
       builder: (ctx) => PointerInterceptor(
         child: AlertDialog(
-          title: const Text("Zmazať podujatie?"),
-          content: const Text("Naozaj chcete zmazať toto podujatie? Táto akcia je nevratná."),
+          title: const Text("Zmazať informáciu?"),
+          content: const Text("Naozaj chcete zmazať túto informáciu? Táto akcia je nevratná."),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
@@ -195,9 +142,9 @@ class EventEditPageState extends State<EventEditPage> {
             ),
             TextButton(
               onPressed: () {
-                Provider.of<EventsProvider>(context, listen: false).deleteEvent(widget.eventId);
+                Provider.of<InfoProvider>(context, listen: false).deleteInfoPost(widget.infoId);
                 Navigator.of(ctx).pop();
-                context.go("/events");
+                context.go("/info");
               },
               child: const Text("Zmazať", style: TextStyle(color: Colors.red)),
             ),
@@ -215,17 +162,14 @@ class EventEditPageState extends State<EventEditPage> {
       );
     }
 
-    final EventsProvider eventsProvider = Provider.of<EventsProvider>(context);
-    final List<Location> venues = eventsProvider.venues;
-
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: true,
         foregroundColor: Colors.redAccent,
         leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios),
-            onPressed: () => _isNew ? context.go("/events") : context.go("/events/${widget.eventId}")),
-        title: Text(_isNew ? "Nové podujatie" : "Upraviť podujatie"),
+            onPressed: () => _isNew ? context.go("/info") : context.go("/info/${widget.infoId}")),
+        title: Text(_isNew ? "Nová informácia" : "Upraviť informáciu"),
         actions: <Widget>[
           if (!_isNew)
             IconButton(
@@ -234,7 +178,7 @@ class EventEditPageState extends State<EventEditPage> {
             ),
           IconButton(
             icon: const Icon(Icons.exit_to_app, color: Colors.white),
-            onPressed: () => _isNew ? context.go("/events") : context.go("/events/${widget.eventId}"),
+            onPressed: () => _isNew ? context.go("/info") : context.go("/info/${widget.infoId}"),
           ),
         ],
       ),
@@ -256,7 +200,7 @@ class EventEditPageState extends State<EventEditPage> {
                               initialValue: edited.title,
                               onSaved: (value) => edited.title = value!,
                               decoration: const InputDecoration(
-                                labelText: "Názov podujatia",
+                                labelText: "Názov informácie",
                               ),
                               validator: (value) => (value == null || value.isEmpty) ? 'Prosím zadajte názov' : null,
                             ),
@@ -276,16 +220,8 @@ class EventEditPageState extends State<EventEditPage> {
                           ]
                         ],
                       ),
-                      TextFormField(
-                        initialValue: edited.artist,
-                        onSaved: (value) => edited.artist = value!,
-                        decoration: const InputDecoration(
-                          labelText: "Umelec",
-                        ),
-                        validator: (value) => (value == null || value.isEmpty) ? 'Prosím zadajte umelca' : null,
-                      ),
                       const SizedBox(height: 16),
-                      // Image URL and Preview
+                      // Image input and cloud storage preview
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -299,8 +235,8 @@ class EventEditPageState extends State<EventEditPage> {
                               onSaved: (value) => edited.image = value?.trim() ?? "",
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          if (edited.image.isNotEmpty)
+                          if (edited.image.isNotEmpty && edited.image.startsWith("gs://")) ...[
+                            const SizedBox(width: 16),
                             Container(
                               width: 80,
                               height: 80,
@@ -317,81 +253,21 @@ class EventEditPageState extends State<EventEditPage> {
                                 ),
                               ),
                             ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 16),
-                      // Location Dropdown (Loaded from Provider)
-                      DropdownButtonFormField<String>(
-                        initialValue: venues.any((v) => v.id == edited.location) ? edited.location : null,
-                        items: venues.map((v) => DropdownMenuItem<String>(
-                          value: v.id,
-                          child: Text(v.displayName),
-                        )).toList(),
-                        onChanged: (val) => setState(() => edited.location = val ?? ""),
+                      // Material Icon numeric ID
+                      TextFormField(
+                        initialValue: edited.icon.toString(),
+                        keyboardType: TextInputType.number,
+                        onSaved: (value) => edited.icon = int.tryParse(value ?? "0") ?? 0,
                         decoration: const InputDecoration(
-                          labelText: "Miesto podujatia",
+                          labelText: "Ikona (ID)",
                         ),
-                        validator: (value) => (value == null || value.isEmpty) ? 'Prosím vyberte miesto' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      // Start Date & Time
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: TextFormField(
-                              controller: TextEditingController(
-                                  text: DateFormat("E, d.M. yyyy", "sk_SK").format(startDate ?? DateTime.now())),
-                              readOnly: true,
-                              decoration: const InputDecoration(
-                                labelText: "Dátum začiatku",
-                              ),
-                              onTap: () => _displayDateDialog(context, startDate ?? DateTime.now(), "start"),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              controller: TextEditingController(
-                                  text: DateFormat("HH:mm", "sk_SK").format(startDate ?? DateTime.now())),
-                              readOnly: true,
-                              decoration: const InputDecoration(
-                                labelText: "Čas začiatku",
-                              ),
-                              onTap: () => _displayTimeDialog(context, startDate ?? DateTime.now(), "start"),
-                            ),
-                          ),
-                        ],
-                      ),
-                      // End Date & Time
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: TextFormField(
-                              controller: TextEditingController(
-                                  text: DateFormat("E, d.M. yyyy", "sk_SK").format(endDate ?? DateTime.now())),
-                              readOnly: true,
-                              decoration: const InputDecoration(
-                                labelText: "Dátum konca",
-                              ),
-                              onTap: () => _displayDateDialog(context, endDate ?? DateTime.now(), "end"),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              controller: TextEditingController(
-                                  text: DateFormat("HH:mm", "sk_SK").format(endDate ?? DateTime.now())),
-                              readOnly: true,
-                              decoration: const InputDecoration(
-                                labelText: "Čas konca",
-                              ),
-                              onTap: () => _displayTimeDialog(context, endDate ?? DateTime.now(), "end"),
-                            ),
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 24),
-                      // Rich Text Editor (Quill)
+                      // Rich Text Section
                       QuillSimpleToolbar(
                         controller: _controller,
                         config: const QuillSimpleToolbarConfig(),

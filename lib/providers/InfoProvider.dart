@@ -4,24 +4,34 @@ import 'package:scenickazatva_app/models/InfoPost.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 
+/// Provider for managing general festival information (static content).
+/// Synchronizes with Firebase Realtime Database and supports administrative edits.
 class InfoProvider extends ChangeNotifier {
-  List<InfoPost> _info = [InfoPost()];
+  // List of informational posts (e.g., tickets, directions, about)
+  List<InfoPost> _info = [];
   bool loading = false;
   StreamSubscription<DatabaseEvent>? _infoSubscription;
   String? _currentFestivalId;
+  bool _canEdit = false;
 
   InfoProvider();
 
   List<InfoPost> get info => _info;
 
+  /// Updates local permission state from UserProvider
+  void updateFromUser(bool canEdit) {
+    _canEdit = canEdit;
+  }
+
+  /// Reacts to festival changes and updates the data stream
   void updateFromFestival(Festival festival) {
     if (_currentFestivalId != festival.id) {
-      debugPrint("InfoProvider: Festival changed to ${festival.id}, updating subscription.");
       _currentFestivalId = festival.id;
       _fetchInfo(festival.id);
     }
   }
 
+  /// Subscribes to info posts for the current festival
   void _fetchInfo(String festivalId) async {
     await _infoSubscription?.cancel();
     setLoading(true);
@@ -35,12 +45,11 @@ class InfoProvider extends ChangeNotifier {
     _infoSubscription = infodb.onValue.listen((DatabaseEvent event) {
       if (event.snapshot.exists) {
         try {
-          // Firebase returns a Map or List. If it's ordered, it might come back as a Map with keys.
           final data = event.snapshot.value;
           List<dynamic> list = [];
 
+          // Handle Map (keyed) vs List formats from Firebase
           if (data is Map) {
-            // Sort by keys if it's a map to maintain order
             var sortedKeys = data.keys.toList()..sort();
             for (var key in sortedKeys) {
               list.add(data[key]);
@@ -74,6 +83,73 @@ class InfoProvider extends ChangeNotifier {
     _info = list;
     setLoading(false);
     notifyListeners();
+  }
+
+  /// Updates an existing info post (authorized only)
+  Future<void> updateInfoPost(InfoPost post) async {
+    if (!_canEdit) {
+      debugPrint("Unauthorized info update attempt blocked");
+      return;
+    }
+    try {
+      setLoading(true);
+      if (_currentFestivalId != null && post.id.isNotEmpty) {
+        await FirebaseDatabase.instance
+            .ref("festivals/$_currentFestivalId/info/${post.id}")
+            .update(post.toJson());
+        debugPrint("Firebase info save success");
+      }
+    } catch (error) {
+      debugPrint("Firebase info update error: $error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /// Creates a new info post (authorized only)
+  Future<String?> createInfoPost(InfoPost post) async {
+    if (!_canEdit) {
+      debugPrint("Unauthorized info create attempt blocked");
+      return null;
+    }
+    try {
+      setLoading(true);
+      if (_currentFestivalId != null) {
+        DatabaseReference newRef = FirebaseDatabase.instance
+            .ref("festivals/$_currentFestivalId/info")
+            .push();
+        post.id = newRef.key ?? "";
+        await newRef.set(post.toJson());
+        debugPrint("Firebase info create success: ${post.id}");
+        return post.id;
+      }
+    } catch (error) {
+      debugPrint("Firebase info create error: $error");
+    } finally {
+      setLoading(false);
+    }
+    return null;
+  }
+
+  /// Deletes an info post (authorized only)
+  Future<void> deleteInfoPost(String postId) async {
+    if (!_canEdit) {
+      debugPrint("Unauthorized info delete attempt blocked");
+      return;
+    }
+    try {
+      setLoading(true);
+      if (_currentFestivalId != null && postId.isNotEmpty) {
+        await FirebaseDatabase.instance
+            .ref("festivals/$_currentFestivalId/info/$postId")
+            .remove();
+        debugPrint("Firebase info delete success");
+      }
+    } catch (error) {
+      debugPrint("Firebase info delete error: $error");
+    } finally {
+      setLoading(false);
+    }
   }
 
   @override

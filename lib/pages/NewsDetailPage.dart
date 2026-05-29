@@ -39,12 +39,14 @@ class NewsDetailPage extends StatelessWidget {
         news = allArticles
             .where((element) => (element.id.toString() == newsId))
             .toList()[0];
+        newsProvider.markAsRead(news.id);
         return news;
       } else if (GoRouterState.of(context).uri.toString().contains("news") &&
           allNews.map((element) => (element.id == newsId)).length > 0) {
         news = allNews
             .where((element) => (element.id.toString() == newsId))
             .toList()[0];
+        newsProvider.markAsRead(news.id);
         return news;
       } else
         return Future.error("No data yet.");
@@ -97,6 +99,10 @@ class NewsDetailPage extends StatelessWidget {
                               style: {
                                 "body": Style(
                                   fontSize: FontSize(Theme.of(context).textTheme.bodyLarge?.fontSize ?? 14.0),
+                                ),
+                                "a": Style(
+                                  color: Colors.blue,
+                                  textDecoration: TextDecoration.underline,
                                 ),
                                 "img": Style(
                                   width: Width(MediaQuery.of(context).size.width - 80),

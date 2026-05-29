@@ -1,13 +1,9 @@
-import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
+import 'package:scenickazatva_app/providers/UserProvider.dart';
 
-import 'package:scenickazatva_app/providers/FestivalProvider.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:provider/provider.dart';
 
@@ -17,113 +13,66 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  //final bool _running = true;
-  final _formKey = GlobalKey<FormState>();
+  //final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
   }
 
-  Future<Map<Object, Object>> getPushSettings() async {
-    DatabaseReference festivalsdb =
-        FirebaseDatabase.instance.ref("appsettings/festivals");
-    final festivals = await festivalsdb.get();
-    if (festivals.exists) {
-      final _uid = FirebaseAuth.instance.currentUser?.uid;
-      DatabaseReference usersdb =
-          FirebaseDatabase.instance.ref("users/$_uid/notifications");
-
-      final userSettings = await usersdb.get();
-
-      final _festivals = festivals.value as Map;
-      final _user = userSettings.value as Map;
-      Map<String, bool> _data = {};
-
-      _festivals.forEach((key, value) {
-        if (key != null) {
-          _data[key] = _user[key] != null ? _user[key] : true;
-        }
-      });
-      return _data;
-    } else {
-      print('No data in AppSettings');
-      return {};
-    }
-  }
-/*
-  Stream<Map<Object, Object>> _pushStream() async* {
-    while (_running) {
-      Map<Object, Object> _data = await getPushSettings();
-      yield _data;
-    }
-  }*/
-
-  Widget buildForm(BuildContext context, user){
-    String roleValue = "user";
-    return Container(
-        padding: EdgeInsets.all(45),
-        child: Form(
-            key: _formKey,
-            child: Column(children: <Widget>[
-                TextFormField(
-                  initialValue: user.displayName,
-                  decoration: const InputDecoration(
-                    icon: Icon(Icons.person),
-                    hintText: 'Ako ťa volajú?',
-                    labelText: 'Meno',
-                  ),
-                ),
-               DropdownButtonFormField(
-                  initialValue: roleValue,
-                  items: <String>["admin", "editor", "user"]
-                      .map<DropdownMenuItem<String>>((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(
-                        value,
-                        style: TextStyle(fontSize: 20),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) => setState(() {
-                      roleValue = newValue!;
-                    }),
-                ),
-            ])));
+  Widget _buildUserInfo(BuildContext context, User? user) {
+    if (user == null) return const SizedBox();
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, _) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Prihlásený ako:", style: Theme.of(context).textTheme.bodySmall),
+            Text(user.email ?? user.displayName ?? "Anonymný užívateľ", 
+                 style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text("UID: ${user.uid}", style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 8),
+            Text("Rola: ${userProvider.userData.userRole.isNotEmpty ? userProvider.userData.userRole : 'user'}",
+                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                   fontStyle: FontStyle.italic,
+                   color: Theme.of(context).colorScheme.primary,
+                   fontWeight: FontWeight.bold,
+                 )),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final providers = [EmailAuthProvider()];
-    final festivalProvider = Provider.of<FestivalProvider>(context);
-    final festival = festivalProvider.festival;
     final settingsProvider = Provider.of<AppSettingsProvider>(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: true,
         leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_ios,
-            ),
-            onPressed: () {
-              context.go("/");
-            }),
-        title: const Text(
-          "Nastavenia",
-        ),
+            icon: const Icon(Icons.arrow_back_ios),
+            onPressed: () => context.go("/")),
+        title: const Text("Nastavenia"),
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
             Card(
               child: Padding(
-                padding: EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text("Veľkosť písma", style: Theme.of(context).textTheme.displaySmall),
+                    Text("Vzhľad a písmo", style: Theme.of(context).textTheme.displaySmall),
+                    const SizedBox(height: 16),
+                    Text("Veľkosť písma", style: Theme.of(context).textTheme.titleMedium),
                     Row(
                       children: [
                         const Icon(Icons.text_fields, size: 16),
@@ -143,45 +92,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       ],
                     ),
                     const Divider(),
-                    if (kIsWeb) ...[
-                      Text("Konto", style: Theme.of(context).textTheme.displaySmall),
-                      SizedBox(
-                        height: 400, // Fixed height for profile section to coexist with other settings
-                        child: StreamBuilder(
-                          stream: FirebaseAuth.instance.authStateChanges(),
-                          initialData: FirebaseAuth.instance.currentUser,
-                          builder: (context, snapshot) {
-                            if (snapshot.hasData) {
-                              final user = snapshot.data;
-                              if (FirebaseAuth.instance.currentUser!.isAnonymous) {
-                                return SignInScreen(
-                                  providers: providers,
-                                  actions: [
-                                    AuthStateChangeAction<SignedIn>((context, state) {
-                                      Navigator.pushReplacementNamed(context, '/profile');
-                                    }),
-                                  ],
-                                );
-                              } else {
-                                return ProfileScreen(
-                                  providers: providers,
-                                  actions: [
-                                    SignedOutAction((context) {
-                                      Navigator.pushReplacementNamed(context, '/sign-in');
-                                    }),
-                                  ],
-                                  children: [buildForm(context, user)],
-                                );
-                              }
-                            } else {
-                              return const SizedBox();
-                            }
-                          },
-                        ),
-                      ),
-                      const Divider(),
-                    ],
-                    Text("Push notifikácie", style: Theme.of(context).textTheme.displaySmall),
+                    Text("Notifikácie", style: Theme.of(context).textTheme.displaySmall),
                     SwitchListTile(
                       title: const Text("Povoliť push notifikácie"),
                       subtitle: const Text(
@@ -191,8 +102,6 @@ class _SettingsPageState extends State<SettingsPage> {
                         settingsProvider.updateNotificationsEnabled(value);
                       },
                     ),
-                    const Divider(),
-                    Text("Pripomienky", style: Theme.of(context).textTheme.displaySmall),
                     SwitchListTile(
                       title: const Text("Pripomienky pre obľúbené"),
                       subtitle: const Text(
@@ -206,34 +115,100 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
             ),
+            const SizedBox(height: 24),
+            // Login Section - Visually different
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? Colors.blueGrey.withValues(alpha: 0.1) : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade300),
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Theme(
+                // Fix white on white buttons
+                data: Theme.of(context).copyWith(
+                  elevatedButtonTheme: ElevatedButtonThemeData(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary == Colors.white 
+                          ? const Color(0xffCCA965) 
+                          : Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  outlinedButtonTheme: OutlinedButtonThemeData(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? Colors.white : const Color(0xffCCA965),
+                      side: BorderSide(color: isDark ? Colors.white24 : const Color(0xffCCA965)),
+                    ),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.lock_person, color: isDark ? Colors.white70 : Colors.grey),
+                        const SizedBox(width: 8),
+                        Text("Správa konta", style: Theme.of(context).textTheme.displaySmall),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    StreamBuilder(
+                      stream: FirebaseAuth.instance.authStateChanges(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData && !snapshot.data!.isAnonymous) {
+                          final user = snapshot.data;
+                          return Column(
+                            children: [
+                              _buildUserInfo(context, user),
+                              SizedBox(
+                                height: 800, // Large enough to avoid internal scrollbar
+                                child: ProfileScreen(
+                                  providers: providers,
+                                  actions: [
+                                    SignedOutAction((context) {
+                                      context.go('/settings');
+                                    }),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        } else {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Na používanie aplikácie sa nepotrebujete prihlasovať. Po prihlásení sa vám uloží zoznam obľúbených položiek a budete si ho môcť zobraziť na každom zariadení, kde budete prihlásení.",
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontStyle: FontStyle.italic,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                height: 600, // Large enough for the sign up form
+                                child: SignInScreen(
+                                  providers: providers,
+                                  actions: [
+                                    AuthStateChangeAction<SignedIn>((context, state) {
+                                      context.go('/settings');
+                                    }),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-
-  void changeSubscription(topic, value) async {
-    final _uid = FirebaseAuth.instance.currentUser?.uid;
-    if (value == true) {
-      await FirebaseMessaging.instance.subscribeToTopic(topic);
-    } else {
-      await FirebaseMessaging.instance.unsubscribeFromTopic(topic);
-    }
-
-    DatabaseReference users = FirebaseDatabase.instance.ref("users/$_uid");
-    users.update({
-      "notifications/$topic": value,
-    }).then((_) {});
-  }
-/*
-  Widget _buildLoadingScreen() {
-    return Center(
-      child: Container(
-        width: 50,
-        height: 50,
-        child: CircularProgressIndicator(),
-      ),
-    );
-  }
- */
 }

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:scenickazatva_app/requests/WordPressService.dart';
 import 'package:wordpress_client/wordpress_client.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
+import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:hive_ce/hive.dart';
 
 class NewsProvider extends ChangeNotifier {
@@ -22,6 +23,8 @@ class NewsProvider extends ChangeNotifier {
   String? _currentFestivalId;
   String? _newsSrc;
   String? _magazineSrc;
+  int _lastNewsPostId = 0;
+  int _lastMagazinePostId = 0;
 
   NewsProvider() {
     _initReadArticles();
@@ -59,36 +62,54 @@ class NewsProvider extends ChangeNotifier {
   }
 
   void updateFromFestival(Festival festival) {
-    if (_currentFestivalId != festival.id) {
-      debugPrint("NewsProvider: Festival changed to ${festival.id}, clearing news.");
-      _currentFestivalId = festival.id;
-      _newsSrc = festival.news_src;
-      _magazineSrc = festival.magazine_src;
+    bool festivalChanged = _currentFestivalId != festival.id;
+    bool newsUpdated = _lastNewsPostId != festival.lastNewsPostId;
 
-      // Clear data when festival changes
-      _wpnews = [];
-      _wparticles = [];
-      _magazineCategories = [];
-      _selectedMagazineCategoryId = null;
-      newspage = 1;
-      magazinepage = 1;
-      allnews = false;
-      allarticles = false;
+    if (festivalChanged || newsUpdated) {
+      debugPrint("NewsProvider: Update triggered. Festival changed: $festivalChanged, News updated: $newsUpdated");
+      
+      if (festivalChanged) {
+        _currentFestivalId = festival.id;
+        _newsSrc = festival.news_src;
+        _magazineSrc = festival.magazine_src;
+
+        // Clear data when festival changes
+        _wpnews = [];
+        _wparticles = [];
+        _magazineCategories = [];
+        _selectedMagazineCategoryId = null;
+        newspage = 1;
+        magazinepage = 1;
+        allnews = false;
+        allarticles = false;
+      }
+
+      _lastNewsPostId = festival.lastNewsPostId;
       newsLoading = false;
       articlesLoading = false;
 
       notifyListeners();
 
-      // Initial fetch for new festival
-      fetchWpNews(refresh: false); // Initially try cache
-      fetchWpMagazine(refresh: false);
+      // Initial fetch for new festival or when news are updated
+      fetchWpNews(refresh: newsUpdated); 
+      fetchWpMagazine(refresh: false); // Magazine is global, handled separately
       fetchMagazineCategories();
     }
   }
 
-  Future<void> fetchWpNews({bool refresh = false}) async {
+  void updateFromSettings(AppSettings settings) {
+    if (_lastMagazinePostId != settings.lastMagazinePostId) {
+      debugPrint("NewsProvider: Magazine updated signal received.");
+      _lastMagazinePostId = settings.lastMagazinePostId;
+      fetchWpMagazine(refresh: true);
+    }
+  }
+
+  Future<void> fetchWpNews({bool refresh = false, bool fetchMore = false}) async {
     if (_newsSrc == null || _newsSrc!.isEmpty) return;
     if (newsLoading || (!refresh && allnews)) return;
+
+    if (!refresh && !fetchMore && _wpnews.isNotEmpty) return;
 
     setLoading("news_src", true);
     if (refresh) {
@@ -108,9 +129,11 @@ class NewsProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchWpMagazine({bool refresh = false}) async {
+  Future<void> fetchWpMagazine({bool refresh = false, bool fetchMore = false}) async {
     if (_magazineSrc == null || _magazineSrc!.isEmpty) return;
     if (articlesLoading || (!refresh && allarticles)) return;
+
+    if (!refresh && !fetchMore && _wparticles.isNotEmpty) return;
 
     setLoading("magazine_src", true);
     if (refresh) {
@@ -144,7 +167,9 @@ class NewsProvider extends ChangeNotifier {
   void setMagazineCategory(int? categoryId) {
     if (_selectedMagazineCategoryId != categoryId) {
       _selectedMagazineCategoryId = categoryId;
-      fetchWpMagazine(refresh: true);
+      magazinepage = 1;
+      allarticles = false;
+      fetchWpMagazine(refresh: false); // Try cache first for the category
       notifyListeners();
     }
   }

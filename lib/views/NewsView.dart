@@ -6,20 +6,21 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:lazy_load_scrollview/lazy_load_scrollview.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
+import 'package:scenickazatva_app/utils/StringUtils.dart';
 
 class NewsView extends StatefulWidget {
   @override
   _NewsViewState createState() => _NewsViewState();
 }
 
-class _NewsViewState extends State<NewsView> with TickerProviderStateMixin {
+class _NewsViewState extends State<NewsView> with AutomaticKeepAliveClientMixin {
 
-  static String stripHtml(String text) {
-    return text.replaceAll(RegExp(r'<[^>]*>|&[^;]+;'), ' ');
-  }
+  @override
+  bool get wantKeepAlive => true;
 
-
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     final NewsProvider newsProvider = Provider.of<NewsProvider>(context);
 
     return Stack(
@@ -44,7 +45,7 @@ class _NewsViewState extends State<NewsView> with TickerProviderStateMixin {
             children: <Widget>[
               Flexible(
                 child: LazyLoadScrollView(
-                  onEndOfPage: () => newsProvider.fetchWpNews(),
+                  onEndOfPage: () => newsProvider.fetchWpNews(fetchMore: true),
                   isLoading: newsProvider.newsLoading,
                   scrollOffset: 50,
                   child: RefreshIndicator(
@@ -64,11 +65,16 @@ class _NewsViewState extends State<NewsView> with TickerProviderStateMixin {
                                             item.title!.rendered!.replaceAll('&amp;', '&') ?? "",
                                             style: Theme.of(context).textTheme.titleMedium,
                                           ),
-                                          subtitle: Text(
-                                            stripHtml(item.excerpt!.rendered ?? "").length > 100
-                                                ? stripHtml(item.excerpt!.rendered ?? "").substring(1, 100) + "..."
-                                                : stripHtml(item.excerpt!.rendered ?? ""),
-                                            style: Theme.of(context).textTheme.bodyMedium,
+                                          subtitle: Builder(
+                                            builder: (context) {
+                                              final stripped = StringUtils.stripHtml(item.excerpt?.rendered ?? "");
+                                              return Text(
+                                                stripped.length > 100
+                                                    ? "${stripped.substring(0, 100)}..."
+                                                    : stripped,
+                                                style: Theme.of(context).textTheme.bodyMedium,
+                                              );
+                                            },
                                           ),
                                         ),
                                       ),

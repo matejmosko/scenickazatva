@@ -253,10 +253,11 @@ class MyApp extends StatelessWidget {
             return events..updateFromSettings(settings);
           },
         ),
-        ChangeNotifierProxyProvider<FestivalProvider, NewsProvider>(
+        ChangeNotifierProxyProvider2<FestivalProvider, AppSettingsProvider, NewsProvider>(
           create: (_) => NewsProvider(),
-          update: (context, festivalProvider, newsProvider) {
-            return newsProvider!..updateFromFestival(festivalProvider.festival);
+          update: (context, festivalProvider, settingsProvider, newsProvider) {
+            newsProvider!.updateFromSettings(settingsProvider.settings);
+            return newsProvider..updateFromFestival(festivalProvider.festival);
           },
         ),
         ChangeNotifierProxyProvider2<FestivalProvider, UserProvider, InfoProvider>(

@@ -14,6 +14,7 @@ class EventsProvider extends ChangeNotifier {
   
   // Events grouped by day for the calendar view
   Map<DateTime, List<Event>> _mappedEvents = {};
+  Map<DateTime, List<Event>> _filteredMappedEvents = {};
   
   // Flat list of all events for the current festival
   List<Event> _events = [];
@@ -22,6 +23,7 @@ class EventsProvider extends ChangeNotifier {
   List<Location> _venues = [];
   
   DateTime _selectedDay = DateTime.now();
+  String? _selectedLocationId;
   bool _loading = true;
   bool _canEdit = false;
 
@@ -36,22 +38,48 @@ class EventsProvider extends ChangeNotifier {
 
   // Getters
   DateTime get selectedDay => _selectedDay;
+  String? get selectedLocationId => _selectedLocationId;
   Map<DateTime, List> get mappedEvents => _mappedEvents;
+  Map<DateTime, List<Event>> get filteredMappedEvents => _filteredMappedEvents;
   List<Event> get events => _events;
   List<Location> get venues => _venues;
   bool get loading => _loading;
 
-  /// Returns events scheduled for the currently selected day in the calendar
+  /// Returns events scheduled for the currently selected day in the calendar,
+  /// respects the active location filter.
   List<Event> get selectedEvents {
     return _events.where((event) {
-      return event.startTime?.year == _selectedDay.year &&
+      final isDay = event.startTime?.year == _selectedDay.year &&
           event.startTime?.month == _selectedDay.month &&
           event.startTime?.day == _selectedDay.day;
+      
+      final isLocation = _selectedLocationId == null || event.location == _selectedLocationId;
+      
+      return isDay && isLocation;
     }).toList();
   }
 
   void setSelectedDay(DateTime day) {
     _selectedDay = day;
+    notifyListeners();
+  }
+
+  void setSelectedLocation(String? locationId) {
+    _selectedLocationId = locationId;
+    _updateFilteredMappedEvents();
+    notifyListeners();
+  }
+
+  void _updateFilteredMappedEvents() {
+    _filteredMappedEvents.clear();
+    for (var entry in _mappedEvents.entries) {
+      final filtered = entry.value.where((event) => 
+        _selectedLocationId == null || event.location == _selectedLocationId
+      ).toList();
+      if (filtered.isNotEmpty) {
+        _filteredMappedEvents[entry.key] = filtered;
+      }
+    }
   }
 
   /// Updates editing permissions based on the logged-in user's role
@@ -141,6 +169,7 @@ class EventsProvider extends ChangeNotifier {
 
     // Always keep events chronologically ordered
     _events.sort((a, b) => a.startTime!.compareTo(b.startTime!));
+    _updateFilteredMappedEvents();
     setLoading(false);
   }
 

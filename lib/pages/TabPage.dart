@@ -80,11 +80,8 @@ class _TabPageState extends State<TabPage> {
 
   @override
   Widget build(BuildContext context) {
-    final NewsProvider newsProvider = Provider.of<NewsProvider>(context);
-    final EventsProvider eventsProvider = Provider.of<EventsProvider>(context);
-    final InfoProvider infoProvider = Provider.of<InfoProvider>(context);
-    final FestivalProvider festivalProvider = Provider.of<FestivalProvider>(context, listen: false);
-    festival = festivalProvider.festival;
+    final festivalProvider = Provider.of<FestivalProvider>(context, listen: false);
+    final festival = festivalProvider.festival;
 
     return Scaffold(
       appBar: AppBar(
@@ -162,14 +159,14 @@ class _TabPageState extends State<TabPage> {
             },
           ),
           IconButton(
-            icon: Icon(Icons.favorite, color: Colors.white70),
+            icon: const Icon(Icons.favorite, color: Colors.white70),
             onPressed: () {
               Analytics().sendEvent("menu: favorites");
               context.go('/favorites');
             },
           ),
           IconButton(
-            icon: Icon(Icons.settings, color: Colors.white70),
+            icon: const Icon(Icons.settings, color: Colors.white70),
             onPressed: () {
               Analytics().sendEvent("menu: settings");
               context.go('/settings');
@@ -178,10 +175,12 @@ class _TabPageState extends State<TabPage> {
         ],
       ),
       body: Center(
-        child: buildPageView(newsProvider, eventsProvider, infoProvider),
+        child: buildPageView(null, null, null),
       ),
-      floatingActionButton: (kIsWeb && (_selectedIndex == 1 || _selectedIndex == 3) && context.watch<UserProvider>().canEdit)
-          ? FloatingActionButton(
+      floatingActionButton: Consumer<UserProvider>(
+        builder: (context, userProvider, _) {
+          if ((_selectedIndex == 1 || _selectedIndex == 3) && userProvider.canEdit) {
+            return FloatingActionButton(
               onPressed: () {
                 if (_selectedIndex == 1) {
                   context.go("/events/new/edit");
@@ -190,34 +189,44 @@ class _TabPageState extends State<TabPage> {
                 }
               },
               child: const Icon(Icons.add),
-            )
-          : null,
-      bottomNavigationBar: NavigationBar(
-          destinations: <Widget>[
-            NavigationDestination(
-              icon: Badge(
-                label: Text(newsProvider.unreadMagazineCount.toString()),
-                isLabelVisible: newsProvider.unreadMagazineCount > 0,
-                child: Icon(Icons.menu_book),
-              ),
-              label: 'javisko.sk',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.date_range),
-              label: festival.menuTitle,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.notifications),
-              label: 'Novinky',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.info),
-              label: 'Info',
-            ),
-          ],
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: (index) =>
-              _itemTapped(index, newsProvider, eventsProvider, infoProvider)),
+            );
+          }
+          return const SizedBox.shrink();
+        },
+      ),
+      bottomNavigationBar: Consumer<NewsProvider>(
+        builder: (context, newsProvider, _) {
+          return NavigationBar(
+              destinations: <Widget>[
+                NavigationDestination(
+                  icon: Badge(
+                    label: Text(newsProvider.unreadMagazineCount.toString()),
+                    isLabelVisible: newsProvider.unreadMagazineCount > 0,
+                    child: const Icon(Icons.menu_book),
+                  ),
+                  label: 'javisko.sk',
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.date_range),
+                  label: festival.menuTitle,
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.notifications),
+                  label: 'Novinky',
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.info),
+                  label: 'Info',
+                ),
+              ],
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (index) {
+                final eventsProvider = Provider.of<EventsProvider>(context, listen: false);
+                final infoProvider = Provider.of<InfoProvider>(context, listen: false);
+                _itemTapped(index, newsProvider, eventsProvider, infoProvider);
+              });
+        },
+      ),
     );
   }
 }

@@ -8,49 +8,64 @@ import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
 import 'package:wordpress_client/wordpress_client.dart' as wpclient;
 
-class NewsDetailPage extends StatelessWidget {
-  final newsId;
+class NewsDetailPage extends StatefulWidget {
+  final dynamic newsId;
 
   NewsDetailPage({required this.newsId});
+
+  @override
+  _NewsDetailPageState createState() => _NewsDetailPageState();
+}
+
+class _NewsDetailPageState extends State<NewsDetailPage> {
+  late Future<wpclient.Post> _articleFuture;
+  wpclient.Post? _article;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _articleFuture = _loadArticle();
+  }
+
+  Future<wpclient.Post> _loadArticle() async {
+    final NewsProvider newsProvider = Provider.of<NewsProvider>(context, listen: false);
+    List<wpclient.Post> allNews = newsProvider.wpnews;
+    List<wpclient.Post> allArticles = newsProvider.wparticles;
+    final String currentUri = GoRouterState.of(context).uri.toString();
+
+    wpclient.Post? found;
+
+    if (currentUri.contains("magazine")) {
+      final matches = allArticles.where((element) => element.id.toString() == widget.newsId.toString()).toList();
+      if (matches.isNotEmpty) {
+        found = matches[0];
+      }
+    } else if (currentUri.contains("news")) {
+      final matches = allNews.where((element) => element.id.toString() == widget.newsId.toString()).toList();
+      if (matches.isNotEmpty) {
+        found = matches[0];
+      }
+    }
+
+    if (found != null) {
+      _article = found;
+      // Schedule markAsRead to avoid calling notifyListeners during build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          newsProvider.markAsRead(found!.id);
+        }
+      });
+      return found;
+    } else {
+      throw "No data yet.";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    wpclient.Post news = wpclient.Post(
-      id: 0,
-      slug: "",
-      status: wpclient.getContentStatusFromValue(null),
-      link: "",
-      author: 0,
-      commentStatus: wpclient.getStatusFromValue(null),
-      pingStatus: wpclient.getStatusFromValue(null),
-      sticky: false,
-      format: wpclient.getFormatFromValue(null),
-      self: {},
-    );
-
-    var title = GoRouterState.of(context).uri.toString().contains("news") ? "Festivalové novinky" : "javisko.sk";
-
-    Future<wpclient.Post> getArticle() async {
-      final NewsProvider newsProvider = Provider.of<NewsProvider>(context);
-      List<wpclient.Post> allNews = newsProvider.wpnews;
-      List<wpclient.Post> allArticles = newsProvider.wparticles;
-
-      if (GoRouterState.of(context).uri.toString().contains("magazine") &&
-          allArticles.map((element) => (element.id == newsId)).length > 0) {
-        news = allArticles
-            .where((element) => (element.id.toString() == newsId))
-            .toList()[0];
-        newsProvider.markAsRead(news.id);
-        return news;
-      } else if (GoRouterState.of(context).uri.toString().contains("news") &&
-          allNews.map((element) => (element.id == newsId)).length > 0) {
-        news = allNews
-            .where((element) => (element.id.toString() == newsId))
-            .toList()[0];
-        newsProvider.markAsRead(news.id);
-        return news;
-      } else
-        return Future.error("No data yet.");
-    }
+    var title = GoRouterState.of(context).uri.toString().contains("news") 
+        ? "Festivalové novinky" 
+        : "javisko.sk";
 
     return Scaffold(
       appBar: AppBar(
@@ -69,31 +84,38 @@ class NewsDetailPage extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: FutureBuilder(
-            future: getArticle(),
+        child: FutureBuilder<wpclient.Post>(
+            future: _articleFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.waiting &&
-                  !snapshot.hasError) {
+                  !snapshot.hasError && snapshot.hasData) {
+                final news = snapshot.data!;
                 return ListView(
                   children: [
                     Container(
                       constraints: BoxConstraints(minHeight: 200, minWidth: double.infinity, maxHeight: 500),
                       child: CachedNetworkImage(
-                      imageUrl: news.featuredImageSourceUrl(),
-                      placeholder: (context, url) =>
-                          Image.asset('assets/images/icon512.png'),
-                      errorWidget: (context, url, error) =>
-                          Image.asset('assets/images/icon512.png'),
-                    ),),
+                        imageUrl: news.featuredImageSourceUrl(),
+                        placeholder: (context, url) =>
+                            Image.asset('assets/images/icon512.png'),
+                        errorWidget: (context, url, error) =>
+                            Image.asset('assets/images/icon512.png'),
+                      ),
+                    ),
                     Card(
                       child: Column(
                         children: <Widget>[
-                          Text("${news.title!.rendered!.replaceAll('&amp;', '&')}",
-                              style: Theme.of(context).textTheme.displayLarge),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              "${news.title?.rendered?.replaceAll('&amp;', '&') ?? ''}",
+                              style: Theme.of(context).textTheme.displayLarge,
+                            ),
+                          ),
                           Padding(
                             padding: const EdgeInsets.all(12),
                             child: Html(
-                              data: news.content!.rendered,
+                              data: news.content?.rendered ?? '',
                               onLinkTap: (url, map, element) =>
                                   SystemServices().launchURL(url!),
                               style: {
@@ -117,10 +139,9 @@ class NewsDetailPage extends StatelessWidget {
                                     minScale: 1.0,
                                     maxScale: 2.0,
                                     child: CachedNetworkImage(
-                                          imageUrl: element.src,
-                                          //fit: BoxFit.fill,
-                                          alignment: Alignment.center,
-                                        ),
+                                      imageUrl: element.src,
+                                      alignment: Alignment.center,
+                                    ),
                                   );
                                 }),
                               ],
@@ -131,13 +152,16 @@ class NewsDetailPage extends StatelessWidget {
                     ),
                   ],
                 );
-              } else
-                return Row(children: [
-                  Text(
+              } else if (snapshot.hasError) {
+                return Center(child: Text("Článok sa nepodarilo načítať"));
+              } else {
+                return Center(
+                  child: Text(
                     "...",
                     style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
                   ),
-                ]);
+                );
+              }
             }),
       ),
     );

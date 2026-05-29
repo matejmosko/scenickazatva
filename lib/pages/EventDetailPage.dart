@@ -185,7 +185,7 @@ class EventDetailPage extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: (kIsWeb == true && context.watch<UserProvider>().canEdit)
+      floatingActionButton: (context.watch<UserProvider>().canEdit)
           ? FloatingActionButton(
               onPressed: () {
                 context.go("/events/" + event.id + "/edit");

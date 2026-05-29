@@ -59,6 +59,9 @@ class Festival {
   @HiveField(18)
   String id;
 
+  @HiveField(19)
+  int lastNewsPostId;
+
   Festival({
     this.endDate,
     this.startDate,
@@ -79,6 +82,7 @@ class Festival {
     this.logo = "gs://scenickazatva-343517.appspot.com/default.png",
     this.background = "gs://scenickazatva-343517.appspot.com/default.png",
     this.id = "default",
+    this.lastNewsPostId = 0,
   });
 
   factory Festival.fromJson(Map<String, dynamic> json, {String? id}) {
@@ -120,6 +124,7 @@ class Festival {
       logo: json['logo'] ?? "gs://scenickazatva-343517.appspot.com/default.png",
       background: json['background'] ?? "gs://scenickazatva-343517.appspot.com/default.png",
       id: id ?? json['id'] ?? "default",
+      lastNewsPostId: json['lastNewsPostId'] ?? 0,
     );
   }
 
@@ -144,6 +149,7 @@ class Festival {
       'logo': logo,
       'background': background,
       'id': id,
+      'lastNewsPostId': lastNewsPostId,
     };
   }
 }

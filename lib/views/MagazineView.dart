@@ -4,8 +4,10 @@ import 'package:scenickazatva_app/providers/NewsProvider.dart';
 import 'package:lazy_load_scrollview/lazy_load_scrollview.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:scenickazatva_app/providers/FestivalProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
+import 'package:scenickazatva_app/utils/StringUtils.dart';
 
 class MagazineView extends StatefulWidget {
 
@@ -14,13 +16,14 @@ class MagazineView extends StatefulWidget {
 }
 
 class _MagazineViewState extends State<MagazineView>
-    with TickerProviderStateMixin {
+    with AutomaticKeepAliveClientMixin {
 
-  static String stripHtml(String text) {
-    return text.replaceAll(RegExp(r'<[^>]*>|&[^;]+;'), ' ');
-  }
+  @override
+  bool get wantKeepAlive => true;
 
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     final NewsProvider newsProvider = Provider.of<NewsProvider>(context);
 
 
@@ -40,43 +43,14 @@ class _MagazineViewState extends State<MagazineView>
         ),
         AnimatedOpacity(
           opacity: 1.0,
-          duration: Duration(milliseconds: 500),
+          duration: const Duration(milliseconds: 500),
           child: Container(
               child: Column(
             children: <Widget>[
               if (newsProvider.magazineCategories.isNotEmpty)
-                Container(
-                  height: 60,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: newsProvider.magazineCategories.length + 1,
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                          child: ChoiceChip(
-                            label: Text("Všetky"),
-                            selected: newsProvider.selectedMagazineCategoryId == null,
-                            onSelected: (selected) {
-                              newsProvider.setMagazineCategory(null);
-                            },
-                          ),
-                        );
-                      }
-                      final category = newsProvider.magazineCategories[index - 1];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: ChoiceChip(
-                          label: Text(category.name ?? ""),
-                          selected: newsProvider.selectedMagazineCategoryId == category.id,
-                          onSelected: (selected) {
-                            newsProvider.setMagazineCategory(selected ? category.id : null);
-                          },
-                        ),
-                      );
-                    },
-                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
+                  child: _buildCategoryDropdown(context),
                 ),
               if (newsProvider.unreadMagazineCount > 0)
                 Padding(
@@ -101,7 +75,7 @@ class _MagazineViewState extends State<MagazineView>
               Flexible(
                 child: LazyLoadScrollView(
                   onEndOfPage: () =>
-                      newsProvider.fetchWpMagazine(),
+                      newsProvider.fetchWpMagazine(fetchMore: true),
                   isLoading: newsProvider.articlesLoading,
                   scrollOffset: 50,
                   child: RefreshIndicator(
@@ -140,11 +114,16 @@ class _MagazineViewState extends State<MagazineView>
                                             ],
                                           ),
                                           isThreeLine: true,
-                                          subtitle: Text(
-                                            stripHtml(item.excerpt!.rendered ?? "").length > 100
-                                                ? stripHtml(item.excerpt!.rendered ?? "").substring(1, 100) + "..."
-                                                : stripHtml(item.excerpt!.rendered ?? ""),
-                                            style: Theme.of(context).textTheme.bodyMedium,
+                                          subtitle: Builder(
+                                            builder: (context) {
+                                              final stripped = StringUtils.stripHtml(item.excerpt?.rendered ?? "");
+                                              return Text(
+                                                stripped.length > 100
+                                                    ? "${stripped.substring(0, 100)}..."
+                                                    : stripped,
+                                                style: Theme.of(context).textTheme.bodyMedium,
+                                              );
+                                            },
                                           ),
                                         ),
                                       ),
@@ -201,6 +180,39 @@ class _MagazineViewState extends State<MagazineView>
           )),
         )
       ],
+    );
+  }
+
+  Widget _buildCategoryDropdown(BuildContext context) {
+    final newsProvider = Provider.of<NewsProvider>(context);
+    final festivalProvider = Provider.of<FestivalProvider>(context, listen: false);
+
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<int?>(
+        value: newsProvider.selectedMagazineCategoryId,
+        isExpanded: true,
+        style: TextStyle(
+          color: festivalProvider.foregroundColor,
+          fontSize: 14,
+          fontFamily: 'Space Grotesk',
+        ),
+        hint: const Text("Všetky kategórie"),
+        items: [
+          const DropdownMenuItem<int?>(
+            value: null,
+            child: Text("Všetky kategórie"),
+          ),
+          ...newsProvider.magazineCategories.map((category) {
+            return DropdownMenuItem<int?>(
+              value: category.id,
+              child: Text(category.name ?? ""),
+            );
+          }).toList(),
+        ],
+        onChanged: (int? value) {
+          newsProvider.setMagazineCategory(value);
+        },
+      ),
     );
   }
 }

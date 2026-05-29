@@ -10,6 +10,7 @@ import 'package:firebase_cached_image/firebase_cached_image.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:markdown/markdown.dart' as MD;
 import 'package:go_router/go_router.dart';
+import 'package:scenickazatva_app/utils/StringUtils.dart';
 
 class CalendarView extends StatefulWidget {
   CalendarView({Key? key, this.title = ""}) : super(key: key);
@@ -19,7 +20,10 @@ class CalendarView extends StatefulWidget {
   _CalendarViewState createState() => _CalendarViewState();
 }
 
-class _CalendarViewState extends State<CalendarView> with TickerProviderStateMixin {
+class _CalendarViewState extends State<CalendarView> with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   CalendarFormat _calendarFormat = CalendarFormat.week;
   DateTime? _selectedDay;
   DateTime? _focusedDay;
@@ -41,7 +45,7 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
   List<dynamic> _fetchEvents(DateTime day) {
     // listen: false is required here because it's called during build
     final eventsProvider = Provider.of<EventsProvider>(context, listen: false);
-    return eventsProvider.events.where((event) => isSameDay(event.startTime, day)).toList();
+    return eventsProvider.filteredMappedEvents[DateTime(day.year, day.month, day.day)] ?? [];
   }
 
   @override
@@ -61,6 +65,7 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final festivalProvider = Provider.of<FestivalProvider>(context);
     final fest = festivalProvider.festival;
 
@@ -79,10 +84,11 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
       children: <Widget>[
         _buildTableCalendarWithBuilders(festivalProvider, fest),
         Container(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              Expanded(child: _buildLocationDropdown()),
+              const SizedBox(width: 8),
               Text(
                 "Iba obľúbené",
                 style: TextStyle(
@@ -188,6 +194,49 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
     );
   }
 
+  Widget _buildLocationDropdown() {
+    final eventsProvider = Provider.of<EventsProvider>(context);
+    if (eventsProvider.venues.isEmpty) return const SizedBox.shrink();
+
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<String?>(
+        value: eventsProvider.selectedLocationId,
+        isExpanded: true,
+        style: TextStyle(
+          color: Provider.of<FestivalProvider>(context, listen: false).foregroundColor,
+          fontSize: 14,
+          fontFamily: 'Space Grotesk',
+        ),
+        hint: const Text("Všetky miesta"),
+        items: [
+          const DropdownMenuItem<String?>(
+            value: null,
+            child: Text("Všetky miesta"),
+          ),
+          ...eventsProvider.venues.map((venue) {
+            return DropdownMenuItem<String?>(
+              value: venue.id,
+              child: Row(
+                children: [
+                  Icon(
+                    eventsProvider.getLocationIcon(venue.id),
+                    size: 18,
+                    color: eventsProvider.getLocationColor(venue.id),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(child: Text(venue.displayName, overflow: TextOverflow.ellipsis)),
+                ],
+              ),
+            );
+          }).toList(),
+        ],
+        onChanged: (String? value) {
+          eventsProvider.setSelectedLocation(value);
+        },
+      ),
+    );
+  }
+
   Widget _buildEventsMarker(int count, FestivalProvider fp) {
     return Container(
       width: 16, height: 16,
@@ -200,7 +249,7 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
     final eventsProvider = Provider.of<EventsProvider>(context);
     final userProvider = Provider.of<UserProvider>(context);
     
-    var filteredEvents = eventsProvider.events.where((e) => isSameDay(e.startTime, _selectedDay)).toList();
+    var filteredEvents = eventsProvider.selectedEvents;
 
     if (_showFavoritesOnly) {
       filteredEvents = filteredEvents.where((e) => userProvider.isFavorite(festival.id, e.id)).toList();
@@ -308,19 +357,11 @@ class EventListItem extends StatelessWidget {
                   ),
                   LimitedBox(
                     maxHeight: 70,
-                    child: Html(
-                      data: MD.markdownToHtml(event.description ?? ''),
-                      style: {
-                        "body": Style(
-                          fontSize: FontSize(Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14.0),
-                          margin: Margins.zero,
-                          padding: HtmlPaddings.zero,
-                        ),
-                        "a": Style(
-                          color: Colors.blue,
-                          textDecoration: TextDecoration.underline,
-                        ),
-                      },
+                    child: Text(
+                      StringUtils.stripHtml(event.description ?? ""),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
                 ],

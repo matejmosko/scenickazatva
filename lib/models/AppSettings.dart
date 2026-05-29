@@ -19,12 +19,16 @@ class AppSettings {
   @HiveField(4)
   bool remindersEnabled = true;
 
+  @HiveField(5)
+  int lastMagazinePostId = 0;
+
   AppSettings({
     this.defaultfestival = "sutaze",
     this.festivals = const {},
     this.fontSizeFactor = 1.0,
     this.notificationsEnabled = true,
     this.remindersEnabled = true,
+    this.lastMagazinePostId = 0,
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -52,6 +56,7 @@ class AppSettings {
       fontSizeFactor: (json['fontSizeFactor'] ?? 1.0).toDouble(),
       notificationsEnabled: json['notificationsEnabled'] ?? true,
       remindersEnabled: json['remindersEnabled'] ?? true,
+      lastMagazinePostId: json['lastMagazinePostId'] ?? 0,
     );
   }
 
@@ -62,6 +67,7 @@ class AppSettings {
       'fontSizeFactor': fontSizeFactor,
       'notificationsEnabled': notificationsEnabled,
       'remindersEnabled': remindersEnabled,
+      'lastMagazinePostId': lastMagazinePostId,
     };
   }
 }

@@ -68,7 +68,7 @@ class InfoDetailPage extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: (kIsWeb && context.watch<UserProvider>().canEdit)
+      floatingActionButton: (context.watch<UserProvider>().canEdit)
           ? FloatingActionButton(
               onPressed: () => context.go("/info/${info.id}/edit"),
               child: const Icon(Icons.edit),

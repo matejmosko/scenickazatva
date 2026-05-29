@@ -67,15 +67,28 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
     final festivalProvider = Provider.of<FestivalProvider>(context);
     final fest = festivalProvider.festival;
 
-    // Safety: If the app opens and 'today' is outside the festival,
-    // focus on the festival start date instead.
+
+    // 1. Detect if our local state needs to adjust to the new festival bounds
+    bool dayChanged = false;
+
     if (fest.startDate != null && _focusedDay!.isBefore(fest.startDate!) && !isSameDay(_focusedDay, fest.startDate)) {
       _focusedDay = fest.startDate;
       _selectedDay = fest.startDate;
+      dayChanged = true;
     }
     else if (fest.endDate != null && _focusedDay!.isAfter(fest.endDate!) && !isSameDay(_focusedDay, fest.endDate)) {
-      _focusedDay = fest.startDate; // Or fest.endDate
+      _focusedDay = fest.startDate;
       _selectedDay = fest.startDate;
+      dayChanged = true;
+    }
+
+    // 2. Fix: If the day changed due to a festival switch, sync it to the EventsProvider safely
+    if (dayChanged && _selectedDay != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Provider.of<EventsProvider>(context, listen: false).setSelectedDay(_selectedDay!);
+        }
+      });
     }
 
     return Column(

@@ -169,7 +169,7 @@ class NewsProvider extends ChangeNotifier {
       _selectedMagazineCategoryId = categoryId;
       magazinepage = 1;
       allarticles = false;
-      fetchWpMagazine(refresh: false); // Try cache first for the category
+      fetchWpMagazine(refresh: true); // Try cache first for the category
       notifyListeners();
     }
   }

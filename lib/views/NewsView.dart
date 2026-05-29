@@ -83,7 +83,7 @@ class _NewsViewState extends State<NewsView> with AutomaticKeepAliveClientMixin 
                                         height: 120.0,
                                        child: CachedNetworkImage(
                                           //item['_embedded'][0]['wp:featuredimage']['source_url'] ?? "",
-                                          imageUrl: item.featuredImageSourceUrl(),
+                                          imageUrl:  item.featuredImageSourceUrl() ,
                                           fit: BoxFit.cover,
                                           height: double.infinity,
                                           width: double.infinity,

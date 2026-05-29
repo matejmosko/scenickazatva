@@ -66,7 +66,7 @@ class Festival {
     this.endDate,
     this.startDate,
     this.magazine_src = "https://javisko.sk/wp-json/wp/v2/posts?per_page=20&order=desc&",
-    this.news_src = "https://www.scenickazatva.eu/2025/wp-json/wp/v2/posts?per_page=20&order=desc&",
+    this.news_src = "",
     this.subtitle = "Národné osvetové centrum",
     this.title = "Festivaly NOC",
     this.menuTitle = "Festivaly",

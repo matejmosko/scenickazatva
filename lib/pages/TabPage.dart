@@ -54,13 +54,13 @@ class _TabPageState extends State<TabPage> {
       int index, newsProvider, eventsProvider, infoProvider) async {
 
     if (index == 2) {
-      newsProvider.fetchWpNews();
+     // newsProvider.fetchWpNews();
     } else if (index == 1) {
       // Events are updated automatically via ProxyProvider
     } else if (index == 3) {
       // Info is updated automatically via ProxyProvider
     } else if (index == 0) {
-      newsProvider.fetchWpMagazine();
+      //newsProvider.fetchWpMagazine();
     }
 
     setState(() {

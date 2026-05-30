@@ -112,12 +112,15 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
                           minHeight: 200,
                           minWidth: double.infinity,
                           maxHeight: 500),
-                      child: CachedNetworkImage(
-                        imageUrl: news.featuredImageSourceUrl(),
-                        placeholder: (context, url) =>
-                            Image.asset('assets/images/icon512.png'),
-                        errorWidget: (context, url, error) =>
-                            Image.asset('assets/images/icon512.png'),
+                      child: Semantics(
+                        label: "Hlavný obrázok článku",
+                        child: CachedNetworkImage(
+                          imageUrl: news.featuredImageSourceUrl(),
+                          placeholder: (context, url) =>
+                              Image.asset('assets/images/icon512.png'),
+                          errorWidget: (context, url, error) =>
+                              Image.asset('assets/images/icon512.png'),
+                        ),
                       ),
                     ),
                     Card(
@@ -160,13 +163,16 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
                                 ImageExtension(builder: (extensionContext) {
                                   final element = extensionContext.styledElement
                                       as ImageElement;
-                                  return InteractiveViewer(
-                                    boundaryMargin: const EdgeInsets.all(20.0),
-                                    minScale: 1.0,
-                                    maxScale: 2.0,
-                                    child: CachedNetworkImage(
-                                      imageUrl: element.src,
-                                      alignment: Alignment.center,
+                                  return Semantics(
+                                    label: element.alt ?? "Obrázok k článku",
+                                    child: InteractiveViewer(
+                                      boundaryMargin: const EdgeInsets.all(20.0),
+                                      minScale: 1.0,
+                                      maxScale: 2.0,
+                                      child: CachedNetworkImage(
+                                        imageUrl: element.src,
+                                        alignment: Alignment.center,
+                                      ),
                                     ),
                                   );
                                 }),

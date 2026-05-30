@@ -24,13 +24,15 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       fontSizeFactor: fields[2] == null ? 1.0 : fields[2] as double,
       notificationsEnabled: fields[3] == null ? true : fields[3] as bool,
       remindersEnabled: fields[4] == null ? true : fields[4] as bool,
+      lastMagazinePostId: fields[5] == null ? 0 : fields[5] as int,
+      interceptLinks: fields[6] == null ? true : fields[6] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.defaultfestival)
       ..writeByte(1)
@@ -40,7 +42,11 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(3)
       ..write(obj.notificationsEnabled)
       ..writeByte(4)
-      ..write(obj.remindersEnabled);
+      ..write(obj.remindersEnabled)
+      ..writeByte(5)
+      ..write(obj.lastMagazinePostId)
+      ..writeByte(6)
+      ..write(obj.interceptLinks);
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
@@ -38,11 +39,24 @@ class AppSettingsProvider extends ChangeNotifier {
         // If we have a valid-looking ID from Hive, we can mark as initialized
         if (_settings.defaultfestival.isNotEmpty && _settings.defaultfestival != "sutaze") {
            _initialized = true;
+           
+           // Sync link interception state with native on startup
+           _syncInterceptLinksNative();
+           
            notifyListeners();
         }
       }
     } catch (e) {
       debugPrint("DEBUG: Hive error: $e");
+    }
+  }
+
+  void _syncInterceptLinksNative() {
+    const platform = MethodChannel('sk.panakrala.scenickazatva/settings');
+    try {
+      platform.invokeMethod('setInterceptLinks', {"enabled": _settings.interceptLinks});
+    } catch (e) {
+      debugPrint("Error syncing interceptLinks with native: $e");
     }
   }
 
@@ -101,6 +115,9 @@ class AppSettingsProvider extends ChangeNotifier {
         // Save to Hive for next startup
         final prefs = await Preferences.getInstance();
         await prefs.saveAppSettings(_settings);
+
+        // Sync link interception state with native
+        _syncInterceptLinksNative();
 
         _initialized = true;
         notifyListeners();
@@ -174,6 +191,28 @@ class AppSettingsProvider extends ChangeNotifier {
           .ref("users/${user.uid}/settings")
           .update({"remindersEnabled": enabled});
     }
+    notifyListeners();
+  }
+
+  void updateInterceptLinks(bool enabled) {
+    _settings.interceptLinks = enabled;
+    Preferences.getInstance().then((prefs) => prefs.saveAppSettings(_settings));
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      FirebaseDatabase.instance
+          .ref("users/${user.uid}/settings")
+          .update({"interceptLinks": enabled});
+    }
+
+    // Call native code to enable/disable the intent filter
+    const platform = MethodChannel('sk.panakrala.scenickazatva/settings');
+    try {
+      platform.invokeMethod('setInterceptLinks', {"enabled": enabled});
+    } catch (e) {
+      debugPrint("Error calling native setInterceptLinks: $e");
+    }
+
     notifyListeners();
   }
 

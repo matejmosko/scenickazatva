@@ -120,6 +120,17 @@ class _SettingsPageState extends State<SettingsPage> {
                         settingsProvider.updateRemindersEnabled(value);
                       },
                     ),
+                    const Divider(),
+                    Text("Pokročilé", style: Theme.of(context).textTheme.displaySmall),
+                    SwitchListTile(
+                      title: const Text("Otvárať linky z javisko.sk v apke."),
+                      subtitle: const Text(
+                          'Ak je zapnuté, odkazy na javisko.sk sa budú otvárať priamo v aplikácii.'),
+                      value: settingsProvider.settings.interceptLinks,
+                      onChanged: (bool value) {
+                        settingsProvider.updateInterceptLinks(value);
+                      },
+                    ),
                   ],
                 ),
               ),

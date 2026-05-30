@@ -5,6 +5,7 @@ import 'package:scenickazatva_app/models/Event.dart';
 import 'package:scenickazatva_app/models/Location.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 
 /// Provider responsible for fetching, storing and managing festival events.
 /// Handles real-time synchronization with Firebase and role-based editing permissions.
@@ -171,6 +172,10 @@ class EventsProvider extends ChangeNotifier {
 
     // Always keep events chronologically ordered
     _events.sort((a, b) => a.startTime!.compareTo(b.startTime!));
+    
+    // Precache event images
+    ImagePrecacheService().precacheFirebaseImages(_events);
+
     _updateFilteredMappedEvents();
     setLoading(false);
   }

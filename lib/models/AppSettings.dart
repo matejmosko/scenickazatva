@@ -22,6 +22,9 @@ class AppSettings {
   @HiveField(5)
   int lastMagazinePostId = 0;
 
+  @HiveField(6)
+  bool interceptLinks = true;
+
   AppSettings({
     this.defaultfestival = "sutaze",
     this.festivals = const {},
@@ -29,6 +32,7 @@ class AppSettings {
     this.notificationsEnabled = true,
     this.remindersEnabled = true,
     this.lastMagazinePostId = 0,
+    this.interceptLinks = true,
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -57,6 +61,7 @@ class AppSettings {
       notificationsEnabled: json['notificationsEnabled'] ?? true,
       remindersEnabled: json['remindersEnabled'] ?? true,
       lastMagazinePostId: json['lastMagazinePostId'] ?? 0,
+      interceptLinks: json['interceptLinks'] ?? true,
     );
   }
 
@@ -68,6 +73,7 @@ class AppSettings {
       'notificationsEnabled': notificationsEnabled,
       'remindersEnabled': remindersEnabled,
       'lastMagazinePostId': lastMagazinePostId,
+      'interceptLinks': interceptLinks,
     };
   }
 }

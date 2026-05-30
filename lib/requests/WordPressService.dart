@@ -4,6 +4,7 @@ import 'package:wordpress_client/wordpress_client.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:http_cache_hive_store/http_cache_hive_store.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:scenickazatva_app/utils/StringUtils.dart';
 
 /// Service for fetching news and magazine articles from WordPress REST APIs.
 /// Features multi-site support, automatic caching, and offline access.
@@ -60,7 +61,7 @@ class WordPressService {
 
   /// Fetches a paginated list of posts from the specified WordPress URL.
   /// Automatically parses and preserves filters (like categories or tags) from the input URL.
-  Future<List<Post>> fetchWpNews(String url, int page, bool refresh, {int? categoryId}) async {
+  Future<List<Post>> fetchWpNews(String url, int page, bool refresh, {int? categoryId, String? search}) async {
     if (url.isEmpty) return [];
     
     try {
@@ -93,10 +94,9 @@ class WordPressService {
           perPage = int.tryParse(value) ?? 20;
         } else if (key == 'order') {
           order = value.toLowerCase() == 'asc' ? Order.asc : Order.desc;
-        } else if (key == 'page') {
-          // Ignored here, we use the function parameter
+        } else if (key == 'page' || key == 'search') {
+          // Ignored here, we use the function parameters
         } else if (key == '_embed' && (value == "" || value == "1")) {
-          // Keep standard embed behavior
           extra[key] = 'true';
         } else {
           extra[key] = value;
@@ -108,25 +108,18 @@ class WordPressService {
         extra['_embed'] = 'true';
       }
 
+      if (categoryId != null && categoryId != 0) {
+        categories.add(categoryId);
+      }
+
       var request = ListPostRequest(
           page: page,
           perPage: perPage,
           order: order,
+          search: search != null ? StringUtils.removeDiacritics(search.trim()) : null,
+          categories: categories.isNotEmpty ? categories : null,
           extra: extra
       );
-
-      if (categoryId != null && categoryId != "") {
-        categories.add(categoryId);
-        debugPrint("DEBUG: added category:" + categories[0].toString());
-        request = ListPostRequest(
-            page: page,
-            perPage: perPage,
-            categories: categories,
-            order: order,
-            extra: extra
-        );
-        categories = [];
-      }
 
       // 3. Execute
       final wpResponse = await client.posts.list(request);

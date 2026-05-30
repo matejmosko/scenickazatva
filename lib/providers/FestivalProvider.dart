@@ -3,6 +3,7 @@ import 'package:flutter/material.dart'; // Change dart:ui to material for more f
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/HivePreferences.dart';
+import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 
 class FestivalProvider extends ChangeNotifier {
   Festival _festival = Festival();
@@ -32,6 +33,10 @@ class FestivalProvider extends ChangeNotifier {
     if (settings.festivals.containsKey(activeId)) {
       _festival = settings.festivals[activeId]!;
       loading = false;
+      
+      // Precache festival logo
+      ImagePrecacheService().precacheFirebaseImage(_festival.logo);
+      
       notifyListeners();
     }
   }
@@ -40,6 +45,10 @@ class FestivalProvider extends ChangeNotifier {
     try {
       Preferences prefs = await Preferences.getInstance();
       _festival = prefs.getFestival();
+      
+      // Precache festival logo
+      ImagePrecacheService().precacheFirebaseImage(_festival.logo);
+
       notifyListeners();
     } catch (e) {
       debugPrint("Error loading festival from Hive: $e");

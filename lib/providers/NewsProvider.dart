@@ -4,6 +4,7 @@ import 'package:wordpress_client/wordpress_client.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 
 class NewsProvider extends ChangeNotifier {
   List<Post> _wpnews = [];
@@ -16,6 +17,9 @@ class NewsProvider extends ChangeNotifier {
   bool allarticles = false;
   int newspage = 1;
   int magazinepage = 1;
+
+  String? _newsSearchQuery;
+  String? _magazineSearchQuery;
 
   Set<int> _readArticleIds = {};
   Box? _readArticlesBox;
@@ -42,6 +46,8 @@ class NewsProvider extends ChangeNotifier {
   List<Category> get magazineCategories => _magazineCategories;
   int? get selectedMagazineCategoryId => _selectedMagazineCategoryId;
   int get unreadMagazineCount => _wparticles.where((p) => !_readArticleIds.contains(p.id)).length;
+  String? get newsSearchQuery => _newsSearchQuery;
+  String? get magazineSearchQuery => _magazineSearchQuery;
 
   bool isRead(int? id) => id == null || _readArticleIds.contains(id);
 
@@ -118,7 +124,7 @@ class NewsProvider extends ChangeNotifier {
     }
 
     try {
-      final data = await WordPressService().fetchWpNews(_newsSrc!, newspage, refresh);
+      final data = await WordPressService().fetchWpNews(_newsSrc!, newspage, refresh, search: _newsSearchQuery);
       if (data.isEmpty) {
         allnews = true;
       }
@@ -142,7 +148,7 @@ class NewsProvider extends ChangeNotifier {
     }
 
     try {
-      final data = await WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, categoryId: _selectedMagazineCategoryId);
+      final data = await WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, categoryId: _selectedMagazineCategoryId, search: _magazineSearchQuery);
       if (data.isEmpty) {
         allarticles = true;
       }
@@ -150,6 +156,20 @@ class NewsProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint("Error fetching WP magazine: $e");
       setLoading("magazine_src", false);
+    }
+  }
+
+  void setNewsSearchQuery(String? query) {
+    if (_newsSearchQuery != query) {
+      _newsSearchQuery = query;
+      fetchWpNews(refresh: true);
+    }
+  }
+
+  void setMagazineSearchQuery(String? query) {
+    if (_magazineSearchQuery != query) {
+      _magazineSearchQuery = query;
+      fetchWpMagazine(refresh: true);
     }
   }
 
@@ -193,6 +213,10 @@ class NewsProvider extends ChangeNotifier {
       _wparticles.addAll(list);
       magazinepage++;
     }
+    
+    // Precache news images
+    ImagePrecacheService().precacheWpImages(list);
+
     setLoading(category, false);
   }
 }

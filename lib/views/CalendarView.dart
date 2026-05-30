@@ -10,6 +10,8 @@ import 'package:firebase_cached_image/firebase_cached_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/utils/StringUtils.dart';
 
+// Calendar view displays data from EventsProvider in a calendar. It observes all Providers to be able to do that.
+
 class CalendarView extends StatefulWidget {
   CalendarView({Key? key, this.title = ""}) : super(key: key);
   final String title;

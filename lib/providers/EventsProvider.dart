@@ -98,6 +98,8 @@ class EventsProvider extends ChangeNotifier {
       if (newFestivalId.isNotEmpty && (newFestivalId != _lastFetchedId || (_events.isEmpty && !_loading))) {
         _lastFetchedId = newFestivalId;
 
+        setSelectedLocation(null);
+
         Future.microtask(() {
           fetchAllEvents(newFestivalId);
           fetchLocations(newFestivalId);

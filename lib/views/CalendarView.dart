@@ -68,7 +68,7 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
     super.build(context);
     final festivalProvider = Provider.of<FestivalProvider>(context);
     final fest = festivalProvider.festival;
-
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // 1. Detect if our local state needs to adjust to the new festival bounds
     bool dayChanged = false;
@@ -105,13 +105,13 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
               Text(
                 "Iba obľúbené",
                 style: TextStyle(
-                  color: festivalProvider.foregroundColor.withValues(alpha: 0.7),
+                  color: isDark ? Colors.white54 : Colors.black,
                   fontSize: 12,
                 ),
               ),
               Switch(
                 value: _showFavoritesOnly,
-                activeThumbColor: festivalProvider.festivalForegroundColor,
+                activeThumbColor: isDark ? Colors.white54 : Colors.black,
                 onChanged: (val) {
                   setState(() {
                     _showFavoritesOnly = val;
@@ -209,14 +209,16 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
 
   Widget _buildLocationDropdown() {
     final eventsProvider = Provider.of<EventsProvider>(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (eventsProvider.venues.isEmpty) return const SizedBox.shrink();
+
 
     return DropdownButtonHideUnderline(
       child: DropdownButton<String?>(
         value: eventsProvider.selectedLocationId,
         isExpanded: true,
         style: TextStyle(
-          color: Provider.of<FestivalProvider>(context, listen: false).foregroundColor,
+          color: isDark ? Colors.white54 : Colors.black,
           fontSize: 14,
           fontFamily: 'Space Grotesk',
         ),
@@ -393,7 +395,8 @@ class EventListItem extends StatelessWidget {
       child: Image(
         image: FirebaseImageProvider(FirebaseUrl(imageUrl.isNotEmpty ? imageUrl : fallbackUrl)),
         fit: BoxFit.cover,
-        errorBuilder: (context, _, __) => Image(image: FirebaseImageProvider(FirebaseUrl(fallbackUrl))),
+        errorBuilder: (context, _, __) => Image(image: FirebaseImageProvider(FirebaseUrl(fallbackUrl)),errorBuilder:(context, _, __) => Image.asset(
+            'assets/images/icon512.png')),
       ),
     );
   }

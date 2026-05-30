@@ -136,14 +136,7 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
                               data: news.content?.rendered ?? '',
                               onLinkTap: (url, map, element) {
                                 if (url != null) {
-                                  // 1. Check if the URL points to a PDF file
-                                  if (url.toLowerCase().endsWith('.pdf')) {
-                                    // Open in external browser/app so the device handles the PDF download/viewing
-                                    SystemServices().launchURL(url, forceExternal: true);
-                                  } else {
-                                    // Fallback for regular web articles
-                                    SystemServices().launchURL(url);
-                                  }
+                                  SystemServices().launchURL(url);
                                 }
                               },
                               style: {

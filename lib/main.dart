@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -175,6 +176,11 @@ class MyApp extends StatelessWidget {
         iconTheme: IconThemeData(color: lightColor),
         backgroundColor: darkColor,
         foregroundColor: lightColor,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        ),
         titleTextStyle: const TextStyle(
           fontFamily: 'Space Grotesk',
           fontSize: 20.0,

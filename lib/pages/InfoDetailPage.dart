@@ -62,8 +62,11 @@ class InfoDetailPage extends StatelessWidget {
                     padding: EdgeInsets.all(12),
                     child: Html(
                       data: MD.markdownToHtml(info.description),
-                      onLinkTap: (url, map, element) =>
-                          SystemServices().launchURL(url!),
+                      onLinkTap: (url, map, element) {
+                        if (url != null) {
+                          SystemServices().launchURL(url);
+                        }
+                      },
                       style: {
                         "a": Style(
                           color: Colors.blue,

@@ -174,8 +174,11 @@ class EventDetailPage extends StatelessWidget {
                         padding: EdgeInsets.all(12),
                         child: Html(
                           data: MD.markdownToHtml(event.description),
-                          onLinkTap: (url, map, element) =>
-                              SystemServices().launchURL(url!),
+                          onLinkTap: (url, map, element) {
+                            if (url != null) {
+                              SystemServices().launchURL(url);
+                            }
+                          },
                           style: {
                             "body": Style(
                               fontSize: FontSize(Theme.of(context).textTheme.bodyLarge?.fontSize ?? 14.0),

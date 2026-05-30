@@ -1,3 +1,4 @@
+import 'package:scenickazatva_app/utils/TimeUtils.dart';
 
 class Event {
   String id = "";
@@ -26,13 +27,13 @@ class Event {
     DateTime? parseDateTime(dynamic value) {
       if (value is! String) return null;
       try {
-        DateTime dt = DateTime.parse(value);
-        // We always want to treat the time from the database as the "wall-clock" time.
-        // If it's UTC, we convert it to local with the same hour/minute to avoid shifts.
-        if (dt.isUtc) {
-          return DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.millisecond, dt.microsecond);
-        }
-        return dt;
+        final match = RegExp(r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})').firstMatch(value);
+        if (match == null) return null;
+        
+        String cleanValue = match.group(1)!;
+        DateTime naive = DateTime.parse(cleanValue);
+
+        return TimeUtils.toUtc(naive);
       } catch (e) {
         return null;
       }
@@ -69,14 +70,23 @@ class Event {
   }
 
   Map<String, dynamic> toJson() {
+    String? formatDateTime(DateTime? dt) {
+      if (dt == null) return null;
+      
+      final festivalTime = TimeUtils.fromUtc(dt);
+      
+      // Produce a string like "2025-08-27T19:00:00.000" (no 'Z' or offset)
+      return festivalTime.toIso8601String().split(RegExp(r'Z|[+-]'))[0];
+    }
+
     return {
       'id': id,
       'title': title,
       'description': description,
       'location': location,
       'type': type,
-      'startTime': startTime?.toIso8601String(),
-      'endTime': endTime?.toIso8601String(),
+      'startTime': formatDateTime(startTime),
+      'endTime': formatDateTime(endTime),
       'image': image,
       'artist': artist
     };

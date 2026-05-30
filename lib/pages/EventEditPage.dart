@@ -12,6 +12,8 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_quill_delta_from_html/flutter_quill_delta_from_html.dart';
 import 'package:vsc_quill_delta_to_html/vsc_quill_delta_to_html.dart';
 import 'package:firebase_cached_image/firebase_cached_image.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:scenickazatva_app/utils/TimeUtils.dart';
 
 /// Page for editing existing events or creating new ones.
 /// Restricted to users with admin or editor roles.
@@ -55,12 +57,15 @@ class EventEditPageState extends State<EventEditPage> {
       }
 
       // 2. Initialize data
+      final location = TimeUtils.festivalLocation;
+      
       if (_isNew) {
+        final nowFestival = tz.TZDateTime.now(location);
         edited = Event(
           id: "",
           title: "",
-          startTime: DateTime.now(),
-          endTime: DateTime.now().add(const Duration(hours: 1)),
+          startTime: nowFestival,
+          endTime: nowFestival.add(const Duration(hours: 1)),
         );
         startDate = edited.startTime;
         endDate = edited.endTime;
@@ -73,10 +78,11 @@ class EventEditPageState extends State<EventEditPage> {
             );
 
         if (foundEvent != null) {
-          // Clone the event to avoid editing the global state directly
+          // Clone the event
           edited = foundEvent.copy();
-          startDate = edited.startTime;
-          endDate = edited.endTime;
+          // Convert the UTC stored in the model to Prague time for the UI
+          startDate = TimeUtils.fromUtc(edited.startTime!);
+          endDate = TimeUtils.fromUtc(edited.endTime!);
 
           // Convert HTML description to Quill Delta
           if (edited.description.isNotEmpty) {
@@ -104,6 +110,7 @@ class EventEditPageState extends State<EventEditPage> {
 
   /// Displays time picker and updates local state
   Future<void> _displayTimeDialog(BuildContext context, DateTime iniTime, String field) async {
+    final location = TimeUtils.festivalLocation;
     final TimeOfDay? time = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.fromDateTime(iniTime),
@@ -111,10 +118,10 @@ class EventEditPageState extends State<EventEditPage> {
     if (time != null) {
       setState(() {
         if (field == "start") {
-          startDate = DateTime(iniTime.year, iniTime.month, iniTime.day,
+          startDate = tz.TZDateTime(location, iniTime.year, iniTime.month, iniTime.day,
               time.hour, time.minute);
         } else if (field == "end") {
-          endDate = DateTime(iniTime.year, iniTime.month, iniTime.day,
+          endDate = tz.TZDateTime(location, iniTime.year, iniTime.month, iniTime.day,
               time.hour, time.minute);
         }
       });
@@ -123,6 +130,7 @@ class EventEditPageState extends State<EventEditPage> {
 
   /// Displays date picker and updates local state
   Future<void> _displayDateDialog(BuildContext context, DateTime iniDate, String field) async {
+    final location = TimeUtils.festivalLocation;
     final DateTime? date = await showDatePicker(
         context: context,
         initialDate: iniDate,
@@ -133,11 +141,11 @@ class EventEditPageState extends State<EventEditPage> {
     if (date != null) {
       setState(() {
         if (field == "start") {
-          startDate = DateTime(
-              date.year, date.month, date.day, iniDate.hour, iniDate.minute);
+          startDate = tz.TZDateTime(
+              location, date.year, date.month, date.day, iniDate.hour, iniDate.minute);
         } else if (field == "end") {
-          endDate = DateTime(
-              date.year, date.month, date.day, iniDate.hour, iniDate.minute);
+          endDate = tz.TZDateTime(
+              location, date.year, date.month, date.day, iniDate.hour, iniDate.minute);
         }
       });
     }

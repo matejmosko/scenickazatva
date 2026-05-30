@@ -9,6 +9,8 @@ import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:firebase_cached_image/firebase_cached_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/utils/StringUtils.dart';
+import 'package:scenickazatva_app/utils/TimeUtils.dart';
+import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 
 // Calendar view displays data from EventsProvider in a calendar. It observes all Providers to be able to do that.
 
@@ -292,7 +294,9 @@ class EventListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final startTime = DateFormat("HH:mm").format(event.startTime);
+    final festivalStart = TimeUtils.fromUtc(event.startTime);
+    
+    final startTime = DateFormat("HH:mm").format(festivalStart);
     final location = event.location ?? '';
     final now = DateTime.now();
     final playing = event.startTime.isBefore(now) && event.endTime.isAfter(now);
@@ -391,12 +395,23 @@ class EventListItem extends StatelessWidget {
 
   Widget _buildImage(String imageUrl, String fallbackUrl) {
     return SizedBox(
-      width: 120, height: 120,
-      child: Image(
-        image: FirebaseImageProvider(FirebaseUrl(imageUrl.isNotEmpty ? imageUrl : fallbackUrl)),
-        fit: BoxFit.cover,
-        errorBuilder: (context, _, __) => Image(image: FirebaseImageProvider(FirebaseUrl(fallbackUrl)),errorBuilder:(context, _, __) => Image.asset(
-            'assets/images/icon512.png')),
+      width: 120,
+      height: 120,
+      child: FutureBuilder<bool>(
+        future: imageUrl.isNotEmpty ? ImagePrecacheService().doesImageExist(imageUrl) : Future.value(false),
+        builder: (context, snapshot) {
+          final bool exists = snapshot.data ?? (ImagePrecacheService().checkCache(imageUrl) ?? false);
+          final String effectiveUrl = exists ? imageUrl : fallbackUrl;
+
+          return Image(
+            image: FirebaseImageProvider(FirebaseUrl(effectiveUrl)),
+            fit: BoxFit.cover,
+            errorBuilder: (context, _, __) => Image(
+              image: FirebaseImageProvider(FirebaseUrl(fallbackUrl)),
+              errorBuilder: (context, _, __) => Image.asset('assets/images/icon512.png'),
+            ),
+          );
+        },
       ),
     );
   }

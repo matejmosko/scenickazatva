@@ -11,6 +11,8 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:markdown/markdown.dart' as MD;
 import 'package:go_router/go_router.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:scenickazatva_app/utils/TimeUtils.dart';
+import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 
 class EventDetailPage extends StatelessWidget {
   final eventId;
@@ -29,13 +31,15 @@ class EventDetailPage extends StatelessWidget {
 
     final startDate = event.startTime != null
         ? new DateFormat("E, d.M.", "sk_SK")
-            .format(event.startTime!)
+            .format(TimeUtils.fromUtc(event.startTime!))
         : '';
     final startTime = event.startTime != null
-        ? new DateFormat("HH:mm").format(event.startTime!)
+        ? new DateFormat("HH:mm")
+            .format(TimeUtils.fromUtc(event.startTime!))
         : '';
     final endTime = event.endTime != null
-        ? "\n${new DateFormat("HH:mm").format(event.endTime!)}"
+        ? "\n${new DateFormat("HH:mm")
+            .format(TimeUtils.fromUtc(event.endTime!))}"
         : '';
 
     if (event.id == "") {
@@ -98,29 +102,28 @@ class EventDetailPage extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: event.type == "OFF" ? festivalProvider.offProgramColor : festivalProvider.mainProgramColor,
                 ),
-                child: event.image != ""
-                  ? Image(
-                image: FirebaseImageProvider(FirebaseUrl(event.image)),
-                fit: BoxFit.cover,
-                height: 300,
-                width: double.infinity,
-                errorBuilder: (BuildContext context, Object exception,
-                    StackTrace? stackTrace) {
-                  return Image(
-                    image:
-                    FirebaseImageProvider(FirebaseUrl(festival.logo)),
-                    fit: BoxFit.cover,
-                    height: 300,
-                    width: double.infinity,
-                  );
-                },
-              )
-                  : Image(
-                image: FirebaseImageProvider(FirebaseUrl(festival.logo)),
-                fit: BoxFit.cover,
-                height: 300,
-                width: double.infinity,
-              ),
+                child: FutureBuilder<bool>(
+                  future: event.image.isNotEmpty ? ImagePrecacheService().doesImageExist(event.image) : Future.value(false),
+                  builder: (context, snapshot) {
+                    final bool exists = snapshot.data ?? (ImagePrecacheService().checkCache(event.image) ?? false);
+                    final String effectiveUrl = exists ? event.image : festival.logo;
+
+                    return Image(
+                      image: FirebaseImageProvider(FirebaseUrl(effectiveUrl)),
+                      fit: BoxFit.cover,
+                      height: 300,
+                      width: double.infinity,
+                      errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+                        return Image(
+                          image: FirebaseImageProvider(FirebaseUrl(festival.logo)),
+                          fit: BoxFit.cover,
+                          height: 300,
+                          width: double.infinity,
+                        );
+                      },
+                    );
+                  },
+                ),
             ),
             ),
             Card(

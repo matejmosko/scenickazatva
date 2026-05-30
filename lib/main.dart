@@ -31,6 +31,7 @@ import 'package:scenickazatva_app/requests/NotificationService.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:timezone/data/latest.dart' as tz;
 
 final _router = GoRouter(
     routes: [
@@ -112,12 +113,19 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  tz.initializeTimeZones();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   if (!kIsWeb) {
     FirebaseDatabase.instance.setPersistenceEnabled(true);
+    
+    // Handle local notification taps
+    NotificationService().onNotificationTap = (String payload) {
+      _router.push(payload);
+    };
+
     await NotificationService().init();
     
     // Subscribe to global topics for new articles

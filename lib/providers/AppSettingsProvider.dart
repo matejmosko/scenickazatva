@@ -4,12 +4,17 @@ import 'package:flutter/services.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
+import 'package:scenickazatva_app/models/Ad.dart';
+import 'package:scenickazatva_app/models/Event.dart' as model;
 import 'package:scenickazatva_app/models/HivePreferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AppSettingsProvider extends ChangeNotifier {
   AppSettings _settings = AppSettings();
   StreamSubscription<DatabaseEvent>? _settingsSubscription;
+  final Map<String, StreamSubscription<DatabaseEvent>> _eventSubscriptions = {};
+  final Map<String, List<model.Event>> _liveEventsByFestival = {};
+
   bool _initialized = false;
   List<Festival> _allFestivals = [];
   List<Festival> get allFestivals => _allFestivals;
@@ -19,6 +24,29 @@ class AppSettingsProvider extends ChangeNotifier {
   String get defaultfestival => _settings.defaultfestival;
   bool get isInitialized => _initialized;
 
+  Map<String, List<model.Event>> get liveEventsByFestival => _liveEventsByFestival;
+
+  List<Ad> get activeAds => _settings.ads.where((ad) => ad.show).toList();
+
+  List<MapEntry<Festival, model.Event>> get currentlyPlayingEvents {
+    final now = DateTime.now();
+    final List<MapEntry<Festival, model.Event>> live = [];
+
+    for (final fest in _allFestivals) {
+      final events = _liveEventsByFestival[fest.id];
+      if (events != null) {
+        for (final event in events) {
+          if (event.startTime != null &&
+              event.endTime != null &&
+              event.startTime!.isBefore(now) &&
+              event.endTime!.isAfter(now)) {
+            live.add(MapEntry(fest, event));
+          }
+        }
+      }
+    }
+    return live;
+  }
 
   AppSettingsProvider() {
     debugPrint("DEBUG: AppSettingsProvider constructor started");
@@ -101,6 +129,8 @@ class AppSettingsProvider extends ChangeNotifier {
         // Update _allFestivals from the master settings object which contains full metadata
         _allFestivals = _settings.festivals.values.toList();
         _allFestivals.sort((a, b) => (b.startDate ?? DateTime(0)).compareTo(a.startDate ?? DateTime(0)));
+
+        _updateEventSubscriptions();
 
         // If the selected ID (like "sutaze") doesn't exist in our list of festivals,
 // we must change it to a valid one to prevent the Dropdown from crashing.
@@ -238,9 +268,59 @@ class AppSettingsProvider extends ChangeNotifier {
     return result;
   }
 
+  void _updateEventSubscriptions() {
+    final now = DateTime.now();
+    final activeFestivalIds = _allFestivals
+        .where((f) =>
+            f.startDate != null &&
+            f.endDate != null &&
+            now.isAfter(f.startDate!.subtract(const Duration(days: 1))) &&
+            now.isBefore(f.endDate!.add(const Duration(days: 2))))
+        .map((f) => f.id)
+        .toSet();
+
+    // Cancel subscriptions for festivals no longer active
+    final toRemove = _eventSubscriptions.keys.where((id) => !activeFestivalIds.contains(id)).toList();
+    for (final id in toRemove) {
+      _eventSubscriptions[id]?.cancel();
+      _eventSubscriptions.remove(id);
+      _liveEventsByFestival.remove(id);
+    }
+
+    // Start subscriptions for newly active festivals
+    for (final id in activeFestivalIds) {
+      if (!_eventSubscriptions.containsKey(id)) {
+        final ref = FirebaseDatabase.instance.ref("festivals/$id/events");
+        _eventSubscriptions[id] = ref.onValue.listen((event) {
+          final Object? rawData = event.snapshot.value;
+          if (rawData != null) {
+            Iterable? items;
+            if (rawData is Map) {
+              items = rawData.values;
+            } else if (rawData is List) {
+              items = rawData;
+            }
+
+            if (items != null) {
+              final List<model.Event> fetchedEvents = items
+                  .where((e) => e != null)
+                  .map((e) => model.Event.fromJson(Map<String, dynamic>.from(e as Map)))
+                  .toList();
+              _liveEventsByFestival[id] = fetchedEvents;
+              notifyListeners();
+            }
+          }
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
     _settingsSubscription?.cancel();
+    for (final sub in _eventSubscriptions.values) {
+      sub.cancel();
+    }
     super.dispose();
   }
 }

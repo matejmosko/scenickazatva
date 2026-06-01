@@ -7,6 +7,7 @@ import 'package:firebase_cached_image/firebase_cached_image.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/utils/StringUtils.dart';
+import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 
 class InfoView extends StatefulWidget {
   @override
@@ -56,7 +57,7 @@ class _InfoViewState extends State<InfoView> with AutomaticKeepAliveClientMixin 
                               IconData(item.icon, fontFamily: 'MaterialIcons')),
                           subtitle: Text(
                             StringUtils.stripHtml(item.description),
-                            style: Theme.of(context).textTheme.bodyMedium,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14.0),
                             overflow: TextOverflow.fade,
                             maxLines: 2,
                           ),
@@ -96,10 +97,19 @@ class _InfoViewState extends State<InfoView> with AutomaticKeepAliveClientMixin 
                 width: 80,
                 height: 80,
                 margin: const EdgeInsets.only(right: 16),
-                child: Image(
-                  image: FirebaseImageProvider(FirebaseUrl(fest.logo)),
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.festival, size: 40),
+                child: FutureBuilder<bool>(
+                  future: ImagePrecacheService().doesImageExist(fest.logo),
+                  builder: (context, snapshot) {
+                    final exists = snapshot.data ?? (ImagePrecacheService().checkCache(fest.logo) ?? false);
+                    if (!exists) {
+                      return const Icon(Icons.festival, size: 40);
+                    }
+                    return Image(
+                      image: FirebaseImageProvider(FirebaseUrl(fest.logo)),
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.festival, size: 40),
+                    );
+                  },
                 ),
               ),
             Expanded(

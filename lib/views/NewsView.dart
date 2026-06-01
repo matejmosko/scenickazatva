@@ -105,7 +105,7 @@ class _NewsViewState extends State<NewsView> with AutomaticKeepAliveClientMixin 
                                                   stripped.length > 100
                                                       ? "${stripped.substring(0, 100)}..."
                                                       : stripped,
-                                                  style: Theme.of(context).textTheme.bodyMedium,
+                                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14.0),
                                                 );
                                               },
                                             ),

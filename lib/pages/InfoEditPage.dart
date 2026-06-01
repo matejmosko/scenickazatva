@@ -10,6 +10,7 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_quill_delta_from_html/flutter_quill_delta_from_html.dart';
 import 'package:vsc_quill_delta_to_html/vsc_quill_delta_to_html.dart';
 import 'package:firebase_cached_image/firebase_cached_image.dart';
+import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 
 /// Page for managing festival-specific information posts.
 /// Only accessible by users with editing privileges.
@@ -246,10 +247,18 @@ class InfoEditPageState extends State<InfoEditPage> {
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(4),
-                                child: Image(
-                                  image: FirebaseImageProvider(FirebaseUrl(edited.image)),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline),
+                                child: FutureBuilder<bool>(
+                                  future: ImagePrecacheService().doesImageExist(edited.image),
+                                  builder: (context, snapshot) {
+                                    final exists = snapshot.data ?? (ImagePrecacheService().checkCache(edited.image) ?? false);
+                                    if (!exists) return const Icon(Icons.image_not_supported, color: Colors.grey);
+
+                                    return Image(
+                                      image: FirebaseImageProvider(FirebaseUrl(edited.image)),
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline),
+                                    );
+                                  },
                                 ),
                               ),
                             ),

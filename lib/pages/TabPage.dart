@@ -84,79 +84,67 @@ class _TabPageState extends State<TabPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _selectedIndex == 0
-              ? "javisko.sk"
-              : _selectedIndex == 1
-              ? "Program"
-              : _selectedIndex == 2
-              ? "Festník"
-              : _selectedIndex == 3
-              ? "Info"
-              : "Festival",
-        ),
-        actions: <Widget>[
-          // --- FESTIVAL SELECTOR DROPDOWN ---
-          Consumer<AppSettingsProvider>(
-            builder: (context, settings, child) {
-              if (settings.allFestivals.isEmpty) return const SizedBox();
-              return DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  dropdownColor: Theme.of(context).primaryColor,
-
-                  // Bind the text color of the selected item and items in the menu
-                  style: const TextStyle(
-                    fontFamily: 'Space Grotesk',
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
-                  value: settings.allFestivals.any((f) => f.id == settings.defaultfestival)
-                      ? settings.defaultfestival
-                      : (settings.allFestivals.isNotEmpty ? settings.allFestivals.first.id : null),
-                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-
-                  // This builds the widget inside the AppBar when closed
-                  selectedItemBuilder: (context) {
-                    return settings.allFestivals.map((f) {
-                      return Center(
-                        child: Text(
-                          // Use the active festival title from the provider if IDs match
-                          // This acts as a secondary buffer against empty titles in the list
-                          (f.id == settings.defaultfestival && festivalProvider.festival.title.isNotEmpty)
-                              ? festivalProvider.festival.title
-                              : (f.title.isEmpty ? f.id : f.title),
-                          style: const TextStyle(
-                              fontFamily: 'Space Grotesk',
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold),
-                        ),
-                      );
-                    }).toList();
-                  },
-                  // This builds the list of choices when opened
-                  items: settings.allFestivals.map((f) {
-                    return DropdownMenuItem<String>(
-                      value: f.id,
-                      child: Text(
-                        (f.title.isEmpty) ? f.id : f.title,
-                        style: TextStyle(
-                          fontFamily: 'Space Grotesk',
-                          fontSize: 14,
-                          // Use theme onSurface color for adaptive support
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
+        title: _selectedIndex == 0
+            ? const Text("javisko.sk")
+            : Consumer<AppSettingsProvider>(
+                builder: (context, settings, child) {
+                  if (settings.allFestivals.isEmpty) return const Text("javisko.sk");
+                  return DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      dropdownColor: Theme.of(context).primaryColor,
+                      style: const TextStyle(
+                        fontFamily: 'Space Grotesk',
+                        color: Colors.white,
+                        fontSize: 16,
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (String? newId) {
-                    if (newId != null) {
-                      settings.changeFestival(newId);
-                    }
-                  },
-                ),
-              );
-            },
-          ),
+                      value: settings.allFestivals.any((f) => f.id == settings.defaultfestival)
+                          ? settings.defaultfestival
+                          : (settings.allFestivals.isNotEmpty ? settings.allFestivals.first.id : null),
+                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                      selectedItemBuilder: (context) {
+                        return settings.allFestivals.map((f) {
+                          return Center(
+                            child: Text(
+                              (f.id == settings.defaultfestival && festivalProvider.festival.title.isNotEmpty)
+                                  ? festivalProvider.festival.title
+                                  : (f.title.isEmpty ? f.id : f.title),
+                              style: const TextStyle(
+                                  fontFamily: 'Space Grotesk',
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          );
+                        }).toList();
+                      },
+                      items: settings.allFestivals.map((f) {
+                        return DropdownMenuItem<String>(
+                          value: f.id,
+                          child: Text(
+                            (f.title.isEmpty) ? f.id : f.title,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontFamily: 'Space Grotesk',
+                              fontSize: 14,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (String? newId) {
+                        if (newId != null) {
+                          settings.changeFestival(newId);
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
+        actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.favorite, color: Colors.white70),
             onPressed: () {

@@ -3,11 +3,13 @@
 // Check in to version control
 
 import 'package:hive_ce/hive_ce.dart';
+import 'package:scenickazatva_app/models/Ad.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 
 extension HiveRegistrar on HiveInterface {
   void registerAdapters() {
+    registerAdapter(AdAdapter());
     registerAdapter(AppSettingsAdapter());
     registerAdapter(FestivalAdapter());
   }
@@ -15,6 +17,7 @@ extension HiveRegistrar on HiveInterface {
 
 extension IsolatedHiveRegistrar on IsolatedHiveInterface {
   void registerAdapters() {
+    registerAdapter(AdAdapter());
     registerAdapter(AppSettingsAdapter());
     registerAdapter(FestivalAdapter());
   }

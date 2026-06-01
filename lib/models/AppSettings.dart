@@ -1,4 +1,5 @@
 import 'package:scenickazatva_app/models/Festival.dart';
+import 'package:scenickazatva_app/models/Ad.dart';
 import 'package:hive_ce/hive.dart';
 part 'AppSettings.g.dart';
 
@@ -25,6 +26,9 @@ class AppSettings {
   @HiveField(6)
   bool interceptLinks = true;
 
+  @HiveField(7)
+  List<Ad> ads = [];
+
   AppSettings({
     this.defaultfestival = "sutaze",
     this.festivals = const {},
@@ -33,6 +37,7 @@ class AppSettings {
     this.remindersEnabled = true,
     this.lastMagazinePostId = 0,
     this.interceptLinks = true,
+    this.ads = const [],
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -53,6 +58,14 @@ class AppSettings {
       });
     }
 
+    // Handle ads
+    List<Ad> adsList = [];
+    if (json['ads'] is List) {
+      adsList = (json['ads'] as List)
+          .map((item) => Ad.fromJson(Map<String, dynamic>.from(item as Map)))
+          .toList();
+    }
+
     return AppSettings(
       // 3. Fix the null check at caret
       defaultfestival: json['defaultfestival']?.toString() ?? "sutaze",
@@ -62,6 +75,7 @@ class AppSettings {
       remindersEnabled: json['remindersEnabled'] ?? true,
       lastMagazinePostId: json['lastMagazinePostId'] ?? 0,
       interceptLinks: json['interceptLinks'] ?? true,
+      ads: adsList,
     );
   }
 
@@ -74,6 +88,7 @@ class AppSettings {
       'remindersEnabled': remindersEnabled,
       'lastMagazinePostId': lastMagazinePostId,
       'interceptLinks': interceptLinks,
+      'ads': ads.map((ad) => ad.toJson()).toList(),
     };
   }
 }

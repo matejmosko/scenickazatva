@@ -14,51 +14,77 @@ import 'package:flutter/scheduler.dart';
 import 'package:scenickazatva_app/utils/TimeUtils.dart';
 import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 
-class EventDetailPage extends StatelessWidget {
-  final eventId;
+class EventDetailPage extends StatefulWidget {
+  final String eventId;
 
   EventDetailPage({required this.eventId});
 
   @override
+  _EventDetailPageState createState() => _EventDetailPageState();
+}
+
+class _EventDetailPageState extends State<EventDetailPage> {
+  bool _isRedirecting = false;
+
+  @override
   Widget build(BuildContext context) {
-    EventsProvider eventsProvider =
-        Provider.of<EventsProvider>(context, listen: false);
-    List<Event> events = eventsProvider.events;
-    Event event = Event();
-    if (events.where((element) => (element.id == eventId)).length > 0) {
-      event = events.where((element) => (element.id == eventId)).toList()[0];
+    // 1. Listen to EventsProvider for updates and loading state
+    final eventsProvider = context.watch<EventsProvider>();
+    
+    // 2. If loading, show a loading indicator instead of prematurely redirecting
+    if (eventsProvider.loading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final events = eventsProvider.events;
+    Event? event;
+    final found = events.where((element) => (element.id == widget.eventId));
+    if (found.isNotEmpty) {
+      event = found.first;
+    }
+
+    // 3. Robust redirect logic with guards
+    if (event == null || event.id == "") {
+      if (!_isRedirecting) {
+        _isRedirecting = true;
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            context.go('/events');
+          }
+        });
+      }
+      return const Scaffold();
     }
 
     final startDate = event.startTime != null
-        ? new DateFormat("E, d.M.", "sk_SK")
+        ? DateFormat("E, d.M.", "sk_SK")
             .format(TimeUtils.fromUtc(event.startTime!))
         : '';
     final startTime = event.startTime != null
-        ? new DateFormat("HH:mm")
+        ? DateFormat("HH:mm")
             .format(TimeUtils.fromUtc(event.startTime!))
         : '';
     final endTime = event.endTime != null
-        ? "\n${new DateFormat("HH:mm")
+        ? "\n${DateFormat("HH:mm")
             .format(TimeUtils.fromUtc(event.endTime!))}"
         : '';
 
-    if (event.id == "") {
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        context.go('/events');
-      });
-      return Scaffold();
-    }
-
-    //Location
-    //final location = event.location != null ? "\n${event.location}" : '';
-    FestivalProvider festivalProvider =
-        Provider.of<FestivalProvider>(context, listen: false);
+    final festivalProvider = Provider.of<FestivalProvider>(context, listen: false);
     final festival = festivalProvider.festival;
+
+    final now = DateTime.now();
+    final playing = event.startTime != null && event.endTime != null &&
+        event.startTime!.isBefore(now) && event.endTime!.isAfter(now);
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: true,
         leading: IconButton(
-            icon: Icon(
+            icon: const Icon(
               Icons.arrow_back_ios,
             ),
             onPressed: () {
@@ -70,14 +96,14 @@ class EventDetailPage extends StatelessWidget {
         actions: [
           Consumer<UserProvider>(
             builder: (context, userProvider, child) {
-              final isFav = userProvider.isFavorite(festival.id, event.id);
+              final isFav = userProvider.isFavorite(festival.id, event!.id);
               return IconButton(
                 icon: Icon(
                   isFav ? Icons.favorite : Icons.favorite_border,
                   color: isFav ? Colors.red : null,
                 ),
                 onPressed: () {
-                  userProvider.toggleFavorite(festival.id, event);
+                  userProvider.toggleFavorite(festival.id, event!);
                 },
               );
             },
@@ -98,15 +124,22 @@ class EventDetailPage extends StatelessWidget {
             SizedBox(
               height: 300,
               width: double.infinity,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: event.type == "OFF" ? festivalProvider.offProgramColor : festivalProvider.mainProgramColor,
-                ),
-                child: FutureBuilder<bool>(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: event.type == "OFF" ? festivalProvider.offProgramColor : festivalProvider.mainProgramColor,
+                      ),
+                      child: FutureBuilder<bool>(
                   future: event.image.isNotEmpty ? ImagePrecacheService().doesImageExist(event.image) : Future.value(false),
                   builder: (context, snapshot) {
-                    final bool exists = snapshot.data ?? (ImagePrecacheService().checkCache(event.image) ?? false);
-                    final String effectiveUrl = exists ? event.image : festival.logo;
+                    final bool exists = snapshot.data ?? (ImagePrecacheService().checkCache(event!.image) ?? false);
+                    final String effectiveUrl = exists ? event!.image : festival.logo;
+
+                    if (effectiveUrl.isEmpty) {
+                      return Image.asset('assets/images/icon512.png', fit: BoxFit.cover);
+                    }
 
                     return Image(
                       image: FirebaseImageProvider(FirebaseUrl(effectiveUrl)),
@@ -114,17 +147,47 @@ class EventDetailPage extends StatelessWidget {
                       height: 300,
                       width: double.infinity,
                       errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+                        if (effectiveUrl == festival.logo || festival.logo.isEmpty) {
+                          return Image.asset('assets/images/icon512.png', fit: BoxFit.cover);
+                        }
                         return Image(
                           image: FirebaseImageProvider(FirebaseUrl(festival.logo)),
                           fit: BoxFit.cover,
                           height: 300,
                           width: double.infinity,
+                          errorBuilder: (_, __, ___) => Image.asset('assets/images/icon512.png', fit: BoxFit.cover),
                         );
                       },
                     );
                   },
                 ),
-            ),
+                    ),
+                  ),
+                  if (playing)
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                          ],
+                        ),
+                        child: const Text(
+                          "Práve prebieha",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
             Card(
               child: Column(children: <Widget>[
@@ -133,48 +196,117 @@ class EventDetailPage extends StatelessWidget {
                         border: Border(
                             bottom: BorderSide(
                                 color: Theme.of(context).dividerColor))),
-                    child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        mainAxisAlignment: MainAxisAlignment.start,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center, // Perfect vertical centering
                         children: <Widget>[
-                          Padding(
-                            padding: EdgeInsets.all(12.0),
-                            child: Text("$startDate\n$startTime - $endTime"),
-                          ),
-                          Expanded(
+                          // 1. Time & Date Section (1/4 - Left Aligned)
+                          Flexible(
+                            flex: 1,
+                            fit: FlexFit.tight,
                             child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: <Widget>[
-                                  Text("${event.title}",
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .displaySmall),
-                                  Text("${event.artist}"),
-                                ]),
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  startTime,
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    height: 1.0,
+                                  ),
+                                ),
+                                Text(
+                                  "- ${endTime.trim()}",
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  startDate.toUpperCase(),
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 9,
+                                    letterSpacing: 0.5,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          Column(
-                            /*crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,*/
-                            children: <Widget>[
-                              Icon(
-                                  eventsProvider
-                                      .getLocationIcon(event.location),
-                                  color: eventsProvider
-                                      .getLocationColor(event.location),
-                                  size: 26),
-                              Text(
-                                  eventsProvider
-                                      .getLocationName(event.location),
+                          const SizedBox(width: 4),
+                          // 2. Title Section (2/4 - Left Aligned Prominent)
+                          Flexible(
+                            flex: 4,
+                            fit: FlexFit.tight,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Text(
+                                  event.title,
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.1,
+                                    fontSize: 18,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: true,
+                                ),
+                                if (event.artist.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Text(
+                                      event.artist,
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        fontStyle: FontStyle.italic,
+                                        fontSize: 12,
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // 3. Location Section (1/4 - Center Aligned)
+                          Flexible(
+                            flex: 1,
+                            fit: FlexFit.tight,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: <Widget>[
+                                Icon(
+                                  eventsProvider.getLocationIcon(event.location),
+                                  color: eventsProvider.getLocationColor(event.location),
+                                  size: 26,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  eventsProvider.getLocationName(event.location),
                                   style: TextStyle(
-                                      color: eventsProvider
-                                          .getLocationColor(event.location))),
-                            ],
+                                    fontSize: 11,
+                                    color: eventsProvider.getLocationColor(event.location),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  softWrap: true,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
-                        ])),
+                        ],
+                      ),
+                    )),
                 event.description != ""
                     ? Padding(
-                        padding: EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(12),
                         child: Html(
                           data: MD.markdownToHtml(event.description),
                           onLinkTap: (url, map, element) {
@@ -192,7 +324,7 @@ class EventDetailPage extends StatelessWidget {
                             ),
                           },
                         ))
-                    : SizedBox.shrink()
+                    : const SizedBox.shrink()
               ]),
             ),
           ],
@@ -201,19 +333,11 @@ class EventDetailPage extends StatelessWidget {
       floatingActionButton: (context.watch<UserProvider>().canEdit)
           ? FloatingActionButton(
               onPressed: () {
-                context.go("/events/" + event.id + "/edit");
-                /* Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => EventEditPage(
-                eventId: event,
-              ),
-            ),
-          );*/
+                context.go("/events/${event!.id}/edit");
               },
               child: const Icon(Icons.edit),
             )
-          : SizedBox(),
+          : const SizedBox(),
     );
   }
 }

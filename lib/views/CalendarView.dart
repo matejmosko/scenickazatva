@@ -380,7 +380,7 @@ class EventListItem extends StatelessWidget {
                       StringUtils.stripHtml(event.description ?? ""),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14.0),
                     ),
                   ),
                 ],
@@ -403,13 +403,23 @@ class EventListItem extends StatelessWidget {
           final bool exists = snapshot.data ?? (ImagePrecacheService().checkCache(imageUrl) ?? false);
           final String effectiveUrl = exists ? imageUrl : fallbackUrl;
 
+          if (effectiveUrl.isEmpty) {
+            return Image.asset('assets/images/icon512.png', fit: BoxFit.cover);
+          }
+
           return Image(
             image: FirebaseImageProvider(FirebaseUrl(effectiveUrl)),
             fit: BoxFit.cover,
-            errorBuilder: (context, _, __) => Image(
-              image: FirebaseImageProvider(FirebaseUrl(fallbackUrl)),
-              errorBuilder: (context, _, __) => Image.asset('assets/images/icon512.png'),
-            ),
+            errorBuilder: (context, _, __) {
+              if (effectiveUrl == fallbackUrl || fallbackUrl.isEmpty) {
+                return Image.asset('assets/images/icon512.png', fit: BoxFit.cover);
+              }
+              return Image(
+                image: FirebaseImageProvider(FirebaseUrl(fallbackUrl)),
+                fit: BoxFit.cover,
+                errorBuilder: (context, _, __) => Image.asset('assets/images/icon512.png', fit: BoxFit.cover),
+              );
+            },
           );
         },
       ),

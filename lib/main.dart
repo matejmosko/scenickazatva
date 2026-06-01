@@ -5,7 +5,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fauth;
+import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -25,6 +26,7 @@ import 'package:scenickazatva_app/pages/FavoritesPage.dart';
 import 'package:scenickazatva_app/models/ColorScheme.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
+import 'package:scenickazatva_app/models/Ad.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/requests/NotificationService.dart';
@@ -66,7 +68,7 @@ final _router = GoRouter(
                   GoRoute(
                     path: ':eventId',
                     builder: (context, state) => EventDetailPage(
-                        eventId: state.pathParameters["eventId"]),
+                        eventId: state.pathParameters["eventId"] ?? ""),
                   ),
                   GoRoute(
                     path: ':eventId/edit',
@@ -92,6 +94,69 @@ final _router = GoRouter(
             GoRoute(
               path: 'settings',
               builder: (context, state) => SettingsPage(),
+            ),
+            GoRoute(
+              path: 'login',
+              builder: (context, state) => Scaffold(
+                appBar: AppBar(
+                  title: const Text("Prihlásenie"),
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios),
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/settings');
+                      }
+                    },
+                  ),
+                ),
+                body: SignInScreen(
+                  providers: [EmailAuthProvider()],
+                  actions: [
+                    AuthStateChangeAction<SignedIn>((context, state) {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/settings');
+                      }
+                    }),
+                    AuthStateChangeAction<UserCreated>((context, state) {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/settings');
+                      }
+                    }),
+                  ],
+                ),
+              ),
+            ),
+            GoRoute(
+              path: 'profile',
+              builder: (context, state) => Scaffold(
+                appBar: AppBar(
+                  title: const Text("Môj profil"),
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios),
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/settings');
+                      }
+                    },
+                  ),
+                ),
+                body: ProfileScreen(
+                  providers: [EmailAuthProvider()],
+                  actions: [
+                    SignedOutAction((context) {
+                      context.go('/settings');
+                    }),
+                  ],
+                ),
+              ),
             ),
             GoRoute(
               path: 'favorites',
@@ -134,7 +199,7 @@ void main() async {
   }
 
   // Initialize Authentication
-  FirebaseAuth.instance.idTokenChanges().listen((User? user) async {
+  fauth.FirebaseAuth.instance.idTokenChanges().listen((fauth.User? user) async {
     if (user == null) {
       await authService().authFirebase();
     } else {
@@ -145,9 +210,10 @@ void main() async {
   await Hive.initFlutter();
   Hive.registerAdapter(FestivalAdapter());
   Hive.registerAdapter(AppSettingsAdapter());
+  Hive.registerAdapter(AdAdapter());
 
   FirebaseMessaging.instance.onTokenRefresh.listen((fcmToken) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = fauth.FirebaseAuth.instance.currentUser;
     if (user != null) {
       var userSettings = await authService().getUserData(user);
       userSettings.fcmtoken = fcmToken;

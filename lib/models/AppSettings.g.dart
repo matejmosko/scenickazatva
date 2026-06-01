@@ -21,18 +21,19 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       festivals: fields[1] == null
           ? const {}
           : (fields[1] as Map).cast<String, Festival>(),
-      fontSizeFactor: fields[2] == null ? 1.0 : fields[2] as double,
+      fontSizeFactor: fields[2] == null ? 1.0 : (fields[2] as num).toDouble(),
       notificationsEnabled: fields[3] == null ? true : fields[3] as bool,
       remindersEnabled: fields[4] == null ? true : fields[4] as bool,
-      lastMagazinePostId: fields[5] == null ? 0 : fields[5] as int,
+      lastMagazinePostId: fields[5] == null ? 0 : (fields[5] as num).toInt(),
       interceptLinks: fields[6] == null ? true : fields[6] as bool,
+      ads: fields[7] == null ? const [] : (fields[7] as List).cast<Ad>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.defaultfestival)
       ..writeByte(1)
@@ -46,7 +47,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(5)
       ..write(obj.lastMagazinePostId)
       ..writeByte(6)
-      ..write(obj.interceptLinks);
+      ..write(obj.interceptLinks)
+      ..writeByte(7)
+      ..write(obj.ads);
   }
 
   @override

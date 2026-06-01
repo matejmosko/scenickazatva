@@ -256,7 +256,7 @@ class EventsProvider extends ChangeNotifier {
         orElse: () => null
     );
 
-    return venue?.displayName ?? "Neznáme miesto";
+    return venue?.displayName ?? loc;
   }
 
   /// Blocks/Updates an existing event in Firebase (Admin/Editor only)

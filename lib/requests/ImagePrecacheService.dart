@@ -15,79 +15,130 @@ class ImagePrecacheService {
   final Set<String> _validImages = {};
   final Map<String, Future<void>> _pendingScans = {};
 
-  /// Checks if a Firebase Storage image exists by listing the parent folder
-  /// This avoids native 404 error logs in the console.
-  Future<bool> doesImageExist(String path) async {
-    if (path.isEmpty) return false;
-    if (_invalidImages.contains(path)) return false;
-    if (_validImages.contains(path)) return true;
+  final Map<String, Future<bool>> _pendingChecks = {};
+  final Set<String> _scannedFolders = {};
 
+  /// Normalizes a GS path using Firebase Storage's own parser
+  String? _normalizePath(String path) {
+    if (path.isEmpty || !path.startsWith("gs://")) return null;
     try {
       final ref = FirebaseStorage.instance.refFromURL(path);
-      final parentPath = ref.parent?.fullPath ?? "/";
-
-      // If we haven't scanned this folder yet, or isn't currently scanning
-      if (!_pendingScans.containsKey(parentPath)) {
-        _pendingScans[parentPath] = _scanFolder(ref.parent, parentPath, ref.bucket);
-      }
-      
-      await _pendingScans[parentPath];
-
-      // Check again after scanning
-      if (_validImages.contains(path)) {
-        return true;
-      } else {
-        _invalidImages.add(path);
-        return false;
-      }
+      return "gs://${ref.bucket}/${ref.fullPath}";
     } catch (e) {
-      // Fallback to metadata check if listing fails (e.g. permission issues on list)
-      try {
-        await FirebaseStorage.instance.refFromURL(path).getMetadata();
-        _validImages.add(path);
-        return true;
-      } catch (_) {
-        _invalidImages.add(path);
-        return false;
+      return null;
+    }
+  }
+
+  /// Checks if a Firebase Storage image exists.
+  /// Uses a combination of folder listing (efficient for many images in same folder)
+  /// and metadata check (fallback).
+  Future<bool> doesImageExist(String path) async {
+    final normalizedPath = _normalizePath(path);
+    if (normalizedPath == null) return false;
+    
+    // 1. Check synchronous cache
+    if (_invalidImages.contains(normalizedPath)) return false;
+    if (_validImages.contains(normalizedPath)) return true;
+
+    // 2. Check if there's an ongoing check for this specific path
+    if (_pendingChecks.containsKey(normalizedPath)) {
+      return _pendingChecks[normalizedPath]!;
+    }
+
+    final Future<bool> checkFuture = _doCheckImage(normalizedPath);
+    _pendingChecks[normalizedPath] = checkFuture;
+    
+    try {
+      final result = await checkFuture;
+      return result;
+    } finally {
+      _pendingChecks.remove(normalizedPath);
+    }
+  }
+
+  Future<bool> _doCheckImage(String normalizedPath) async {
+    try {
+      final ref = FirebaseStorage.instance.refFromURL(normalizedPath);
+      final parentPath = ref.parent?.fullPath ?? "";
+      final bucket = ref.bucket;
+
+      debugPrint("ImagePrecacheService: Checking $normalizedPath");
+
+      // Try folder scanning for efficiency if not already scanned
+      if (parentPath.isNotEmpty && parentPath != "/") {
+        if (!_scannedFolders.contains(parentPath)) {
+          if (!_pendingScans.containsKey(parentPath)) {
+            _pendingScans[parentPath] = _scanFolder(ref.parent, parentPath, bucket);
+          }
+          await _pendingScans[parentPath];
+        }
+        
+        // If folder was scanned, we should have the answer in our sets
+        if (_validImages.contains(normalizedPath)) return true;
+        
+        // Only if scan was successful and we still don't have it, we can be sure it's invalid
+        if (_scannedFolders.contains(parentPath)) {
+          debugPrint("ImagePrecacheService: $normalizedPath NOT found in successfully scanned folder $parentPath");
+          _invalidImages.add(normalizedPath);
+          return false;
+        }
       }
+
+      // Fallback: Direct check via metadata (e.g. if folder scan failed)
+      await ref.getMetadata();
+      _validImages.add(normalizedPath);
+      return true;
+    } catch (e) {
+      debugPrint("ImagePrecacheService: Existence check failed for $normalizedPath: $e");
+      _invalidImages.add(normalizedPath);
+      return false;
     }
   }
 
   Future<void> _scanFolder(Reference? parentRef, String parentPath, String bucket) async {
-    debugPrint("ImagePrecacheService: Scanning folder for existence check: $parentPath");
+    if (parentRef == null) return;
     try {
-      final actualRef = parentRef ?? FirebaseStorage.instance.ref();
-      final ListResult result = await actualRef.listAll();
+      final ListResult result = await parentRef.listAll();
+      debugPrint("ImagePrecacheService: Scanned folder $parentPath, found ${result.items.length} items");
       for (var item in result.items) {
-        _validImages.add("gs://$bucket/${item.fullPath}");
+        final fullGsPath = "gs://$bucket/${item.fullPath}";
+        _validImages.add(fullGsPath);
       }
+      _scannedFolders.add(parentPath);
     } catch (e) {
-      debugPrint("ImagePrecacheService: Failed to scan folder $parentPath: $e");
+      debugPrint("ImagePrecacheService: Folder scan failed for $parentPath: $e");
+      // Don't add to _scannedFolders so we can try fallback or retry later
+    } finally {
+      _pendingScans.remove(parentPath);
     }
   }
 
   /// Synchronously checks if we already know the image is valid
   bool? checkCache(String path) {
-    if (path.isEmpty) return false;
-    if (_invalidImages.contains(path)) return false;
-    if (_validImages.contains(path)) return true;
+    final normalized = _normalizePath(path);
+    if (normalized == null) return false;
+    if (_invalidImages.contains(normalized)) return false;
+    if (_validImages.contains(normalized)) return true;
     return null;
   }
 
   /// Precaches a list of Firebase images (used for Events)
   void precacheFirebaseImages(List<Event> events) async {
     for (var event in events) {
-      if (event.image.isNotEmpty) {
-        if (await doesImageExist(event.image)) {
+      if (event.image.isNotEmpty && event.image.startsWith("gs://")) {
+        final exists = await doesImageExist(event.image);
+        if (exists) {
           try {
             final provider = FirebaseImageProvider(FirebaseUrl(event.image));
             provider.resolve(ImageConfiguration.empty).addListener(
-              ImageStreamListener((_, __) {}, onError: (dynamic exception, StackTrace? stackTrace) {
-                // Already handled by existence check, but keeping for safety
+              ImageStreamListener((_, __) {
+                // Success
+              }, onError: (dynamic exception, StackTrace? stackTrace) {
+                debugPrint("ImagePrecacheService: Background precache failed for ${event.image}: $exception");
               }),
             );
           } catch (e) {
-            debugPrint("Error resolving Firebase image: $e");
+            debugPrint("ImagePrecacheService: Error resolving ${event.image}: $e");
           }
         }
       }
@@ -96,13 +147,17 @@ class ImagePrecacheService {
 
   /// Precaches a single Firebase image (used for Festival logo)
   void precacheFirebaseImage(String path) async {
-    if (path.isEmpty) return;
+    if (path.isEmpty || !path.startsWith("gs://")) return;
     if (await doesImageExist(path)) {
       try {
         final provider = FirebaseImageProvider(FirebaseUrl(path));
-        provider.resolve(ImageConfiguration.empty);
+        provider.resolve(ImageConfiguration.empty).addListener(
+          ImageStreamListener((_, __) {}, onError: (dynamic exception, StackTrace? stackTrace) {
+            debugPrint("ImagePrecacheService: Background precache failed for $path: $exception");
+          }),
+        );
       } catch (e) {
-        debugPrint("Error precaching single Firebase image: $e");
+        debugPrint("ImagePrecacheService: Error resolving $path: $e");
       }
     }
   }

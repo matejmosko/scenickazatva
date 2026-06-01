@@ -7,6 +7,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
 import 'package:scenickazatva_app/utils/StringUtils.dart';
+import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
+import 'package:scenickazatva_app/models/Event.dart';
+import 'package:scenickazatva_app/models/Ad.dart';
+import 'package:scenickazatva_app/models/Festival.dart';
+import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
+import 'package:firebase_cached_image/firebase_cached_image.dart';
 
 class MagazineView extends StatefulWidget {
   @override
@@ -15,13 +21,35 @@ class MagazineView extends StatefulWidget {
 
 class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  bool _showLiveEvents = true;
 
   @override
   bool get wantKeepAlive => true;
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_scrollListener);
+  }
+
+  void _scrollListener() {
+    if (_scrollController.offset > 50 && _showLiveEvents) {
+      setState(() {
+        _showLiveEvents = false;
+      });
+    } else if (_scrollController.offset <= 50 && !_showLiveEvents) {
+      setState(() {
+        _showLiveEvents = true;
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.removeListener(_scrollListener);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -29,9 +57,19 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
   Widget build(BuildContext context) {
     super.build(context);
     final NewsProvider newsProvider = Provider.of<NewsProvider>(context);
+    final appSettings = Provider.of<AppSettingsProvider>(context);
 
     return Column(
       children: [
+        AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          child: _showLiveEvents
+              ? (appSettings.currentlyPlayingEvents.isNotEmpty
+                  ? _buildCurrentlyPlaying(context, appSettings)
+                  : _buildAds(context, appSettings))
+              : const SizedBox.shrink(),
+        ),
         Padding(
           padding: const EdgeInsets.all(8.0),
           child: Row(
@@ -124,6 +162,7 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                       child: RefreshIndicator(
                         onRefresh: () => newsProvider.fetchWpMagazine(refresh: true),
                         child: ListView.builder(
+                          controller: _scrollController,
                           physics: const AlwaysScrollableScrollPhysics(),
                           itemCount: newsProvider.wparticles.length,
                           itemBuilder: (BuildContext context, int index) {
@@ -166,7 +205,7 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                                                   stripped.length > 100
                                                       ? "${stripped.substring(0, 100)}..."
                                                       : stripped,
-                                                  style: Theme.of(context).textTheme.bodyMedium,
+                                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14.0),
                                                 );
                                               },
                                             ),
@@ -241,6 +280,252 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
           newsProvider.setMagazineCategory(value);
         },
       ),
+    );
+  }
+
+  Widget _buildCurrentlyPlaying(BuildContext context, AppSettingsProvider appSettings) {
+    final liveEvents = appSettings.currentlyPlayingEvents;
+
+    if (liveEvents.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            "Práve prebiehajúce podujatia",
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        SizedBox(
+          height: 180,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: liveEvents.length,
+            itemBuilder: (context, index) {
+              final Festival fest = liveEvents[index].key;
+              final Event event = liveEvents[index].value;
+
+              return GestureDetector(
+                onTap: () {
+                  appSettings.changeFestival(fest.id);
+                  context.go("/events/${event.id}");
+                },
+                child: Container(
+                  width: 280,
+                  child: Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: FutureBuilder<bool>(
+                            future: event.image.isNotEmpty
+                                ? ImagePrecacheService().doesImageExist(event.image)
+                                : Future.value(false),
+                            builder: (context, snapshot) {
+                              final bool exists =
+                                  snapshot.data ?? (ImagePrecacheService().checkCache(event.image) ?? false);
+                              final String effectiveUrl = exists ? event.image : fest.logo;
+
+                              if (effectiveUrl.isEmpty) {
+                                return Image.asset('assets/images/icon512.png', fit: BoxFit.cover);
+                              }
+
+                              return Image(
+                                image: FirebaseImageProvider(FirebaseUrl(effectiveUrl)),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    Image.asset('assets/images/icon512.png', fit: BoxFit.cover),
+                              );
+                            },
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.8),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 12,
+                          left: 12,
+                          right: 12,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                event.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                fest.title,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const Divider(),
+      ],
+    );
+  }
+
+  Widget _buildAds(BuildContext context, AppSettingsProvider appSettings) {
+    final ads = appSettings.activeAds;
+
+    if (ads.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 200,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            itemCount: ads.length,
+            itemBuilder: (context, index) {
+              final ad = ads[index];
+
+              return GestureDetector(
+                onTap: () {
+                  if (ad.link.isNotEmpty) {
+                    SystemServices().launchURL(ad.link);
+                  }
+                },
+                child: Container(
+                  width: ads.length == 1
+                      ? MediaQuery.of(context).size.width - 24
+                      : MediaQuery.of(context).size.width - 48,
+                  child: Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: FutureBuilder<bool>(
+                            future: ad.image.isNotEmpty
+                                ? ImagePrecacheService().doesImageExist(ad.image)
+                                : Future.value(false),
+                            builder: (context, snapshot) {
+                              final bool exists = snapshot.data ??
+                                  (ImagePrecacheService().checkCache(ad.image) ?? false);
+                              if (!exists || ad.image.isEmpty) {
+                                return Container(color: Theme.of(context).colorScheme.primaryContainer);
+                              }
+
+                              return Image(
+                                image: FirebaseImageProvider(FirebaseUrl(ad.image)),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    Container(color: Theme.of(context).colorScheme.primaryContainer),
+                              );
+                            },
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.7),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 16,
+                          bottom: 16,
+                          left: 16,
+                          right: 16,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                ad.title,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20 * appSettings.settings.fontSizeFactor,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (ad.description.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4.0),
+                                  child: Text(
+                                    ad.description,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              const Spacer(),
+                              if (ad.cta.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    ad.cta,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const Divider(),
+      ],
     );
   }
 }

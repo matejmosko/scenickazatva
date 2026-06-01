@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
-import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
@@ -13,7 +12,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  //final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -48,7 +46,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final providers = [EmailAuthProvider()];
     final settingsProvider = Provider.of<AppSettingsProvider>(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -179,24 +176,29 @@ class _SettingsPageState extends State<SettingsPage> {
                         if (snapshot.hasData && !snapshot.data!.isAnonymous) {
                           final user = snapshot.data;
                           return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _buildUserInfo(context, user),
-                              SizedBox(
-                                height: 800, // Large enough to avoid internal scrollbar
-                                child: ProfileScreen(
-                                  providers: providers,
-                                  actions: [
-                                    SignedOutAction((context) {
-                                      context.go('/settings');
-                                    }),
-                                  ],
-                                ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.person),
+                                label: const Text("Spravovať profil"),
+                                onPressed: () => context.push('/profile'),
+                              ),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.logout),
+                                label: const Text("Odhlásiť sa"),
+                                onPressed: () async {
+                                  await FirebaseAuth.instance.signOut();
+                                  // authFirebase will automatically sign in anonymously
+                                },
                               ),
                             ],
                           );
                         } else {
                           return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Text(
                                 "Na používanie aplikácie sa nepotrebujete prihlasovať. Po prihlásení sa vám uloží zoznam obľúbených položiek a budete si ho môcť zobraziť na každom zariadení, kde budete prihlásení.",
@@ -205,16 +207,13 @@ class _SettingsPageState extends State<SettingsPage> {
                                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                height: 600, // Large enough for the sign up form
-                                child: SignInScreen(
-                                  providers: providers,
-                                  actions: [
-                                    AuthStateChangeAction<SignedIn>((context, state) {
-                                      context.go('/settings');
-                                    }),
-                                  ],
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.login),
+                                label: const Text("Prihlásiť sa"),
+                                onPressed: () => context.push('/login'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
                                 ),
                               ),
                             ],

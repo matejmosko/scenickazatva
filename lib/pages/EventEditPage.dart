@@ -14,6 +14,7 @@ import 'package:vsc_quill_delta_to_html/vsc_quill_delta_to_html.dart';
 import 'package:firebase_cached_image/firebase_cached_image.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:scenickazatva_app/utils/TimeUtils.dart';
+import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 
 /// Page for editing existing events or creating new ones.
 /// Restricted to users with admin or editor roles.
@@ -308,7 +309,7 @@ class EventEditPageState extends State<EventEditPage> {
                             ),
                           ),
                           const SizedBox(width: 16),
-                          if (edited.image.isNotEmpty)
+                          if (edited.image.isNotEmpty && edited.image.startsWith("gs://"))
                             Container(
                               width: 80,
                               height: 80,
@@ -318,10 +319,18 @@ class EventEditPageState extends State<EventEditPage> {
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(4),
-                                child: Image(
-                                  image: FirebaseImageProvider(FirebaseUrl(edited.image)),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline),
+                                child: FutureBuilder<bool>(
+                                  future: ImagePrecacheService().doesImageExist(edited.image),
+                                  builder: (context, snapshot) {
+                                    final exists = snapshot.data ?? (ImagePrecacheService().checkCache(edited.image) ?? false);
+                                    if (!exists) return const Icon(Icons.image_not_supported, color: Colors.grey);
+                                    
+                                    return Image(
+                                      image: FirebaseImageProvider(FirebaseUrl(edited.image)),
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline),
+                                    );
+                                  },
                                 ),
                               ),
                             ),

@@ -22,9 +22,7 @@ class FestivalAdapter extends TypeAdapter<Festival> {
       magazine_src: fields[1] == null
           ? "https://javisko.sk/wp-json/wp/v2/posts?per_page=20&order=desc&"
           : fields[1] as String,
-      news_src: fields[2] == null
-          ? "https://www.scenickazatva.eu/2025/wp-json/wp/v2/posts?per_page=20&order=desc&"
-          : fields[2] as String,
+      news_src: fields[2] == null ? "" : fields[2] as String,
       subtitle:
           fields[4] == null ? "Národné osvetové centrum" : fields[4] as String,
       title: fields[5] == null ? "Festivaly NOC" : fields[5] as String,
@@ -49,13 +47,14 @@ class FestivalAdapter extends TypeAdapter<Festival> {
           ? "gs://scenickazatva-343517.appspot.com/default.png"
           : fields[12] as String,
       id: fields[18] == null ? "default" : fields[18] as String,
+      lastNewsPostId: fields[19] == null ? 0 : (fields[19] as num).toInt(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Festival obj) {
     writer
-      ..writeByte(19)
+      ..writeByte(20)
       ..writeByte(0)
       ..write(obj.endDate)
       ..writeByte(1)
@@ -93,7 +92,9 @@ class FestivalAdapter extends TypeAdapter<Festival> {
       ..writeByte(17)
       ..write(obj.menuTitle)
       ..writeByte(18)
-      ..write(obj.id);
+      ..write(obj.id)
+      ..writeByte(19)
+      ..write(obj.lastNewsPostId);
   }
 
   @override

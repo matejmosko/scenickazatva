@@ -73,6 +73,39 @@ class InfoDetailPage extends StatelessWidget {
                           textDecoration: TextDecoration.underline,
                         ),
                       },
+                      extensions: [
+                        MatcherExtension(
+                          matcher: (extensionContext) =>
+                              extensionContext.elementName == "a" &&
+                              extensionContext.attributes['class'] == 'button',
+                          builder: (extensionContext) {
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8.0),
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  final url =
+                                      extensionContext.attributes['href'];
+                                  if (url != null) {
+                                    SystemServices().launchURL(url);
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.primary,
+                                  foregroundColor:
+                                      Theme.of(context).colorScheme.onPrimary,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child:
+                                    Text(extensionContext.element?.text ?? ""),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ))
               ],
             ))

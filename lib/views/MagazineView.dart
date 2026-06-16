@@ -65,9 +65,7 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
           child: _showLiveEvents
-              ? (appSettings.currentlyPlayingEvents.isNotEmpty
-                  ? _buildCurrentlyPlaying(context, appSettings)
-                  : _buildAds(context, appSettings))
+              ? _buildTopSection(context, appSettings)
               : const SizedBox.shrink(),
         ),
         Padding(
@@ -167,6 +165,7 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                           itemCount: newsProvider.wparticles.length,
                           itemBuilder: (BuildContext context, int index) {
                             final item = newsProvider.wparticles[index];
+                            final label = newsProvider.getPostLabel(item.link);
                             return Card(
                               child: GestureDetector(
                                   child: Row(
@@ -190,9 +189,33 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                                                     ),
                                                   ),
                                                 Expanded(
-                                                  child: Text(
-                                                    item.title?.rendered?.replaceAll('&amp;', '&') ?? "",
-                                                    style: Theme.of(context).textTheme.titleMedium,
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      if (label.isNotEmpty)
+                                                        Padding(
+                                                          padding: const EdgeInsets.only(bottom: 4.0),
+                                                          child: Container(
+                                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                            decoration: BoxDecoration(
+                                                              color: Theme.of(context).colorScheme.secondaryContainer,
+                                                              borderRadius: BorderRadius.circular(4),
+                                                            ),
+                                                            child: Text(
+                                                              label.toUpperCase(),
+                                                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                                                fontSize: 10,
+                                                                fontWeight: FontWeight.bold,
+                                                                color: Theme.of(context).colorScheme.onSecondaryContainer,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      Text(
+                                                        item.title?.rendered?.replaceAll('&amp;', '&') ?? "",
+                                                        style: Theme.of(context).textTheme.titleMedium,
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               ],
@@ -283,244 +306,226 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
     );
   }
 
-  Widget _buildCurrentlyPlaying(BuildContext context, AppSettingsProvider appSettings) {
+  Widget _buildTopSection(BuildContext context, AppSettingsProvider appSettings) {
     final liveEvents = appSettings.currentlyPlayingEvents;
-
-    if (liveEvents.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            "Práve prebiehajúce podujatia",
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-          ),
-        ),
-        SizedBox(
-          height: 180,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: liveEvents.length,
-            itemBuilder: (context, index) {
-              final Festival fest = liveEvents[index].key;
-              final Event event = liveEvents[index].value;
-
-              return GestureDetector(
-                onTap: () {
-                  appSettings.changeFestival(fest.id);
-                  context.go("/events/${event.id}");
-                },
-                child: Container(
-                  width: 280,
-                  child: Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: FutureBuilder<bool>(
-                            future: event.image.isNotEmpty
-                                ? ImagePrecacheService().doesImageExist(event.image)
-                                : Future.value(false),
-                            builder: (context, snapshot) {
-                              final bool exists =
-                                  snapshot.data ?? (ImagePrecacheService().checkCache(event.image) ?? false);
-                              final String effectiveUrl = exists ? event.image : fest.logo;
-
-                              if (effectiveUrl.isEmpty) {
-                                return Image.asset('assets/images/icon512.png', fit: BoxFit.cover);
-                              }
-
-                              return Image(
-                                image: FirebaseImageProvider(FirebaseUrl(effectiveUrl)),
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    Image.asset('assets/images/icon512.png', fit: BoxFit.cover),
-                              );
-                            },
-                          ),
-                        ),
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.black.withValues(alpha: 0.8),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 12,
-                          left: 12,
-                          right: 12,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                event.title,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                fest.title,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        const Divider(),
-      ],
-    );
-  }
-
-  Widget _buildAds(BuildContext context, AppSettingsProvider appSettings) {
     final ads = appSettings.activeAds;
 
-    if (ads.isEmpty) return const SizedBox.shrink();
+    if (liveEvents.isEmpty && ads.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (liveEvents.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              "Práve prebiehajúce podujatia",
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
         SizedBox(
           height: 200,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: ads.length,
+            itemCount: liveEvents.length + ads.length,
             itemBuilder: (context, index) {
-              final ad = ads[index];
+              if (index < liveEvents.length) {
+                final Festival fest = liveEvents[index].key;
+                final Event event = liveEvents[index].value;
 
-              return GestureDetector(
-                onTap: () {
-                  if (ad.link.isNotEmpty) {
-                    SystemServices().launchURL(ad.link);
-                  }
-                },
-                child: Container(
-                  width: ads.length == 1
-                      ? MediaQuery.of(context).size.width - 24
-                      : MediaQuery.of(context).size.width - 48,
-                  child: Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: FutureBuilder<bool>(
-                            future: ad.image.isNotEmpty
-                                ? ImagePrecacheService().doesImageExist(ad.image)
-                                : Future.value(false),
-                            builder: (context, snapshot) {
-                              final bool exists = snapshot.data ??
-                                  (ImagePrecacheService().checkCache(ad.image) ?? false);
-                              if (!exists || ad.image.isEmpty) {
-                                return Container(color: Theme.of(context).colorScheme.primaryContainer);
-                              }
+                return GestureDetector(
+                  onTap: () {
+                    appSettings.changeFestival(fest.id);
+                    context.go("/events/${event.id}");
+                  },
+                  child: Container(
+                    width: 280,
+                    child: Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: FutureBuilder<bool>(
+                              future: event.image.isNotEmpty
+                                  ? ImagePrecacheService().doesImageExist(event.image)
+                                  : Future.value(false),
+                              builder: (context, snapshot) {
+                                final bool exists =
+                                    snapshot.data ?? (ImagePrecacheService().checkCache(event.image) ?? false);
+                                final String effectiveUrl = exists ? event.image : fest.logo;
 
-                              return Image(
-                                image: FirebaseImageProvider(FirebaseUrl(ad.image)),
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    Container(color: Theme.of(context).colorScheme.primaryContainer),
-                              );
-                            },
+                                if (effectiveUrl.isEmpty) {
+                                  return Image.asset('assets/images/icon512.png', fit: BoxFit.cover);
+                                }
+
+                                return Image(
+                                  image: FirebaseImageProvider(FirebaseUrl(effectiveUrl)),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      Image.asset('assets/images/icon512.png', fit: BoxFit.cover),
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.7),
-                                  Colors.transparent,
-                                ],
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withValues(alpha: 0.8),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        Positioned(
-                          top: 16,
-                          bottom: 16,
-                          left: 16,
-                          right: 16,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                ad.title,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 20 * appSettings.settings.fontSizeFactor,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (ad.description.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4.0),
-                                  child: Text(
-                                    ad.description,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                          Positioned(
+                            bottom: 12,
+                            left: 12,
+                            right: 12,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  event.title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              const Spacer(),
-                              if (ad.cta.isNotEmpty)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.primary,
-                                    borderRadius: BorderRadius.circular(4),
+                                Text(
+                                  fest.title,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
                                   ),
-                                  child: Text(
-                                    ad.cta,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
+                );
+              } else {
+                final ad = ads[index - liveEvents.length];
+
+                return GestureDetector(
+                  onTap: () {
+                    if (ad.link.isNotEmpty) {
+                      SystemServices().launchURL(ad.link);
+                    }
+                  },
+                  child: Container(
+                    width: ads.length == 1
+                        ? MediaQuery.of(context).size.width - 24
+                        : MediaQuery.of(context).size.width - 48,
+                    child: Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: FutureBuilder<bool>(
+                              future: ad.image.isNotEmpty
+                                  ? ImagePrecacheService().doesImageExist(ad.image)
+                                  : Future.value(false),
+                              builder: (context, snapshot) {
+                                final bool exists = snapshot.data ??
+                                    (ImagePrecacheService().checkCache(ad.image) ?? false);
+                                if (!exists || ad.image.isEmpty) {
+                                  return Container(color: Theme.of(context).colorScheme.primaryContainer);
+                                }
+
+                                return Image(
+                                  image: FirebaseImageProvider(FirebaseUrl(ad.image)),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      Container(color: Theme.of(context).colorScheme.primaryContainer),
+                                );
+                              },
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.7),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 16,
+                            bottom: 16,
+                            left: 16,
+                            right: 16,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  ad.title,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 20 * appSettings.settings.fontSizeFactor,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (ad.description.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Text(
+                                      ad.description,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                const Spacer(),
+                                if (ad.cta.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.primary,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      ad.cta,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
             },
           ),
         ),

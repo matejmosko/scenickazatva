@@ -7,9 +7,11 @@ import 'package:hive_ce/hive.dart';
 import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 
 class NewsProvider extends ChangeNotifier {
+  static const int blogCategoryId = 999999;
   List<Post> _wpnews = [];
   List<Post> _wparticles = [];
   List<Category> _magazineCategories = [];
+  final Map<String, String> _postLabels = {};
   int? _selectedMagazineCategoryId;
   bool newsLoading = false;
   bool articlesLoading = false;
@@ -27,6 +29,7 @@ class NewsProvider extends ChangeNotifier {
   String? _currentFestivalId;
   String? _newsSrc;
   String? _magazineSrc;
+  String? _magazineSrc2;
   int _lastNewsPostId = 0;
   int _lastMagazinePostId = 0;
 
@@ -44,6 +47,7 @@ class NewsProvider extends ChangeNotifier {
   List<Post> get wpnews => _wpnews;
   List<Post> get wparticles => _wparticles;
   List<Category> get magazineCategories => _magazineCategories;
+  String getPostLabel(String link) => _postLabels[link] ?? "";
   int? get selectedMagazineCategoryId => _selectedMagazineCategoryId;
   int get unreadMagazineCount => _wparticles.where((p) => !_readArticleIds.contains(p.id)).length;
   String? get newsSearchQuery => _newsSearchQuery;
@@ -78,6 +82,7 @@ class NewsProvider extends ChangeNotifier {
         _currentFestivalId = festival.id;
         _newsSrc = festival.news_src;
         _magazineSrc = festival.magazine_src;
+        _magazineSrc2 = (festival as dynamic).magazine_src2;
 
         // Clear data when festival changes
         _wpnews = [];
@@ -148,7 +153,34 @@ class NewsProvider extends ChangeNotifier {
     }
 
     try {
-      final data = await WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, categoryId: _selectedMagazineCategoryId, search: _magazineSearchQuery);
+      List<Post> data = [];
+      if (_selectedMagazineCategoryId == blogCategoryId) {
+        data = await WordPressService().fetchWpNews(_magazineSrc2!, magazinepage, refresh, search: _magazineSearchQuery);
+        for (var p in data) {
+          _postLabels[p.link] = "blog";
+        }
+      } else if (_selectedMagazineCategoryId != null) {
+        data = await WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, categoryId: _selectedMagazineCategoryId, search: _magazineSearchQuery);
+      } else {
+        if (_magazineSrc2 != null && _magazineSrc2!.isNotEmpty) {
+          final results = await Future.wait([
+            WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, search: _magazineSearchQuery),
+            WordPressService().fetchWpNews(_magazineSrc2!, magazinepage, refresh, search: _magazineSearchQuery),
+          ]);
+          for (var p in results[1]) {
+            _postLabels[p.link] = "blog";
+          }
+          data = [...results[0], ...results[1]];
+          data.sort((a, b) {
+            final dateA = a.date ?? DateTime.fromMillisecondsSinceEpoch(0);
+            final dateB = b.date ?? DateTime.fromMillisecondsSinceEpoch(0);
+            return dateB.compareTo(dateA);
+          });
+        } else {
+          data = await WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, search: _magazineSearchQuery);
+        }
+      }
+
       if (data.isEmpty) {
         allarticles = true;
       }
@@ -178,6 +210,25 @@ class NewsProvider extends ChangeNotifier {
     try {
       final categories = await WordPressService().fetchCategories(_magazineSrc!);
       _magazineCategories = List<Category>.from(categories);
+
+      if (_magazineSrc2 != null && _magazineSrc2!.isNotEmpty) {
+        try {
+          // Attempt to add a virtual Blog category if we can instantiate it
+          _magazineCategories.add(Category.fromJson({
+            'id': blogCategoryId,
+            'name': 'Blog',
+            'slug': 'blog',
+            'count': 0,
+            'description': '',
+            'link': '',
+            'taxonomy': 'category',
+            'parent': 0,
+          }));
+        } catch (e) {
+          debugPrint("Could not add virtual Blog category: $e");
+        }
+      }
+
       notifyListeners();
     } catch (e) {
       debugPrint("Error fetching categories: $e");

@@ -68,6 +68,7 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final newsProvider = Provider.of<NewsProvider>(context);
     var title = GoRouterState.of(context).uri.toString().contains("news")
         ? "Festivalové novinky"
         : "javisko.sk";
@@ -128,9 +129,32 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
                         children: <Widget>[
                           Padding(
                             padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              "${news.title?.rendered?.replaceAll('&amp;', '&') ?? ''}",
-                              style: Theme.of(context).textTheme.displayLarge,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (newsProvider.getPostLabel(news.link ?? "").isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8.0),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).colorScheme.secondaryContainer,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        newsProvider.getPostLabel(news.link ?? "").toUpperCase(),
+                                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(context).colorScheme.onSecondaryContainer,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                Text(
+                                  "${news.title?.rendered?.replaceAll('&amp;', '&') ?? ''}",
+                                  style: Theme.of(context).textTheme.displayLarge,
+                                ),
+                              ],
                             ),
                           ),
                           Padding(
@@ -160,6 +184,42 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
                                 ),
                               },
                               extensions: [
+                                MatcherExtension(
+                                  matcher: (extensionContext) =>
+                                      extensionContext.elementName == "a" &&
+                                      extensionContext.attributes['class'] ==
+                                          'button',
+                                  builder: (extensionContext) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 8.0),
+                                      child: ElevatedButton(
+                                        onPressed: () {
+                                          final url = extensionContext
+                                              .attributes['href'];
+                                          if (url != null) {
+                                            SystemServices().launchURL(url);
+                                          }
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                          foregroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .onPrimary,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                        child: Text(
+                                            extensionContext.element?.text ??
+                                                ""),
+                                      ),
+                                    );
+                                  },
+                                ),
                                 ImageExtension(builder: (extensionContext) {
                                   final element = extensionContext.styledElement
                                       as ImageElement;

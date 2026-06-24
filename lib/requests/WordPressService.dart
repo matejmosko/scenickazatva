@@ -23,7 +23,7 @@ class WordPressService {
     
     String? directory;
     if (!kIsWeb) {
-      var cacheDir = await getTemporaryDirectory();
+      var cacheDir = await getApplicationSupportDirectory();
       directory = cacheDir.path;
     }
     

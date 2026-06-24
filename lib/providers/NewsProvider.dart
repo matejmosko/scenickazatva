@@ -102,8 +102,8 @@ class NewsProvider extends ChangeNotifier {
       notifyListeners();
 
       // Initial fetch for new festival or when news are updated
-      fetchWpNews(refresh: newsUpdated); 
-      fetchWpMagazine(refresh: false); // Magazine is global, handled separately
+      fetchWpNews(refresh: newsUpdated || festivalChanged); 
+      fetchWpMagazine(refresh: festivalChanged); 
       fetchMagazineCategories();
     }
   }
@@ -112,7 +112,9 @@ class NewsProvider extends ChangeNotifier {
     if (_lastMagazinePostId != settings.lastMagazinePostId) {
       debugPrint("NewsProvider: Magazine updated signal received.");
       _lastMagazinePostId = settings.lastMagazinePostId;
-      fetchWpMagazine(refresh: true);
+      if (_currentFestivalId != null) {
+        fetchWpMagazine(refresh: true);
+      }
     }
   }
 
@@ -129,11 +131,44 @@ class NewsProvider extends ChangeNotifier {
     }
 
     try {
+      // 1. Try to load from cache first if we are refreshing and the memory list is empty
+      if (refresh && _wpnews.isEmpty) {
+        final cachedData = await WordPressService().fetchWpNews(_newsSrc!, 1, false, search: _newsSearchQuery);
+        if (cachedData.isNotEmpty) {
+          _wpnews = List.from(cachedData);
+          newspage = 2;
+          notifyListeners();
+        }
+      }
+
+      // 2. Check if cache is already up-to-date with Firestore update signal
+      if (_newsSearchQuery == null && _wpnews.isNotEmpty && _wpnews.first.id == _lastNewsPostId) {
+        debugPrint("News is already up to date. Skipping network request. ID: $_lastNewsPostId");
+        setLoading("news_src", false);
+        return;
+      }
+
       final data = await WordPressService().fetchWpNews(_newsSrc!, newspage, refresh, search: _newsSearchQuery);
       if (data.isEmpty) {
-        allnews = true;
+        if (newspage == 1) {
+          if (_wpnews.isEmpty) {
+            allnews = true;
+          }
+        } else {
+          allnews = true;
+        }
       }
-      setArrangementsWp(data, "news_src", refresh);
+      
+      if (newspage == 1) {
+        _wpnews = List.from(data);
+        newspage = 2;
+      } else {
+        _wpnews.addAll(data);
+        newspage++;
+      }
+
+      ImagePrecacheService().precacheWpImages(data);
+      setLoading("news_src", false);
     } catch (e) {
       debugPrint("Error fetching WP news: $e");
       setLoading("news_src", false);
@@ -153,6 +188,53 @@ class NewsProvider extends ChangeNotifier {
     }
 
     try {
+      // 1. Try to load from cache first if we are refreshing and the memory list is empty
+      if (refresh && _wparticles.isEmpty) {
+        List<Post> cachedData = [];
+        if (_selectedMagazineCategoryId == blogCategoryId) {
+          cachedData = await WordPressService().fetchWpNews(_magazineSrc2!, 1, false, search: _magazineSearchQuery);
+          for (var p in cachedData) {
+            _postLabels[p.link] = "blog";
+          }
+        } else if (_selectedMagazineCategoryId != null) {
+          cachedData = await WordPressService().fetchWpNews(_magazineSrc!, 1, false, categoryId: _selectedMagazineCategoryId, search: _magazineSearchQuery);
+        } else {
+          if (_magazineSrc2 != null && _magazineSrc2!.isNotEmpty) {
+            final results = await Future.wait([
+              WordPressService().fetchWpNews(_magazineSrc!, 1, false, search: _magazineSearchQuery),
+              WordPressService().fetchWpNews(_magazineSrc2!, 1, false, search: _magazineSearchQuery),
+            ]);
+            for (var p in results[1]) {
+              _postLabels[p.link] = "blog";
+            }
+            cachedData = [...results[0], ...results[1]];
+            cachedData.sort((a, b) {
+              final dateA = a.date ?? DateTime.fromMillisecondsSinceEpoch(0);
+              final dateB = b.date ?? DateTime.fromMillisecondsSinceEpoch(0);
+              return dateB.compareTo(dateA);
+            });
+          } else {
+            cachedData = await WordPressService().fetchWpNews(_magazineSrc!, 1, false, search: _magazineSearchQuery);
+          }
+        }
+
+        if (cachedData.isNotEmpty) {
+          _wparticles = List.from(cachedData);
+          magazinepage = 2;
+          notifyListeners();
+        }
+      }
+
+      // 2. Check if cache is already up-to-date with settings update signal
+      if (_magazineSearchQuery == null &&
+          _selectedMagazineCategoryId == null &&
+          _wparticles.isNotEmpty &&
+          _wparticles.first.id == _lastMagazinePostId) {
+        debugPrint("Magazine is already up to date. Skipping network request. ID: $_lastMagazinePostId");
+        setLoading("magazine_src", false);
+        return;
+      }
+
       List<Post> data = [];
       if (_selectedMagazineCategoryId == blogCategoryId) {
         data = await WordPressService().fetchWpNews(_magazineSrc2!, magazinepage, refresh, search: _magazineSearchQuery);
@@ -182,9 +264,25 @@ class NewsProvider extends ChangeNotifier {
       }
 
       if (data.isEmpty) {
-        allarticles = true;
+        if (magazinepage == 1) {
+          if (_wparticles.isEmpty) {
+            allarticles = true;
+          }
+        } else {
+          allarticles = true;
+        }
       }
-      setArrangementsWp(data, "magazine_src", refresh);
+
+      if (magazinepage == 1) {
+        _wparticles = List.from(data);
+        magazinepage = 2;
+      } else {
+        _wparticles.addAll(data);
+        magazinepage++;
+      }
+
+      ImagePrecacheService().precacheWpImages(data);
+      setLoading("magazine_src", false);
     } catch (e) {
       debugPrint("Error fetching WP magazine: $e");
       setLoading("magazine_src", false);

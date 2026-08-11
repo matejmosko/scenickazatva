@@ -54,7 +54,8 @@ class authService {
   }
 
   /// Fetches user metadata from DB or initializes a new record.
-  /// Also handles automatic role assignment from the predefinedRoles list.
+  /// Roles are assigned server-side by a Cloud Function (predefinedRoles is
+  /// not client-readable), so this only syncs safe profile fields.
   Future<UserData> getUserData(User user) async {
     try {
       DatabaseReference userRef = FirebaseDatabase.instance.ref("users/${user.uid}");
@@ -65,43 +66,8 @@ class authService {
         UserData existingUser = UserData.fromData(data);
         
         bool needsUpdate = false;
-        
-        // 1. Role Assignment Logic (checks appsettings/predefinedRoles)
-        if (user.email != null && user.email!.isNotEmpty) {
-          String normalizedEmail = user.email!.toLowerCase().trim();
-          
-          final rolesRef = FirebaseDatabase.instance.ref("appsettings/predefinedRoles");
-          final rolesSnapshot = await rolesRef.get();
-          
-          if (rolesSnapshot.exists) {
-             final Object? rawRoles = rolesSnapshot.value;
-             if (rawRoles is Map) {
-               final rolesData = rawRoles;
-               String? assignedRole;
-               
-               // Search through role categories (admin, editor, etc.)
-               rolesData.forEach((role, value) {
-                 if (value is List) {
-                   // Value is an array of emails
-                   if (value.any((e) => e != null && e.toString().toLowerCase().trim() == normalizedEmail)) {
-                     assignedRole = role.toString();
-                   }
-                 } else if (value != null && value.toString().toLowerCase().trim() == normalizedEmail) {
-                   // Value is a single email string
-                   assignedRole = role.toString();
-                 }
-               });
-               
-               // Apply found role if it differs from current
-               if (assignedRole != null && existingUser.userRole != assignedRole) {
-                 existingUser.userRole = assignedRole!;
-                 needsUpdate = true;
-               }
-             }
-          }
-        }
 
-        // 2. Sync Auth metadata to DB
+        // Sync Auth metadata to DB (userRole is excluded from the write)
         if (user.email != null && user.email != existingUser.email) {
           existingUser.email = user.email!;
           needsUpdate = true;
@@ -112,43 +78,19 @@ class authService {
         }
         
         if (needsUpdate) {
-          await saveUserData(existingUser, systemUpdate: true);
+          await saveUserData(existingUser);
         }
         
         return existingUser;
       } else {
-        // Initialize new user record
-        String initialRole = "user";
-        
-        // Initial role check for new sign-ups
-        if (user.email != null && user.email!.isNotEmpty) {
-          String normalizedEmail = user.email!.toLowerCase().trim();
-          final rolesSnapshot = await FirebaseDatabase.instance.ref("appsettings/predefinedRoles").get();
-          
-          if (rolesSnapshot.exists) {
-            final Object? rawRoles = rolesSnapshot.value;
-            if (rawRoles is Map) {
-              rawRoles.forEach((role, value) {
-                if (value is List) {
-                  if (value.any((e) => e != null && e.toString().toLowerCase().trim() == normalizedEmail)) {
-                    initialRole = role.toString();
-                  }
-                } else if (value != null && value.toString().toLowerCase().trim() == normalizedEmail) {
-                  initialRole = role.toString();
-                }
-              });
-            }
-          }
-        }
-
+        // Initialize new user record (role is assigned by the Cloud Function)
         UserData newUser = UserData(
           id: user.uid,
-          userRole: initialRole,
           email: user.email ?? "",
           fullName: user.displayName ?? "",
           timestamp: DateTime.now().toIso8601String(),
         );
-        await saveUserData(newUser, systemUpdate: true);
+        await saveUserData(newUser);
         return newUser;
       }
     } catch (e) {
@@ -158,16 +100,16 @@ class authService {
   }
 
   /// Persists user profile changes to Firebase.
-  /// Use systemUpdate=true only when modifying internal fields like roles.
-  Future<void> saveUserData(UserData user, {bool systemUpdate = false}) async {
+  /// userRole is never written by clients; it is managed by the Cloud Function.
+  Future<void> saveUserData(UserData user) async {
     try {
-      // Security: use toSafeJson() to prevent users from elevating their own roles
-      final data = systemUpdate ? user.toJson() : user.toSafeJson();
+      // Security: toSafeJson() excludes userRole to prevent role elevation
+      final data = user.toSafeJson();
       
       await FirebaseDatabase.instance
           .ref("users/${user.id}")
           .update(data);
-      debugPrint("Firebase UserData save success (systemUpdate: $systemUpdate)");
+      debugPrint("Firebase UserData save success");
     } catch (error) {
       debugPrint("Error in saveUserData: $error");
     }

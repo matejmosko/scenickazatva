@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 import com.android.build.api.dsl.ApplicationExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.Properties
@@ -58,17 +59,19 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
-    
-    kotlinOptions {
-        jvmTarget = "17"
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
-    implementation("androidx.activity:activity-ktx:1.9.1")
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.fragment:fragment-ktx:1.8.2")
+    implementation("androidx.activity:activity-ktx:1.13.0")
+    implementation("androidx.core:core-ktx:1.18.0")
+    implementation("androidx.fragment:fragment-ktx:1.8.9")
 }
 
 flutter {

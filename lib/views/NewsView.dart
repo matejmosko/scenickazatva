@@ -95,7 +95,7 @@ class _NewsViewState extends State<NewsView> with AutomaticKeepAliveClientMixin 
                                         Expanded(
                                           child: ListTile(
                                             title: Text(
-                                              item.title!.rendered!.replaceAll('&amp;', '&') ?? "",
+                                              item.title!.rendered!.replaceAll('&amp;', '&'),
                                               style: Theme.of(context).textTheme.titleMedium,
                                             ),
                                             subtitle: Builder(

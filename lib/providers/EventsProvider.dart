@@ -6,6 +6,7 @@ import 'package:scenickazatva_app/models/Location.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
+import 'package:scenickazatva_app/widgets/DynamicIcon.dart';
 
 /// Provider responsible for fetching, storing and managing festival events.
 /// Handles real-time synchronization with Firebase and role-based editing permissions.
@@ -216,7 +217,7 @@ class EventsProvider extends ChangeNotifier {
   }
 
   /// Helper: Gets the Material Icon for a specific location ID
-  IconData getLocationIcon(loc) {
+  Widget getLocationIcon(loc, {double? size, Color? color}) {
     Location? venue;
     var foundVenues = _venues.where((element) => element.id == loc);
 
@@ -224,12 +225,14 @@ class EventsProvider extends ChangeNotifier {
       venue = foundVenues.first;
     }
 
-    if (venue == null || venue.icon.isEmpty) return Icons.location_on;
+    if (venue == null || venue.icon.isEmpty) {
+      return Icon(Icons.location_on, size: size, color: color);
+    }
 
     try {
-      return IconData(int.parse(venue.icon), fontFamily: 'MaterialIcons');
+      return DynamicIcon(codePoint: int.parse(venue.icon), size: size, color: color);
     } catch (e) {
-      return Icons.location_on;
+      return Icon(Icons.location_on, size: size, color: color);
     }
   }
 

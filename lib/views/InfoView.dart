@@ -8,6 +8,9 @@ import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/utils/StringUtils.dart';
 import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
+import 'package:scenickazatva_app/providers/GameProvider.dart';
+import 'package:scenickazatva_app/providers/UserProvider.dart';
+import 'package:scenickazatva_app/widgets/DynamicIcon.dart';
 
 class InfoView extends StatefulWidget {
   @override
@@ -40,6 +43,7 @@ class _InfoViewState extends State<InfoView> with AutomaticKeepAliveClientMixin 
           duration: const Duration(milliseconds: 500),
           child: Column(
             children: [
+              _buildGameCard(context),
               _buildFestivalInfo(context),
               Expanded(
                 child: Card(
@@ -53,8 +57,7 @@ class _InfoViewState extends State<InfoView> with AutomaticKeepAliveClientMixin 
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           isThreeLine: true,
-                          leading: Icon(
-                              IconData(item.icon, fontFamily: 'MaterialIcons')),
+                          leading: DynamicIcon(codePoint: item.icon, size: 24),
                           subtitle: Text(
                             StringUtils.stripHtml(item.description),
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14.0),
@@ -73,6 +76,53 @@ class _InfoViewState extends State<InfoView> with AutomaticKeepAliveClientMixin 
           ),
         )
       ],
+    );
+  }
+
+  Widget _buildGameCard(BuildContext context) {
+    final gameProvider = Provider.of<GameProvider>(context);
+
+    if (!gameProvider.hasGame) {
+      final canEdit = Provider.of<UserProvider>(context).canEdit;
+      if (!canEdit) return const SizedBox.shrink();
+      return Card(
+        margin: const EdgeInsets.all(8.0),
+        child: ListTile(
+          leading: Icon(Icons.add_circle_outline,
+              size: 40, color: Theme.of(context).colorScheme.primary),
+          title: const Text("Pridať festivalovú hru"),
+          subtitle: const Text("Vytvor kvíz pre návštevníkov festivalu."),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Analytics().sendEvent("game create opened");
+            context.go('/game/edit');
+          },
+        ),
+      );
+    }
+
+    final game = gameProvider.game!;
+    final total = gameProvider.questions.length;
+    final answered = gameProvider.answeredCount;
+
+    return Card(
+      margin: const EdgeInsets.all(8.0),
+      child: ListTile(
+        leading: const Icon(Icons.emoji_events, size: 40, color: Colors.amber),
+        title: Text(
+          game.title.isEmpty ? "Festivalová hra" : game.title,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        subtitle: Text(
+          "Zodpovedané: $answered / $total   •   Skóre: ${gameProvider.score}",
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Analytics().sendEvent("game opened");
+          context.go("/game");
+        },
+      ),
     );
   }
 

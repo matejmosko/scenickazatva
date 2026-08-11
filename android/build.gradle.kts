@@ -1,3 +1,17 @@
+@file:Suppress("DEPRECATION")
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.10")
+    }
+}
+
+val kotlin_version: String by extra("2.4.10")
+
 allprojects {
     repositories {
         google()
@@ -22,8 +36,8 @@ subprojects {
     }
 
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-        kotlinOptions {
-            jvmTarget = "17"
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
 
@@ -44,12 +58,6 @@ subprojects {
         afterEvaluate {
             configureAndroid()
         }
-    }
-}
-
-subprojects {
-    plugins.withId("com.android.library") {
-        apply(plugin = "org.jetbrains.kotlin.android")
     }
 }
 

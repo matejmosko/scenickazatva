@@ -280,11 +280,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: <Widget>[
-                                Icon(
-                                  eventsProvider.getLocationIcon(event.location),
-                                  color: eventsProvider.getLocationColor(event.location),
-                                  size: 26,
-                                ),
+                                eventsProvider.getLocationIcon(event.location, color: eventsProvider.getLocationColor(event.location), size: 26),
                                 const SizedBox(height: 4),
                                 Text(
                                   eventsProvider.getLocationName(event.location),

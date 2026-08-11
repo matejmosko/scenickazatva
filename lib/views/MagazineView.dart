@@ -9,7 +9,7 @@ import 'package:scenickazatva_app/models/PostExtension.dart';
 import 'package:scenickazatva_app/utils/StringUtils.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/models/Event.dart';
-import 'package:scenickazatva_app/models/Ad.dart';
+//import 'package:scenickazatva_app/models/Ad.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 import 'package:firebase_cached_image/firebase_cached_image.dart';

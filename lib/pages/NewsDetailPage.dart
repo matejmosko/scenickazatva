@@ -19,7 +19,6 @@ class NewsDetailPage extends StatefulWidget {
 
 class _NewsDetailPageState extends State<NewsDetailPage> {
   late Future<wpclient.Post> _articleFuture;
-  wpclient.Post? _article;
 
   @override
   void didChangeDependencies() {
@@ -53,7 +52,6 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
     }
 
     if (found != null) {
-      _article = found;
       // Schedule markAsRead to avoid calling notifyListeners during build
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -132,7 +130,7 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (newsProvider.getPostLabel(news.link ?? "").isNotEmpty)
+                                if (newsProvider.getPostLabel(news.link).isNotEmpty)
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 8.0),
                                     child: Container(
@@ -142,7 +140,7 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
-                                        newsProvider.getPostLabel(news.link ?? "").toUpperCase(),
+                                        newsProvider.getPostLabel(news.link).toUpperCase(),
                                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                           fontWeight: FontWeight.bold,
                                           color: Theme.of(context).colorScheme.onSecondaryContainer,

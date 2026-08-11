@@ -235,11 +235,7 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
               value: venue.id,
               child: Row(
                 children: [
-                  Icon(
-                    eventsProvider.getLocationIcon(venue.id),
-                    size: 18,
-                    color: eventsProvider.getLocationColor(venue.id),
-                  ),
+                  eventsProvider.getLocationIcon(venue.id, size: 18, color: eventsProvider.getLocationColor(venue.id)),
                   const SizedBox(width: 8),
                   Flexible(child: Text(venue.displayName, overflow: TextOverflow.ellipsis)),
                 ],
@@ -331,7 +327,7 @@ class EventListItem extends StatelessWidget {
                 width: 60,
                 child: Column(
                   children: [
-                    Icon(eventsProvider.getLocationIcon(location), color: eventsProvider.getLocationColor(location), size: 26),
+                    eventsProvider.getLocationIcon(location, color: eventsProvider.getLocationColor(location), size: 26),
                     Text(
                       location,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(color: eventsProvider.getLocationColor(location)),

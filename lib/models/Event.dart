@@ -1,4 +1,5 @@
 import 'package:scenickazatva_app/utils/TimeUtils.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class Event {
   String id = "";
@@ -27,13 +28,15 @@ class Event {
     DateTime? parseDateTime(dynamic value) {
       if (value is! String) return null;
       try {
-        final match = RegExp(r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})').firstMatch(value);
-        if (match == null) return null;
-        
-        String cleanValue = match.group(1)!;
-        DateTime naive = DateTime.parse(cleanValue);
-
-        return TimeUtils.toUtc(naive);
+        // Values with an explicit UTC marker ('Z') or numeric offset are
+        // absolute instants, e.g. "2026-06-16T17:25:00.000Z".
+        final hasZone = value.contains('T') &&
+            RegExp(r'(?:[zZ]|[+-]\d{2}:?\d{2})$').hasMatch(value);
+        if (hasZone) {
+          return DateTime.parse(value).toUtc();
+        }
+        // Legacy naive values (no zone info) are Europe/Prague wall-clock times.
+        return TimeUtils.toUtc(DateTime.parse(value));
       } catch (e) {
         return null;
       }
@@ -72,11 +75,23 @@ class Event {
   Map<String, dynamic> toJson() {
     String? formatDateTime(DateTime? dt) {
       if (dt == null) return null;
-      
-      final festivalTime = TimeUtils.fromUtc(dt);
-      
-      // Produce a string like "2025-08-27T19:00:00.000" (no 'Z' or offset)
-      return festivalTime.toIso8601String().split(RegExp(r'Z|[+-]'))[0];
+
+      // Store as Europe/Prague wall-clock time with the explicit offset, e.g.
+      // "2026-06-16T19:25:00.000+0200" in summer / "2026-01-16T19:25:00.000+0100"
+      // in winter. The offset is derived from the actual date, so the stored
+      // value is unambiguous and human-readable for the festival's zone.
+      final local = TimeUtils.fromUtc(dt);
+      final clean = tz.TZDateTime(
+        local.location,
+        local.year,
+        local.month,
+        local.day,
+        local.hour,
+        local.minute,
+        local.second,
+        local.millisecond,
+      );
+      return clean.toIso8601String();
     }
 
     return {

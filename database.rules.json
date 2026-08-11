@@ -1,0 +1,79 @@
+{
+  "rules": {
+    "appsettings": {
+      ".read": "true",
+      "predefinedRoles": {
+        ".read": "false"
+      },
+      ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin'"
+    },
+    "festivals": {
+      ".read": "true",
+      "$festivalId": {
+        "events": {
+          ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
+        },
+        "info": {
+          ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
+        },
+        "locations": {
+          ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
+        },
+        "game": {
+          "title": {
+            ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
+          },
+          "description": {
+            ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
+          },
+          "endsAt": {
+            ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
+          },
+          "questions": {
+            ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
+          },
+          "participants": {
+            "$uid": {
+              ".write": "(auth != null && auth.uid == $uid) || root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'",
+              "winner": {
+                ".validate": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
+              }
+            }
+          }
+        }
+      }
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        "userRole": {
+          ".write": "false"
+        },
+        "id": {
+          ".write": "auth != null && auth.uid == $uid"
+        },
+        "fullName": {
+          ".write": "auth != null && auth.uid == $uid"
+        },
+        "email": {
+          ".write": "auth != null && auth.uid == $uid"
+        },
+        "notifications": {
+          ".write": "auth != null && auth.uid == $uid"
+        },
+        "favorites": {
+          ".write": "auth != null && auth.uid == $uid"
+        },
+        "timestamp": {
+          ".write": "auth != null && auth.uid == $uid"
+        },
+        "fcmtoken": {
+          ".write": "auth != null && auth.uid == $uid"
+        },
+        "game": {
+          ".write": "auth != null && auth.uid == $uid"
+        }
+      }
+    }
+  }
+}

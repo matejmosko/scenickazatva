@@ -29,6 +29,12 @@ import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/models/Ad.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
+import 'package:scenickazatva_app/providers/GameProvider.dart';
+import 'package:scenickazatva_app/pages/GamePage.dart';
+import 'package:scenickazatva_app/pages/GameQuestionPage.dart';
+import 'package:scenickazatva_app/pages/GameResultsPage.dart';
+import 'package:scenickazatva_app/pages/GameEditPage.dart';
+import 'package:scenickazatva_app/pages/GameQuestionEditPage.dart';
 import 'package:scenickazatva_app/requests/NotificationService.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:flutter_quill/flutter_quill.dart';
@@ -161,6 +167,32 @@ final _router = GoRouter(
             GoRoute(
               path: 'favorites',
               builder: (context, state) => FavoritesPage(),
+            ),
+            GoRoute(
+              path: 'game',
+              builder: (context, state) => const GamePage(),
+              routes: [
+                GoRoute(
+                  path: 'results',
+                  builder: (context, state) => const GameResultsPage(),
+                ),
+                GoRoute(
+                  path: 'edit',
+                  builder: (context, state) => const GameEditPage(),
+                  routes: [
+                    GoRoute(
+                      path: ':questionId',
+                      builder: (context, state) => GameQuestionEditPage(
+                          questionId: state.pathParameters["questionId"] ?? "new"),
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: ':questionId',
+                  builder: (context, state) => GameQuestionPage(
+                      questionId: state.pathParameters["questionId"] ?? ""),
+                ),
+              ],
             ),
             GoRoute(
               path: 'user',
@@ -345,6 +377,13 @@ class MyApp extends StatelessWidget {
           update: (context, festivalProvider, user, infoProvider) {
             infoProvider!.updateFromUser(user.canEdit);
             return infoProvider..updateFromFestival(festivalProvider.festival);
+          },
+        ),
+        ChangeNotifierProxyProvider2<FestivalProvider, UserProvider, GameProvider>(
+          create: (_) => GameProvider(),
+          update: (context, festivalProvider, user, gameProvider) {
+            gameProvider!.updateFromUser(user.userData);
+            return gameProvider..updateFromFestival(festivalProvider.festival);
           },
         ),
       ],

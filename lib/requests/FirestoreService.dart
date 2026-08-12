@@ -67,7 +67,13 @@ class authService {
         
         bool needsUpdate = false;
 
-        // Sync Auth metadata to DB (userRole is excluded from the write)
+        // Sync Auth metadata to DB (userRole is excluded from the write).
+        // id must always match the auth UID (self-heals legacy records that
+        // predate the id field, which left GameProvider._uid empty).
+        if (existingUser.id != user.uid) {
+          existingUser.id = user.uid;
+          needsUpdate = true;
+        }
         if (user.email != null && user.email != existingUser.email) {
           existingUser.email = user.email!;
           needsUpdate = true;

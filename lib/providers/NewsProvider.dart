@@ -29,7 +29,7 @@ class NewsProvider extends ChangeNotifier {
   String? _currentFestivalId;
   String? _newsSrc;
   String? _magazineSrc;
-  String? _magazineSrc2;
+  List<String> _secondaryMagazineUrls = [];
   int _lastNewsPostId = 0;
   int _lastMagazinePostId = 0;
 
@@ -81,8 +81,13 @@ class NewsProvider extends ChangeNotifier {
       if (festivalChanged) {
         _currentFestivalId = festival.id;
         _newsSrc = festival.news_src;
+        
         _magazineSrc = festival.magazine_src;
-        _magazineSrc2 = (festival as dynamic).magazine_src2;
+        _secondaryMagazineUrls = festival.magazine_blog_srcs
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
 
         // Clear data when festival changes
         _wpnews = [];
@@ -192,29 +197,38 @@ class NewsProvider extends ChangeNotifier {
       if (refresh && _wparticles.isEmpty) {
         List<Post> cachedData = [];
         if (_selectedMagazineCategoryId == blogCategoryId) {
-          cachedData = await WordPressService().fetchWpNews(_magazineSrc2!, 1, false, search: _magazineSearchQuery);
-          for (var p in cachedData) {
-            _postLabels[p.link] = "blog";
+          final results = await Future.wait(
+            _secondaryMagazineUrls.map((url) => WordPressService().fetchWpNews(url, 1, false, search: _magazineSearchQuery))
+          );
+          for (int i = 0; i < results.length; i++) {
+            for (var p in results[i]) {
+              _postLabels[p.link] = "blog";
+            }
+            cachedData.addAll(results[i]);
           }
+          cachedData.sort((a, b) => (b.date ?? DateTime.fromMillisecondsSinceEpoch(0))
+              .compareTo(a.date ?? DateTime.fromMillisecondsSinceEpoch(0)));
         } else if (_selectedMagazineCategoryId != null) {
           cachedData = await WordPressService().fetchWpNews(_magazineSrc!, 1, false, categoryId: _selectedMagazineCategoryId, search: _magazineSearchQuery);
         } else {
-          if (_magazineSrc2 != null && _magazineSrc2!.isNotEmpty) {
-            final results = await Future.wait([
-              WordPressService().fetchWpNews(_magazineSrc!, 1, false, search: _magazineSearchQuery),
-              WordPressService().fetchWpNews(_magazineSrc2!, 1, false, search: _magazineSearchQuery),
-            ]);
-            for (var p in results[1]) {
-              _postLabels[p.link] = "blog";
+          final primaryResults = await WordPressService().fetchWpNews(_magazineSrc!, 1, false, search: _magazineSearchQuery);
+          
+          if (_secondaryMagazineUrls.isNotEmpty) {
+            final secondaryResults = await Future.wait(
+              _secondaryMagazineUrls.map((url) => WordPressService().fetchWpNews(url, 1, false, search: _magazineSearchQuery))
+            );
+            
+            cachedData.addAll(primaryResults);
+            for (int i = 0; i < secondaryResults.length; i++) {
+              for (var p in secondaryResults[i]) {
+                _postLabels[p.link] = "blog";
+              }
+              cachedData.addAll(secondaryResults[i]);
             }
-            cachedData = [...results[0], ...results[1]];
-            cachedData.sort((a, b) {
-              final dateA = a.date ?? DateTime.fromMillisecondsSinceEpoch(0);
-              final dateB = b.date ?? DateTime.fromMillisecondsSinceEpoch(0);
-              return dateB.compareTo(dateA);
-            });
+            cachedData.sort((a, b) => (b.date ?? DateTime.fromMillisecondsSinceEpoch(0))
+                .compareTo(a.date ?? DateTime.fromMillisecondsSinceEpoch(0)));
           } else {
-            cachedData = await WordPressService().fetchWpNews(_magazineSrc!, 1, false, search: _magazineSearchQuery);
+            cachedData = primaryResults;
           }
         }
 
@@ -237,29 +251,38 @@ class NewsProvider extends ChangeNotifier {
 
       List<Post> data = [];
       if (_selectedMagazineCategoryId == blogCategoryId) {
-        data = await WordPressService().fetchWpNews(_magazineSrc2!, magazinepage, refresh, search: _magazineSearchQuery);
-        for (var p in data) {
-          _postLabels[p.link] = "blog";
+        final results = await Future.wait(
+          _secondaryMagazineUrls.map((url) => WordPressService().fetchWpNews(url, magazinepage, refresh, search: _magazineSearchQuery))
+        );
+        for (int i = 0; i < results.length; i++) {
+          for (var p in results[i]) {
+            _postLabels[p.link] = "blog";
+          }
+          data.addAll(results[i]);
         }
+        data.sort((a, b) => (b.date ?? DateTime.fromMillisecondsSinceEpoch(0))
+            .compareTo(a.date ?? DateTime.fromMillisecondsSinceEpoch(0)));
       } else if (_selectedMagazineCategoryId != null) {
         data = await WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, categoryId: _selectedMagazineCategoryId, search: _magazineSearchQuery);
       } else {
-        if (_magazineSrc2 != null && _magazineSrc2!.isNotEmpty) {
-          final results = await Future.wait([
-            WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, search: _magazineSearchQuery),
-            WordPressService().fetchWpNews(_magazineSrc2!, magazinepage, refresh, search: _magazineSearchQuery),
-          ]);
-          for (var p in results[1]) {
-            _postLabels[p.link] = "blog";
+        final primaryResults = await WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, search: _magazineSearchQuery);
+        
+        if (_secondaryMagazineUrls.isNotEmpty) {
+          final secondaryResults = await Future.wait(
+            _secondaryMagazineUrls.map((url) => WordPressService().fetchWpNews(url, magazinepage, refresh, search: _magazineSearchQuery))
+          );
+          
+          data.addAll(primaryResults);
+          for (int i = 0; i < secondaryResults.length; i++) {
+            for (var p in secondaryResults[i]) {
+              _postLabels[p.link] = "blog";
+            }
+            data.addAll(secondaryResults[i]);
           }
-          data = [...results[0], ...results[1]];
-          data.sort((a, b) {
-            final dateA = a.date ?? DateTime.fromMillisecondsSinceEpoch(0);
-            final dateB = b.date ?? DateTime.fromMillisecondsSinceEpoch(0);
-            return dateB.compareTo(dateA);
-          });
+          data.sort((a, b) => (b.date ?? DateTime.fromMillisecondsSinceEpoch(0))
+              .compareTo(a.date ?? DateTime.fromMillisecondsSinceEpoch(0)));
         } else {
-          data = await WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, search: _magazineSearchQuery);
+          data = primaryResults;
         }
       }
 
@@ -309,9 +332,9 @@ class NewsProvider extends ChangeNotifier {
       final categories = await WordPressService().fetchCategories(_magazineSrc!);
       _magazineCategories = List<Category>.from(categories);
 
-      if (_magazineSrc2 != null && _magazineSrc2!.isNotEmpty) {
+      if (_secondaryMagazineUrls.isNotEmpty) {
         try {
-          // Attempt to add a virtual Blog category if we can instantiate it
+          // Attempt to add a virtual Blog category
           _magazineCategories.add(Category.fromJson({
             'id': blogCategoryId,
             'name': 'Blog',

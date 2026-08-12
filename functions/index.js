@@ -67,7 +67,8 @@ exports.assignRoleOnUserCreated =
  * Re-syncs existing user roles whenever predefinedRoles changes.
  */
 exports.syncRolesFromPredefinedRoles = onValueWritten(
-    "appsettings/predefinedRoles", async (event) => {
+    {ref: "appsettings/predefinedRoles", region: "europe-west1"},
+    async (event) => {
       const roles = event.data.after.val();
       if (!roles || typeof roles !== "object") return;
 

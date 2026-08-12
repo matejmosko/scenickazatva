@@ -8,8 +8,8 @@ class Festival {
   @HiveField(1)
   String magazine_src;
 
-  @HiveField(20)
-  String? magazine_src2;
+  @HiveField(21)
+  String magazine_blog_srcs;
 
   @HiveField(2)
   String news_src;
@@ -69,7 +69,7 @@ class Festival {
     this.endDate,
     this.startDate,
     this.magazine_src = "https://javisko.sk/wp-json/wp/v2/posts?per_page=20&order=desc&",
-    this.magazine_src2,
+    this.magazine_blog_srcs = "",
     this.news_src = "",
     this.subtitle = "Národné osvetové centrum",
     this.title = "Festivaly NOC",
@@ -112,7 +112,7 @@ class Festival {
       endDate: parsedEnd,
       startDate: parsedStart,
       magazine_src: json['magazine_src'] ?? "",
-      magazine_src2: json['magazine_src2'],
+      magazine_blog_srcs: json['magazine_blog_srcs'] ?? "",
       news_src: json['news_src'] ?? "",
       subtitle: json['subtitle'] ?? "",
       title: json['title'] ?? "",
@@ -138,7 +138,7 @@ class Festival {
       'enddate': endDate?.toIso8601String(),
       'startdate': startDate?.toIso8601String(),
       'magazine_src': magazine_src,
-      'magazine_src2': magazine_src2,
+      'magazine_blog_srcs': magazine_blog_srcs,
       'news_src': news_src, // FIXED: was magazine_src previously
       'subtitle': subtitle,
       'title': title,

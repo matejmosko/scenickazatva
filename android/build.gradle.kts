@@ -5,12 +5,7 @@ buildscript {
         google()
         mavenCentral()
     }
-    dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.10")
-    }
 }
-
-val kotlin_version: String by extra("2.4.10")
 
 allprojects {
     repositories {

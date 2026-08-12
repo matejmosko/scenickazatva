@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fauth;
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
@@ -215,6 +216,15 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Initialize App Check to silence "No AppCheckProvider installed" warnings
+  // We use debug provider for development/emulator environments
+  await FirebaseAppCheck.instance.activate(
+    androidProvider: AndroidProvider.debug,
+    appleProvider: AppleProvider.debug,
+    webProvider: ReCaptchaV3Provider('6Lcj-R8qAAAAABpZ_O_U_9_Z_Z_Z_Z_Z_Z_Z_Z'),
+  );
+
   if (!kIsWeb) {
     FirebaseDatabase.instance.setPersistenceEnabled(true);
     

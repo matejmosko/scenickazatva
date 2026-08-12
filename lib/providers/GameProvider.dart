@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:scenickazatva_app/models/GameConfig.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
@@ -146,7 +147,10 @@ class GameProvider extends ChangeNotifier {
   /// Evaluates and persists a user's answer. Marks the question completed.
   Future<GameSubmission?> submitAnswer(
       GameQuestion question, Map<String, dynamic> answer) async {
-    if (_currentFestivalId == null || _uid.isEmpty) return null;
+    final uid = _uid.isEmpty
+        ? FirebaseAuth.instance.currentUser?.uid ?? ""
+        : _uid;
+    if (_currentFestivalId == null || uid.isEmpty) return null;
     if (!question.validateAnswer(answer)) return null;
 
     final correct = question.checkAnswer(answer);
@@ -163,9 +167,9 @@ class GameProvider extends ChangeNotifier {
 
     try {
       await FirebaseDatabase.instance
-          .ref("users/$_uid/game/$_currentFestivalId/${question.id}")
+          .ref("users/$uid/game/$_currentFestivalId/${question.id}")
           .set(submission.toJson());
-      await _updateParticipant(submission);
+      await _updateParticipant(submission, uid);
     } catch (e) {
       debugPrint("Firebase answer save error: $e");
     }
@@ -173,9 +177,9 @@ class GameProvider extends ChangeNotifier {
   }
 
   /// (Re)writes the participant record used for winner selection.
-  Future<void> _updateParticipant(GameSubmission submission) async {
+  Future<void> _updateParticipant(GameSubmission submission, String uid) async {
     final participant = GameParticipant(
-      uid: _uid,
+      uid: uid,
       fullName: _fullName,
       email: _email,
       score: score,
@@ -186,7 +190,7 @@ class GameProvider extends ChangeNotifier {
     try {
       // update() preserves the `winner` flag.
       await FirebaseDatabase.instance
-          .ref("festivals/$_currentFestivalId/game/participants/$_uid")
+          .ref("festivals/$_currentFestivalId/game/participants/$uid")
           .update(participant.toJson());
     } catch (e) {
       debugPrint("Firebase participant update error: $e");

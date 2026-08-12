@@ -64,27 +64,26 @@ class ImagePrecacheService {
 
       debugPrint("ImagePrecacheService: Checking $normalizedPath");
 
-      // Try folder scanning for efficiency if not already scanned
-      if (parentPath.isNotEmpty && parentPath != "/") {
-        if (!_scannedFolders.contains(parentPath)) {
-          if (!_pendingScans.containsKey(parentPath)) {
-            _pendingScans[parentPath] = _scanFolder(ref.parent, parentPath, bucket);
-          }
-          await _pendingScans[parentPath];
+      // Try folder scanning for efficiency
+      // Allow root scanning (parentPath == "") to prevent getMetadata fallback for root files
+      if (!_scannedFolders.contains(parentPath)) {
+        if (!_pendingScans.containsKey(parentPath)) {
+          _pendingScans[parentPath] = _scanFolder(ref.parent, parentPath, bucket);
         }
-        
-        // If folder was scanned, we should have the answer in our sets
-        if (_validImages.contains(normalizedPath)) return true;
-        
-        // Only if scan was successful and we still don't have it, we can be sure it's invalid
-        if (_scannedFolders.contains(parentPath)) {
-          debugPrint("ImagePrecacheService: $normalizedPath NOT found in successfully scanned folder $parentPath");
-          _invalidImages.add(normalizedPath);
-          return false;
-        }
+        await _pendingScans[parentPath];
+      }
+      
+      // If folder was scanned, we should have the answer in our sets
+      if (_validImages.contains(normalizedPath)) return true;
+      
+      // Only if scan was successful and we still don't have it, we can be sure it's invalid
+      if (_scannedFolders.contains(parentPath)) {
+        debugPrint("ImagePrecacheService: $normalizedPath NOT found in successfully scanned folder '$parentPath'");
+        _invalidImages.add(normalizedPath);
+        return false;
       }
 
-      // Fallback: Direct check via metadata (e.g. if folder scan failed)
+      // Fallback: Direct check via metadata (e.g. if folder scan failed or was not scannable)
       await ref.getMetadata();
       _validImages.add(normalizedPath);
       return true;
@@ -96,17 +95,20 @@ class ImagePrecacheService {
   }
 
   Future<void> _scanFolder(Reference? parentRef, String parentPath, String bucket) async {
-    if (parentRef == null) return;
+    // If parentRef is null, it means we are likely at the root. 
+    // We use storage root ref in that case.
+    final Reference scanRef = parentRef ?? FirebaseStorage.instance.ref();
+    
     try {
-      final ListResult result = await parentRef.listAll();
-      debugPrint("ImagePrecacheService: Scanned folder $parentPath, found ${result.items.length} items");
+      final ListResult result = await scanRef.listAll();
+      debugPrint("ImagePrecacheService: Scanned folder '$parentPath', found ${result.items.length} items");
       for (var item in result.items) {
         final fullGsPath = "gs://$bucket/${item.fullPath}";
         _validImages.add(fullGsPath);
       }
       _scannedFolders.add(parentPath);
     } catch (e) {
-      debugPrint("ImagePrecacheService: Folder scan failed for $parentPath: $e");
+      debugPrint("ImagePrecacheService: Folder scan failed for '$parentPath': $e");
       // Don't add to _scannedFolders so we can try fallback or retry later
     } finally {
       _pendingScans.remove(parentPath);

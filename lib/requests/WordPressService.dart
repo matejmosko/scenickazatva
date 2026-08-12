@@ -68,12 +68,27 @@ class WordPressService {
       // 1. Cleanup & Parsing
       Uri fullUri = Uri.parse(url);
       
-      // Determine the API root. The library expects the path up to the namespace (e.g. /wp-json/wp/v2)
+      // Determine the API root and endpoint.
       String urlWithoutParams = fullUri.toString().split('?')[0];
       String base = urlWithoutParams;
-      if (base.endsWith('/')) base = base.substring(0, base.length - 1);
-      if (base.endsWith('/posts')) base = base.substring(0, base.length - 6);
-      if (base.endsWith('/')) base = base.substring(0, base.length - 1);
+      String endpoint = 'posts';
+
+      if (base.contains('/wp/v2/')) {
+        int index = base.indexOf('/wp/v2/');
+        String rest = base.substring(index + 7);
+        if (rest.isNotEmpty) {
+          endpoint = rest;
+          if (endpoint.endsWith('/')) {
+            endpoint = endpoint.substring(0, endpoint.length - 1);
+          }
+        }
+        base = base.substring(0, index + 6);
+      } else {
+        // Fallback to old stripping logic if /wp/v2/ is not found
+        if (base.endsWith('/')) base = base.substring(0, base.length - 1);
+        if (base.endsWith('/posts')) base = base.substring(0, base.length - 6);
+        if (base.endsWith('/')) base = base.substring(0, base.length - 1);
+      }
       
       final baseUrl = Uri.parse(base);
       
@@ -122,12 +137,40 @@ class WordPressService {
       );
 
       // 3. Execute
-      final wpResponse = await client.posts.list(request);
+      WordpressResponse<List<Post>> wpResponse;
+      
+      if (endpoint == 'posts') {
+        wpResponse = await client.posts.list(request);
+      } else {
+        // Build manual query params for raw request to support Custom Post Types
+        final Map<String, dynamic> finalParams = Map.from(queryParams);
+        finalParams['page'] = page;
+        finalParams['per_page'] = perPage;
+        if (order != null) finalParams['order'] = order == Order.asc ? 'asc' : 'desc';
+        if (search != null) finalParams['search'] = StringUtils.removeDiacritics(search.trim());
+        if (categories.isNotEmpty) finalParams['categories'] = categories.join(',');
+        finalParams.addAll(extra);
+        
+        final rawResponse = await client.raw(WordpressRequest(
+          url: RequestUrl.relative(endpoint),
+          method: HttpMethod.get,
+          queryParameters: finalParams,
+        ));
+        
+        wpResponse = rawResponse.asResponse<List<Post>>(
+          decoder: (data) => (data as Iterable<dynamic>).map((e) => Post.fromJson(e as Map<String, dynamic>)).toList(),
+        );
+      }
 
       if (wpResponse is WordpressSuccessResponse<List<Post>>) {
         return wpResponse.data;
-      } else if (wpResponse is WordpressFailureResponse) {
+      } else if (wpResponse is WordpressFailureResponse<List<Post>>) {
         debugPrint("WP Error: ${wpResponse.message}");
+        if (wpResponse.error != null) {
+          debugPrint("WP Error Details: ${wpResponse.error}");
+        }
+        // Log the request parameters to help debug Bad Request
+        debugPrint("WP Request Failed for URL: $url, Page: $page, Search: $search, Category: $categoryId");
       }
     } catch (e) {
       debugPrint("API Error: $e");

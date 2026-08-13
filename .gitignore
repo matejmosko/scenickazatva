@@ -33,6 +33,7 @@ build/
 web/splash/
 .agents/
 android_backup/
+docs/screenshots
 
 # Cloud Functions dependencies (functions/)
 node_modules/
@@ -47,6 +48,9 @@ node_modules/
 **/android/**/GeneratedPluginRegistrant.java
 *.aab
 *.apk
+.artifacts
+.gradle_home
+
 
 # --- iOS / macOS ---
 **/ios/**/*.mode1v3

@@ -23,6 +23,8 @@ import 'package:scenickazatva_app/pages/EventEditPage.dart';
 import 'package:scenickazatva_app/pages/InfoEditPage.dart';
 import 'package:scenickazatva_app/pages/InfoDetailPage.dart';
 import 'package:scenickazatva_app/pages/FavoritesPage.dart';
+import 'package:scenickazatva_app/pages/ReadLaterPage.dart';
+import 'package:scenickazatva_app/pages/GameWinnersPage.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/models/Ad.dart';
@@ -176,12 +178,20 @@ final _router = GoRouter(
               builder: (context, state) => FavoritesPage(),
             ),
             GoRoute(
+              path: 'read-later',
+              builder: (context, state) => const ReadLaterPage(),
+            ),
+            GoRoute(
               path: 'game',
               builder: (context, state) => const GamePage(),
               routes: [
                 GoRoute(
                   path: 'results',
                   builder: (context, state) => const GameResultsPage(),
+                ),
+                GoRoute(
+                  path: 'winners',
+                  builder: (context, state) => const GameWinnersPage(),
                 ),
                 GoRoute(
                   path: 'edit',
@@ -226,9 +236,9 @@ void main() async {
   // Initialize App Check to silence "No AppCheckProvider installed" warnings
   // We use debug provider for development/emulator environments
   await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.debug,
-    appleProvider: AppleProvider.debug,
-    webProvider: ReCaptchaV3Provider('6Lcj-R8qAAAAABpZ_O_U_9_Z_Z_Z_Z_Z_Z_Z_Z'),
+    providerAndroid: AndroidDebugProvider(),
+    providerApple: AppleDebugProvider(),
+    providerWeb: ReCaptchaV3Provider('6Lcj-R8qAAAAABpZ_O_U_9_Z_Z_Z_Z_Z_Z_Z_Z'),
   );
 
   // Track RTDB connectivity for the offline banner

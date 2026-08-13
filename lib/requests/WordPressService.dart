@@ -45,6 +45,9 @@ class WordPressService {
       policy: refresh ? CachePolicy.refresh : CachePolicy.forceCache,
       priority: CachePriority.high,
       maxStale: const Duration(days: 30),
+      // Serve the stale cached copy when a request fails offline so previously
+      // fetched lists/articles stay readable without a connection.
+      hitCacheOnNetworkFailure: true,
       keyBuilder: CacheOptions.defaultCacheKeyBuilder,
     );
     
@@ -71,24 +74,18 @@ class WordPressService {
       
       // Determine the API root and endpoint.
       String urlWithoutParams = fullUri.toString().split('?')[0];
-      String base = urlWithoutParams;
+      String base = _getRestBase(url);
       String endpoint = 'posts';
 
-      if (base.contains('/wp/v2/')) {
-        int index = base.indexOf('/wp/v2/');
-        String rest = base.substring(index + 7);
+      if (urlWithoutParams.contains('/wp/v2/')) {
+        int index = urlWithoutParams.indexOf('/wp/v2/');
+        String rest = urlWithoutParams.substring(index + 7);
         if (rest.isNotEmpty) {
           endpoint = rest;
           if (endpoint.endsWith('/')) {
             endpoint = endpoint.substring(0, endpoint.length - 1);
           }
         }
-        base = base.substring(0, index + 6);
-      } else {
-        // Fallback to old stripping logic if /wp/v2/ is not found
-        if (base.endsWith('/')) base = base.substring(0, base.length - 1);
-        if (base.endsWith('/posts')) base = base.substring(0, base.length - 6);
-        if (base.endsWith('/')) base = base.substring(0, base.length - 1);
       }
       
       final baseUrl = Uri.parse(base);
@@ -185,13 +182,7 @@ class WordPressService {
     if (url.isEmpty) return [];
 
     try {
-      Uri fullUri = Uri.parse(url);
-      String urlWithoutParams = fullUri.toString().split('?')[0];
-      String base = urlWithoutParams;
-      if (base.endsWith('/')) base = base.substring(0, base.length - 1);
-      if (base.endsWith('/posts')) base = base.substring(0, base.length - 6);
-      if (base.endsWith('/')) base = base.substring(0, base.length - 1);
-
+      final base = _getRestBase(url);
       final baseUrl = Uri.parse(base);
 
       final client = await _getClient(baseUrl, false);
@@ -210,5 +201,71 @@ class WordPressService {
     }
 
     return [];
+  }
+
+  /// Fetches a single post by ID.
+  Future<Post?> fetchSinglePost(String url, int id, bool refresh) async {
+    if (url.isEmpty) return null;
+
+    try {
+      final base = _getRestBase(url);
+      final baseUrl = Uri.parse(base);
+      final client = await _getClient(baseUrl, refresh);
+
+      String endpoint = 'posts';
+      if (url.contains('/wp/v2/')) {
+        int index = url.indexOf('/wp/v2/');
+        String rest = url.substring(index + 7);
+        if (rest.isNotEmpty) {
+          endpoint = rest.split('?')[0];
+          if (endpoint.endsWith('/')) {
+            endpoint = endpoint.substring(0, endpoint.length - 1);
+          }
+        }
+      }
+
+      WordpressResponse<Post> wpResponse;
+      if (endpoint == 'posts') {
+        final request = RetrievePostRequest(
+          id: id,
+          extra: {'_embed': 'true'},
+        );
+        wpResponse = await client.posts.retrieve(request);
+      } else {
+        final rawResponse = await client.raw(WordpressRequest(
+          url: RequestUrl.relative('$endpoint/$id'),
+          method: HttpMethod.get,
+          queryParameters: {'_embed': 'true'},
+        ));
+        wpResponse = rawResponse.asResponse<Post>(
+          decoder: (data) => Post.fromJson(data as Map<String, dynamic>),
+        );
+      }
+
+      if (wpResponse is WordpressSuccessResponse<Post>) {
+        return wpResponse.data;
+      }
+    } catch (e) {
+      AppLog.error("API Error fetching single post $id from $url", error: e);
+    }
+
+    return null;
+  }
+
+  /// Extracts the REST API base URL from a given WordPress URL.
+  String _getRestBase(String url) {
+    Uri fullUri = Uri.parse(url);
+    String urlWithoutParams = fullUri.toString().split('?')[0];
+    String base = urlWithoutParams;
+
+    if (base.contains('/wp/v2/')) {
+      int index = base.indexOf('/wp/v2/');
+      base = base.substring(0, index + 6);
+    } else {
+      if (base.endsWith('/')) base = base.substring(0, base.length - 1);
+      if (base.endsWith('/posts')) base = base.substring(0, base.length - 6);
+      if (base.endsWith('/')) base = base.substring(0, base.length - 1);
+    }
+    return base;
   }
 }

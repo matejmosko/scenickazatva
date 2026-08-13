@@ -3,13 +3,17 @@
 ## Done
 - [x] Festival Game (quiz like) — implemented in develop (text/abc/sort/match, admin editor, results + winner pick)
 - [x] Fix timestamp editing — event datetime editing fixed + unit-tested (`test/event_datetime_test.dart`)
+- [x] News feed improvements: categories/tags filter, "read later" queue, pull-to-refresh, offline reading (Hive already caches — surfaced via `fetchPostById` fallback).
+    - [x] WordPressService: offline cache fallback (`hitCacheOnNetworkFailure`)
+    - [x] NewsProvider: read-later Hive queue + `fetchPostById` reliable fallback
+    - [x] NewsProvider: news categories + selection threaded into API calls
+    - [x] UI: Category dropdowns, bookmark overlays, and "Read Later" queue page
+    - [x] Detail Page: Offline fallback + bookmark toggle
+    - [x] Tests: coverage for read-later and category selection logic
 
 ---
 
 ## Future ideas
-
-### Critical
-- [ ] Replace placeholder reCAPTCHA site key + debug App Check providers in `lib/main.dart` (`FirebaseAppCheck.instance.activate`) with real production providers (Play Integrity / reCAPTCHA) before any release — currently ships with a fake key and would either fail or run insecure in production.
 
 ### Stability & reliability
 - [ ] Add `integration_test/` coverage for core flows: login → browse program → open event → submit a game answer. Scaffold added (`integration_test/app_smoke_test.dart`); needs a device to run.
@@ -21,20 +25,19 @@
 - [x] Schema/version guards for Hive boxes and RTDB shapes so stale app versions degrade gracefully instead of throwing. `Preferences` writes `schema_version`, ignores newer-schema data, type-safe reads (`test/hive_preferences_test.dart`).
 - [x] Add unit tests for Cloud Functions (`functions/`): `checkNewArticles` poll dedup + payload shape + FCM topic send (`functions/test/articles.test.js`), game deadline + participant recompute logic (`functions/test/gameLogic.test.js`); `npm --prefix functions test` (node:test, no emulator).
 - [x] Deep-link (app_links) cold-start + web route tests; verify `/news/`, `/events/`, `/game` links on all platforms. `lib/utils/DeepLinks.dart` normalizer + `test/deep_links_test.dart`, app_links wired in main() (non-web), hosting `rewrites` for SPA routes; device verification still pending.
-- [ ] Replace placeholder reCAPTCHA site key + debug App Check providers in `lib/main.dart` (`FirebaseAppCheck.instance.activate`) with real production providers (Play Integrity / reCAPTCHA) — see Critical above.
+- [x] Rethink necessity of firebaseappcheck. We do not target web apps, only android and iphone. Web apps are used only in development for quick build checks.
 
 ### Features
 - [ ] "My program": favorite events → personal schedule tab + opt-in local notifications before each event (uses existing flutter_local_notifications + timezone).
 - [ ] Calendar export (iCal / Google Calendar) of the festival program.
 - [ ] Event search + filters (date, venue, category);
 - [ ] Home/highlights screen: countdown to festival, featured events, latest news, game entry — better than the plain tab list.
-- [ ] Venue detail page: photo, description, map link / directions (url_launcher), all events at the venue.
-- [ ] Share action on events and news (system share sheet with text + URL).
-- [ ] News feed improvements: categories/tags filter, "read later" queue, pull-to-refresh, offline reading (Hive already caches — surface it).
+- [x] Venue detail page: photo, description, map link / directions (url_launcher), all events at the venue.
+- [x] Share action on events and news (system share sheet with text + URL).
 - [ ] Notification center in-app (history of received notifications, not only magazine updates topic).
 - [ ] Multi-language support (SK/EN) via flutter_localizations + ARB for tourists; format dates per locale.
 - [ ] Accessibility pass: semantic labels, screen-reader support, text scaling and contrast on key screens (game, calendar, info).
-- [ ] Dark mode: system-follow + manual override in settings (verify current theme handling).
+- [x] Dark mode: system-follow + manual override in settings (verify current theme handling).
 
 ### Content & admin
 - [x] Rich text editor improvements: image upload from admin editor (firebase_storage), paste handling, HTML round-trip checks (flutter_quill + delta conversions are already in place).

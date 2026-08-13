@@ -118,6 +118,13 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Odpoveď sa nepodarilo uložiť.")),
       );
+    } else if (!submission.correct) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Nie, nie je to správne. Skús to znova."),
+          backgroundColor: Colors.orange,
+        ),
+      );
     }
   }
 

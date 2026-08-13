@@ -27,13 +27,14 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       lastMagazinePostId: fields[5] == null ? 0 : (fields[5] as num).toInt(),
       interceptLinks: fields[6] == null ? true : fields[6] as bool,
       ads: fields[7] == null ? const [] : (fields[7] as List).cast<Ad>(),
+      themeModeIndex: fields[8] == null ? 0 : (fields[8] as num).toInt(),
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.defaultfestival)
       ..writeByte(1)
@@ -49,7 +50,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(6)
       ..write(obj.interceptLinks)
       ..writeByte(7)
-      ..write(obj.ads);
+      ..write(obj.ads)
+      ..writeByte(8)
+      ..write(obj.themeModeIndex);
   }
 
   @override

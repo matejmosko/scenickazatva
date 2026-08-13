@@ -6,14 +6,18 @@ import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 import 'package:scenickazatva_app/utils/AppLog.dart';
+import 'package:scenickazatva_app/utils/StringUtils.dart';
+import 'package:scenickazatva_app/models/PostExtension.dart';
 
 class NewsProvider extends ChangeNotifier {
   static const int blogCategoryId = 999999;
   List<Post> _wpnews = [];
   List<Post> _wparticles = [];
   List<Category> _magazineCategories = [];
+  List<Category> _newsCategories = [];
   final Map<String, String> _postLabels = {};
   int? _selectedMagazineCategoryId;
+  int? _selectedNewsCategoryId;
   bool newsLoading = false;
   bool articlesLoading = false;
   bool allnews = false;
@@ -27,6 +31,9 @@ class NewsProvider extends ChangeNotifier {
   Set<int> _readArticleIds = {};
   Box? _readArticlesBox;
 
+  final Map<String, Map<String, dynamic>> _readLaterPosts = {};
+  Box? _readLaterBox;
+
   String? _currentFestivalId;
   String? _newsSrc;
   String? _magazineSrc;
@@ -36,6 +43,7 @@ class NewsProvider extends ChangeNotifier {
 
   NewsProvider() {
     _initReadArticles();
+    _initReadLater();
   }
 
   Future<void> _initReadArticles() async {
@@ -45,16 +53,94 @@ class NewsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _initReadLater() async {
+    _readLaterBox = await Hive.openBox('read_later');
+    final raw = _readLaterBox!.get('posts', defaultValue: <String, dynamic>{});
+    if (raw is Map) {
+      raw.forEach((key, value) {
+        if (value is Map) {
+          _readLaterPosts[key.toString()] = Map<String, dynamic>.from(value);
+        }
+      });
+    }
+    notifyListeners();
+  }
+
   List<Post> get wpnews => _wpnews;
   List<Post> get wparticles => _wparticles;
   List<Category> get magazineCategories => _magazineCategories;
+  List<Category> get newsCategories => _newsCategories;
   String getPostLabel(String link) => _postLabels[link] ?? "";
   int? get selectedMagazineCategoryId => _selectedMagazineCategoryId;
+  int? get selectedNewsCategoryId => _selectedNewsCategoryId;
   int get unreadMagazineCount => _wparticles.where((p) => !_readArticleIds.contains(p.id)).length;
   String? get newsSearchQuery => _newsSearchQuery;
   String? get magazineSearchQuery => _magazineSearchQuery;
 
   bool isRead(int? id) => id == null || _readArticleIds.contains(id);
+
+  // --- Read later queue ---
+
+  bool isReadLater(String link) => _readLaterPosts.containsKey(link);
+
+  /// Read-later posts, most recently saved first. Entries store title/excerpt/
+  /// image locally so the queue remains browsable offline.
+  List<Map<String, dynamic>> get readLaterPosts {
+    final list = _readLaterPosts.values.toList();
+    list.sort((a, b) =>
+        (b['savedAt'] as int? ?? 0).compareTo(a['savedAt'] as int? ?? 0));
+    return list;
+  }
+
+  Future<void> toggleReadLater(Post post, {required String route}) async {
+    final link = post.link;
+    if (_readLaterPosts.containsKey(link)) {
+      _readLaterPosts.remove(link);
+    } else {
+      _readLaterPosts[link] = {
+        'id': post.id,
+        'title': post.title?.rendered?.replaceAll('&amp;', '&') ?? '',
+        'link': link,
+        'excerpt': StringUtils.stripHtml(post.excerpt?.rendered ?? ''),
+        'image': post.featuredImageSourceUrl(),
+        'route': route,
+        'savedAt': DateTime.now().millisecondsSinceEpoch,
+      };
+    }
+    notifyListeners();
+    if (_readLaterBox != null) {
+      await _readLaterBox!.put('posts', Map<String, dynamic>.from(_readLaterPosts));
+    }
+  }
+
+  Future<void> removeReadLater(String link) async {
+    if (_readLaterPosts.remove(link) != null) {
+      notifyListeners();
+      if (_readLaterBox != null) {
+        await _readLaterBox!.put('posts', Map<String, dynamic>.from(_readLaterPosts));
+      }
+    }
+  }
+
+  /// Offline fallback for the article detail page: locates a post by id in any
+  /// of the configured sources. The WP HTTP cache (Hive-backed) serves the
+  /// payload without a connection.
+  Future<Post?> fetchPostById(int id) async {
+    final sources = <String>{
+      if (_newsSrc != null && _newsSrc!.isNotEmpty) _newsSrc!,
+      if (_magazineSrc != null && _magazineSrc!.isNotEmpty) _magazineSrc!,
+      ..._secondaryMagazineUrls,
+    };
+    for (final src in sources) {
+      try {
+        final post = await WordPressService().fetchSinglePost(src, id, false);
+        if (post != null) return post;
+      } catch (e) {
+        AppLog.error("fetchPostById error for $src", error: e);
+      }
+    }
+    return null;
+  }
 
   void markAsRead(int? id) {
     if (id != null && !_readArticleIds.contains(id)) {
@@ -94,7 +180,9 @@ class NewsProvider extends ChangeNotifier {
         _wpnews = [];
         _wparticles = [];
         _magazineCategories = [];
+        _newsCategories = [];
         _selectedMagazineCategoryId = null;
+        _selectedNewsCategoryId = null;
         newspage = 1;
         magazinepage = 1;
         allnews = false;
@@ -111,6 +199,7 @@ class NewsProvider extends ChangeNotifier {
       fetchWpNews(refresh: newsUpdated || festivalChanged); 
       fetchWpMagazine(refresh: festivalChanged); 
       fetchMagazineCategories();
+      fetchNewsCategories();
     }
   }
 
@@ -139,7 +228,7 @@ class NewsProvider extends ChangeNotifier {
     try {
       // 1. Try to load from cache first if we are refreshing and the memory list is empty
       if (refresh && _wpnews.isEmpty) {
-        final cachedData = await WordPressService().fetchWpNews(_newsSrc!, 1, false, search: _newsSearchQuery);
+        final cachedData = await WordPressService().fetchWpNews(_newsSrc!, 1, false, search: _newsSearchQuery, categoryId: _selectedNewsCategoryId);
         if (cachedData.isNotEmpty) {
           _wpnews = List.from(cachedData);
           newspage = 2;
@@ -148,13 +237,16 @@ class NewsProvider extends ChangeNotifier {
       }
 
       // 2. Check if cache is already up-to-date with Firestore update signal
-      if (_newsSearchQuery == null && _wpnews.isNotEmpty && _wpnews.first.id == _lastNewsPostId) {
+      if (_newsSearchQuery == null &&
+          _selectedNewsCategoryId == null &&
+          _wpnews.isNotEmpty &&
+          _wpnews.first.id == _lastNewsPostId) {
         AppLog.info("News is already up to date. Skipping network request. ID: $_lastNewsPostId");
         setLoading("news_src", false);
         return;
       }
 
-      final data = await WordPressService().fetchWpNews(_newsSrc!, newspage, refresh, search: _newsSearchQuery);
+      final data = await WordPressService().fetchWpNews(_newsSrc!, newspage, refresh, search: _newsSearchQuery, categoryId: _selectedNewsCategoryId);
       if (data.isEmpty) {
         if (newspage == 1) {
           if (_wpnews.isEmpty) {
@@ -317,6 +409,29 @@ class NewsProvider extends ChangeNotifier {
     if (_newsSearchQuery != query) {
       _newsSearchQuery = query;
       fetchWpNews(refresh: true);
+    }
+  }
+
+  /// Fetches the category list for the festival news feed (shown as a filter
+  /// dropdown above the news list).
+  Future<void> fetchNewsCategories() async {
+    if (_newsSrc == null || _newsSrc!.isEmpty) return;
+    try {
+      final categories = await WordPressService().fetchCategories(_newsSrc!);
+      _newsCategories = List<Category>.from(categories);
+      notifyListeners();
+    } catch (e) {
+      AppLog.error("Error fetching news categories", error: e);
+    }
+  }
+
+  void setNewsCategory(int? categoryId) {
+    if (_selectedNewsCategoryId != categoryId) {
+      _selectedNewsCategoryId = categoryId;
+      newspage = 1;
+      allnews = false;
+      fetchWpNews(refresh: true); // Try cache first for the category
+      notifyListeners();
     }
   }
 

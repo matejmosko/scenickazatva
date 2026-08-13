@@ -234,7 +234,12 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                                             ),
                                           ),
                                         ),
-                                        PostThumbnail(imageUrl: item.featuredImageSourceUrl()),
+                                        PostThumbnail(
+                                          imageUrl: item.featuredImageSourceUrl(),
+                                          isBookmarked: newsProvider.isReadLater(item.link),
+                                          onBookmark: () => newsProvider.toggleReadLater(item,
+                                              route: "/magazine/${item.id}"),
+                                        ),
                                       ]),
                                   onTap: () {
                                     newsProvider.markAsRead(item.id);

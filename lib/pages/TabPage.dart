@@ -148,6 +148,12 @@ class _TabPageState extends State<TabPage> {
               ),
         actions: <Widget>[
           IconButton(
+            icon: const Icon(Icons.bookmark_outline, color: Colors.white70),
+            onPressed: () {
+              context.go('/read-later');
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.favorite, color: Colors.white70),
             onPressed: () {
               Analytics().logEvent(AnalyticsEvents.menuFavorites);

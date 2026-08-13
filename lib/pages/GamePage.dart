@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -10,8 +11,11 @@ import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 
 /// Overview of the festival game: shows every question and lets the user
 /// pick one to solve. Completed questions are marked in the list.
-class GamePage extends StatelessWidget {
+class GamePage extends StatefulWidget {
   const GamePage({Key? key}) : super(key: key);
+
+  @override
+  State<GamePage> createState() => _GamePageState();
 
   static IconData typeIcon(GameQuestionType type) {
     switch (type) {
@@ -25,11 +29,39 @@ class GamePage extends StatelessWidget {
         return Icons.link;
     }
   }
+}
+
+class _GamePageState extends State<GamePage> {
+  final TextEditingController _nameController = TextEditingController();
+  bool _isEditingName = false;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      _nameController.text = userProvider.userData.fullName;
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _nameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<GameProvider>(context);
-    final canEdit = Provider.of<UserProvider>(context).canEdit;
+    final userProvider = Provider.of<UserProvider>(context);
+    final canEdit = userProvider.canEdit;
+
+    // Keep controller in sync with provider if not currently typing
+    if (!_isEditingName && _nameController.text != userProvider.userData.fullName) {
+      _nameController.text = userProvider.userData.fullName;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -96,7 +128,7 @@ class GamePage extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.all(24),
             child: Text(
-              "Otázky budú pridané čoskoro.",
+              "Otázky pridáme čoskoro.",
               textAlign: TextAlign.center,
               style: TextStyle(fontStyle: FontStyle.italic),
             ),
@@ -153,6 +185,36 @@ class GamePage extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             ],
+            const Divider(),
+            Text(
+              "Tvoje meno pre hru",
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                hintText: "Zadaj svoje meno...",
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
+              ),
+              style: Theme.of(context).textTheme.bodyLarge,
+              onTap: () => setState(() => _isEditingName = true),
+              onChanged: (value) {
+                if (_debounce?.isActive ?? false) _debounce!.cancel();
+                _debounce = Timer(const Duration(milliseconds: 500), () {
+                  if (mounted) {
+                    Provider.of<UserProvider>(context, listen: false).updateFullName(value);
+                  }
+                });
+              },
+              onSubmitted: (value) => setState(() => _isEditingName = false),
+              onTapOutside: (_) {
+                FocusScope.of(context).unfocus();
+                setState(() => _isEditingName = false);
+              },
+            ),
+            const SizedBox(height: 16),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(value: progress, minHeight: 8),
@@ -165,6 +227,17 @@ class GamePage extends StatelessWidget {
                 Text("Skóre: ${provider.score} / ${provider.totalPoints}"),
               ],
             ),
+            if (total > 0) ...[
+              const Divider(height: 24),
+              OutlinedButton.icon(
+                onPressed: () => context.go('/game/winners'),
+                icon: const Icon(Icons.emoji_events_outlined),
+                label: const Text("Kto už hru vyriešil?"),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 40),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -191,7 +264,7 @@ class GamePage extends StatelessWidget {
 
     return Card(
       child: ListTile(
-        leading: Icon(typeIcon(q.type), color: Theme.of(context).colorScheme.primary),
+        leading: Icon(GamePage.typeIcon(q.type), color: Theme.of(context).colorScheme.primary),
         title: Text(q.title),
         subtitle: q.description.isNotEmpty
             ? Text(

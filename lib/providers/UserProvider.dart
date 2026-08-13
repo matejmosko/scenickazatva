@@ -83,6 +83,14 @@ class UserProvider extends ChangeNotifier {
     await authService().saveUserData(_userData);
   }
 
+  /// Updates the user's full name and persists it to Firebase.
+  Future<void> updateFullName(String name) async {
+    if (_userData.fullName == name) return;
+    _userData.fullName = name;
+    notifyListeners();
+    await authService().saveUserData(_userData);
+  }
+
   @override
   void dispose() {
     _authSubscription?.cancel();

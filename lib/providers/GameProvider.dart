@@ -168,16 +168,19 @@ class GameProvider extends ChangeNotifier {
       answeredAt: DateTime.now(),
     );
 
-    _submissions[question.id] = submission;
-    notifyListeners();
+    if (correct) {
+      _submissions[question.id] = submission;
+      notifyListeners();
 
-    try {
-      await FirebaseDatabase.instance
-          .ref("users/$uid/game/$_currentFestivalId/${question.id}")
-          .set(submission.toJson());
-    } catch (e) {
-      AppLog.error("Firebase answer save error", error: e);
+      try {
+        await FirebaseDatabase.instance
+            .ref("users/$uid/game/$_currentFestivalId/${question.id}")
+            .set(submission.toJson());
+      } catch (e) {
+        AppLog.error("Firebase answer save error", error: e);
+      }
     }
+
     return submission;
   }
 

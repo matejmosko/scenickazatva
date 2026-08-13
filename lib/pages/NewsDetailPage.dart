@@ -61,6 +61,20 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
       });
       return found;
     } else {
+      // Offline/read-later fallback: pull the post from the Hive HTTP cache
+      // (or the network when online) so previously seen articles stay readable.
+      final id = int.tryParse(widget.newsId.toString());
+      if (id != null) {
+        final cached = await newsProvider.fetchPostById(id);
+        if (cached != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              newsProvider.markAsRead(cached.id);
+            }
+          });
+          return cached;
+        }
+      }
       throw "No data yet.";
     }
   }
@@ -88,6 +102,26 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
           title,
         ),
         actions: <Widget>[
+          FutureBuilder<wpclient.Post>(
+            future: _articleFuture,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox.shrink();
+              final post = snapshot.data!;
+              final isMagazine =
+                  GoRouterState.of(context).uri.toString().contains("magazine");
+              final isSaved = newsProvider.isReadLater(post.link);
+              return IconButton(
+                icon: Icon(
+                  isSaved ? Icons.bookmark : Icons.bookmark_outline,
+                  color: isSaved ? const Color(0xffCCA965) : Colors.white70,
+                ),
+                onPressed: () => newsProvider.toggleReadLater(
+                  post,
+                  route: isMagazine ? "/magazine/${post.id}" : "/news/${post.id}",
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white70),
             onPressed: () {

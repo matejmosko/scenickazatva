@@ -29,6 +29,9 @@ class AppSettings {
   @HiveField(7)
   List<Ad> ads = [];
 
+  @HiveField(8)
+  int themeModeIndex = 0; // 0: System, 1: Light, 2: Dark
+
   AppSettings({
     this.defaultfestival = "sutaze",
     this.festivals = const {},
@@ -38,6 +41,7 @@ class AppSettings {
     this.lastMagazinePostId = 0,
     this.interceptLinks = true,
     this.ads = const [],
+    this.themeModeIndex = 0,
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -76,6 +80,7 @@ class AppSettings {
       lastMagazinePostId: json['lastMagazinePostId'] ?? 0,
       interceptLinks: json['interceptLinks'] ?? true,
       ads: adsList,
+      themeModeIndex: json['themeModeIndex'] ?? 0,
     );
   }
 
@@ -89,6 +94,7 @@ class AppSettings {
       'lastMagazinePostId': lastMagazinePostId,
       'interceptLinks': interceptLinks,
       'ads': ads.map((ad) => ad.toJson()).toList(),
+      'themeModeIndex': themeModeIndex,
     };
   }
 }

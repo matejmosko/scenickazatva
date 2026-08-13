@@ -20,6 +20,39 @@ class _NewsViewState extends State<NewsView> with AutomaticKeepAliveClientMixin 
   @override
   bool get wantKeepAlive => true;
 
+  Widget _buildCategoryDropdown(BuildContext context) {
+    final newsProvider = Provider.of<NewsProvider>(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<int?>(
+        value: newsProvider.selectedNewsCategoryId,
+        isExpanded: true,
+        style: TextStyle(
+          color: isDark ? Colors.white54 : Colors.black,
+          fontSize: 14,
+          fontFamily: 'Space Grotesk',
+        ),
+        hint: const Text("Kategórie"),
+        items: [
+          const DropdownMenuItem<int?>(
+            value: null,
+            child: Text("Všetky kategórie"),
+          ),
+          ...newsProvider.newsCategories.map((category) {
+            return DropdownMenuItem<int?>(
+              value: category.id,
+              child: Text(category.name ?? ""),
+            );
+          }).toList(),
+        ],
+        onChanged: (int? value) {
+          newsProvider.setNewsCategory(value);
+        },
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -35,31 +68,53 @@ class _NewsViewState extends State<NewsView> with AutomaticKeepAliveClientMixin 
       children: [
         Padding(
           padding: const EdgeInsets.all(8.0),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Hľadať...',
-              prefixIcon: Icon(Icons.search),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: Icon(Icons.clear),
-                      onPressed: () {
-                        _searchController.clear();
-                        newsProvider.setNewsSearchQuery(null);
-                      },
-                    )
-                  : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Hľadať...',
+                    prefixIcon: Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              newsProvider.setNewsSearchQuery(null);
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(vertical: 0),
+                  ),
+                  onChanged: (value) {
+                    setState(() {}); // To update suffixIcon visibility
+                  },
+                  onSubmitted: (value) {
+                    newsProvider.setNewsSearchQuery(value.isEmpty ? null : value);
+                  },
+                ),
               ),
-              contentPadding: EdgeInsets.symmetric(vertical: 0),
-            ),
-            onChanged: (value) {
-              setState(() {}); // To update suffixIcon visibility
-            },
-            onSubmitted: (value) {
-              newsProvider.setNewsSearchQuery(value.isEmpty ? null : value);
-            },
+              if (newsProvider.newsCategories.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: _buildCategoryDropdown(context),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         Expanded(
@@ -112,7 +167,12 @@ class _NewsViewState extends State<NewsView> with AutomaticKeepAliveClientMixin 
                                             ),
                                           ),
                                         ),
-                                        PostThumbnail(imageUrl: item.featuredImageSourceUrl()),
+                                        PostThumbnail(
+                                          imageUrl: item.featuredImageSourceUrl(),
+                                          isBookmarked: newsProvider.isReadLater(item.link),
+                                          onBookmark: () => newsProvider.toggleReadLater(item,
+                                              route: "/news/${item.id}"),
+                                        ),
                                       ]),
                                   onTap: () {
                                     Analytics().logEvent(AnalyticsEvents.articleOpened, parameters: {

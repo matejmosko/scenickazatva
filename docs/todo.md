@@ -8,6 +8,9 @@
 
 ## Future ideas
 
+### Critical
+- [ ] Replace placeholder reCAPTCHA site key + debug App Check providers in `lib/main.dart` (`FirebaseAppCheck.instance.activate`) with real production providers (Play Integrity / reCAPTCHA) before any release — currently ships with a fake key and would either fail or run insecure in production.
+
 ### Stability & reliability
 - [ ] Add `integration_test/` coverage for core flows: login → browse program → open event → submit a game answer.
 - [ ] Run `flutter analyze` + `flutter test` in Codemagic on every PR/tag; add a pre-push hook.

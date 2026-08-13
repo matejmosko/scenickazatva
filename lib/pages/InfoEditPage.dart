@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:scenickazatva_app/models/InfoPost.dart';
 import 'package:provider/provider.dart';
+import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/providers/InfoProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import 'package:flutter_quill_delta_from_html/flutter_quill_delta_from_html.dart';
-import 'package:vsc_quill_delta_to_html/vsc_quill_delta_to_html.dart';
-import 'package:firebase_cached_image/firebase_cached_image.dart';
-import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
+import 'package:scenickazatva_app/utils/HtmlUtils.dart';
+import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
+import 'package:scenickazatva_app/widgets/RichTextEditor.dart';
 
 /// Page for managing festival-specific information posts.
 /// Only accessible by users with editing privileges.
@@ -25,20 +25,24 @@ class InfoEditPage extends StatefulWidget {
 class InfoEditPageState extends State<InfoEditPage> {
   final _formKey = GlobalKey<FormState>();
   late InfoPost edited;
-  late QuillController _controller;
+  QuillController? _controller;
   bool _isInitialized = false;
   bool _isNew = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = QuillController.basic();
     _isNew = widget.infoId == "new";
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _controller ??= RichTextEditor.createController(
+      resolveFestivalId: () => Provider.of<AppSettingsProvider>(context,
+              listen: false)
+          .defaultfestival,
+    );
     if (!_isInitialized) {
       // 1. Authorization guard
       final userProvider = Provider.of<UserProvider>(context);
@@ -71,14 +75,7 @@ class InfoEditPageState extends State<InfoEditPage> {
           edited = foundPost.copy();
 
           // Initialize Quill editor with HTML content
-          if (edited.description.isNotEmpty) {
-            try {
-              var delta = HtmlToDelta().convert(edited.description, transformTableAsEmbed: false);
-              _controller.document = Document.fromDelta(delta);
-            } catch (e) {
-              debugPrint("Error converting HTML to Delta: $e");
-            }
-          }
+          _controller!.document = HtmlUtils.htmlToDeltaDocument(edited.description);
           _isInitialized = true;
         } else {
           // Redirect if post not found and app finished loading
@@ -98,13 +95,7 @@ class InfoEditPageState extends State<InfoEditPage> {
   void _saveForm() async {
     if (_formKey.currentState!.validate()) {
       // Convert Quill Delta back to HTML for storage
-      var delta = _controller.document.toDelta().toJson();
-      final converter = QuillDeltaToHtmlConverter(
-        List.castFrom(delta),
-        ConverterOptions.forEmail(),
-      );
-
-      String desc = converter.convert();
+      String desc = HtmlUtils.deltaDocumentToHtml(_controller!.document);
       
       _formKey.currentState!.save();
       edited.description = desc;
@@ -247,18 +238,11 @@ class InfoEditPageState extends State<InfoEditPage> {
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(4),
-                                child: FutureBuilder<bool>(
-                                  future: ImagePrecacheService().doesImageExist(edited.image),
-                                  builder: (context, snapshot) {
-                                    final exists = snapshot.data ?? (ImagePrecacheService().checkCache(edited.image) ?? false);
-                                    if (!exists) return const Icon(Icons.image_not_supported, color: Colors.grey);
-
-                                    return Image(
-                                      image: FirebaseImageProvider(FirebaseUrl(edited.image)),
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline),
-                                    );
-                                  },
+                                child: FirebaseImage(
+                                  url: edited.image,
+                                  fit: BoxFit.cover,
+                                  placeholder: const Icon(Icons.image_not_supported, color: Colors.grey),
+                                  errorPlaceholder: const Icon(Icons.error_outline),
                                 ),
                               ),
                             ),
@@ -277,67 +261,7 @@ class InfoEditPageState extends State<InfoEditPage> {
                       ),
                       const SizedBox(height: 24),
                       // Rich Text Section
-                      QuillSimpleToolbar(
-                        controller: _controller,
-                        config: const QuillSimpleToolbarConfig(),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        height: 400.0,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: QuillEditor.basic(
-                          controller: _controller,
-                          config: QuillEditorConfig(
-                            customStyles: DefaultStyles.getInstance(context).merge(
-                              DefaultStyles(
-                                h1: DefaultTextBlockStyle(
-                                  TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 32, fontWeight: FontWeight.bold),
-                                  const HorizontalSpacing(0, 0),
-                                  const VerticalSpacing(16, 0),
-                                  const VerticalSpacing(0, 0),
-                                  null,
-                                ),
-                                h2: DefaultTextBlockStyle(
-                                  TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 24, fontWeight: FontWeight.bold),
-                                  const HorizontalSpacing(0, 0),
-                                  const VerticalSpacing(8, 0),
-                                  const VerticalSpacing(0, 0),
-                                  null,
-                                ),
-                                h3: DefaultTextBlockStyle(
-                                  TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
-                                  const HorizontalSpacing(0, 0),
-                                  const VerticalSpacing(8, 0),
-                                  const VerticalSpacing(0, 0),
-                                  null,
-                                ),
-                                paragraph: DefaultTextBlockStyle(
-                                  TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                                  const HorizontalSpacing(0, 0),
-                                  const VerticalSpacing(0, 0),
-                                  const VerticalSpacing(0, 0),
-                                  null,
-                                ),
-                                lists: DefaultListBlockStyle(
-                                  TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                                  const HorizontalSpacing(0, 0),
-                                  const VerticalSpacing(0, 0),
-                                  const VerticalSpacing(0, 0),
-                                  null,
-                                  null,
-                                ),
-                                link: const TextStyle(
-                                  color: Colors.blue,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
+                      RichTextEditor(controller: _controller!),
                     ],
                   ),
                 ),
@@ -357,7 +281,7 @@ class InfoEditPageState extends State<InfoEditPage> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:scenickazatva_app/models/Event.dart';
 import 'package:scenickazatva_app/models/Location.dart';
 import 'package:provider/provider.dart';
+import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/providers/EventsProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:intl/intl.dart';
@@ -9,12 +10,11 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import 'package:flutter_quill_delta_from_html/flutter_quill_delta_from_html.dart';
-import 'package:vsc_quill_delta_to_html/vsc_quill_delta_to_html.dart';
-import 'package:firebase_cached_image/firebase_cached_image.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:scenickazatva_app/utils/TimeUtils.dart';
-import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
+import 'package:scenickazatva_app/utils/HtmlUtils.dart';
+import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
+import 'package:scenickazatva_app/widgets/RichTextEditor.dart';
 
 /// Page for editing existing events or creating new ones.
 /// Restricted to users with admin or editor roles.
@@ -31,20 +31,24 @@ class EventEditPageState extends State<EventEditPage> {
   DateTime? startDate;
   DateTime? endDate;
   late Event edited;
-  late QuillController _controller;
+  QuillController? _controller;
   bool _isInitialized = false;
   bool _isNew = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = QuillController.basic();
     _isNew = widget.eventId == "new";
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _controller ??= RichTextEditor.createController(
+      resolveFestivalId: () => Provider.of<AppSettingsProvider>(context,
+              listen: false)
+          .defaultfestival,
+    );
     if (!_isInitialized) {
       // 1. Check permissions first
       final userProvider = Provider.of<UserProvider>(context);
@@ -86,14 +90,7 @@ class EventEditPageState extends State<EventEditPage> {
           endDate = TimeUtils.fromUtc(edited.endTime!);
 
           // Convert HTML description to Quill Delta
-          if (edited.description.isNotEmpty) {
-            try {
-              var delta = HtmlToDelta().convert(edited.description, transformTableAsEmbed: false);
-              _controller.document = Document.fromDelta(delta);
-            } catch (e) {
-              debugPrint("Error converting HTML to Delta: $e");
-            }
-          }
+          _controller!.document = HtmlUtils.htmlToDeltaDocument(edited.description);
           _isInitialized = true;
         } else {
           // If event not found and not loading, redirect back
@@ -156,13 +153,7 @@ class EventEditPageState extends State<EventEditPage> {
   void _saveForm() async {
     if (_formKey.currentState!.validate()) {
       // 1. Get HTML from Quill
-      var delta = _controller.document.toDelta().toJson();
-      final converter = QuillDeltaToHtmlConverter(
-        List.castFrom(delta),
-        ConverterOptions.forEmail(),
-      );
-
-      String desc = converter.convert();
+      String desc = HtmlUtils.deltaDocumentToHtml(_controller!.document);
       
       // 2. Save form fields
       _formKey.currentState!.save();
@@ -319,18 +310,11 @@ class EventEditPageState extends State<EventEditPage> {
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(4),
-                                child: FutureBuilder<bool>(
-                                  future: ImagePrecacheService().doesImageExist(edited.image),
-                                  builder: (context, snapshot) {
-                                    final exists = snapshot.data ?? (ImagePrecacheService().checkCache(edited.image) ?? false);
-                                    if (!exists) return const Icon(Icons.image_not_supported, color: Colors.grey);
-                                    
-                                    return Image(
-                                      image: FirebaseImageProvider(FirebaseUrl(edited.image)),
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.error_outline),
-                                    );
-                                  },
+                                child: FirebaseImage(
+                                  url: edited.image,
+                                  fit: BoxFit.cover,
+                                  placeholder: const Icon(Icons.image_not_supported, color: Colors.grey),
+                                  errorPlaceholder: const Icon(Icons.error_outline),
                                 ),
                               ),
                             ),
@@ -409,67 +393,7 @@ class EventEditPageState extends State<EventEditPage> {
                       ),
                       const SizedBox(height: 24),
                       // Rich Text Editor (Quill)
-                      QuillSimpleToolbar(
-                        controller: _controller,
-                        config: const QuillSimpleToolbarConfig(),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        height: 400.0,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: QuillEditor.basic(
-                          controller: _controller,
-                          config: QuillEditorConfig(
-                            customStyles: DefaultStyles.getInstance(context).merge(
-                              DefaultStyles(
-                                h1: DefaultTextBlockStyle(
-                                  TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 32, fontWeight: FontWeight.bold),
-                                  const HorizontalSpacing(0, 0),
-                                  const VerticalSpacing(16, 0),
-                                  const VerticalSpacing(0, 0),
-                                  null,
-                                ),
-                                h2: DefaultTextBlockStyle(
-                                  TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 24, fontWeight: FontWeight.bold),
-                                  const HorizontalSpacing(0, 0),
-                                  const VerticalSpacing(8, 0),
-                                  const VerticalSpacing(0, 0),
-                                  null,
-                                ),
-                                h3: DefaultTextBlockStyle(
-                                  TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
-                                  const HorizontalSpacing(0, 0),
-                                  const VerticalSpacing(8, 0),
-                                  const VerticalSpacing(0, 0),
-                                  null,
-                                ),
-                                paragraph: DefaultTextBlockStyle(
-                                  TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                                  const HorizontalSpacing(0, 0),
-                                  const VerticalSpacing(0, 0),
-                                  const VerticalSpacing(0, 0),
-                                  null,
-                                ),
-                                lists: DefaultListBlockStyle(
-                                  TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                                  const HorizontalSpacing(0, 0),
-                                  const VerticalSpacing(0, 0),
-                                  const VerticalSpacing(0, 0),
-                                  null,
-                                  null,
-                                ),
-                                link: const TextStyle(
-                                  color: Colors.blue,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
+                      RichTextEditor(controller: _controller!),
                     ],
                   ),
                 ),
@@ -489,7 +413,7 @@ class EventEditPageState extends State<EventEditPage> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 }

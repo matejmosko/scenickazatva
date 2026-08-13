@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:wordpress_client/wordpress_client.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
 import 'package:scenickazatva_app/models/Event.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 
 class ImagePrecacheService {
   static final ImagePrecacheService _instance = ImagePrecacheService._internal();
@@ -62,7 +63,7 @@ class ImagePrecacheService {
       final parentPath = ref.parent?.fullPath ?? "";
       final bucket = ref.bucket;
 
-      debugPrint("ImagePrecacheService: Checking $normalizedPath");
+      AppLog.info("ImagePrecacheService: Checking $normalizedPath");
 
       // Try folder scanning for efficiency
       // Allow root scanning (parentPath == "") to prevent getMetadata fallback for root files
@@ -78,7 +79,7 @@ class ImagePrecacheService {
       
       // Only if scan was successful and we still don't have it, we can be sure it's invalid
       if (_scannedFolders.contains(parentPath)) {
-        debugPrint("ImagePrecacheService: $normalizedPath NOT found in successfully scanned folder '$parentPath'");
+        AppLog.warn("ImagePrecacheService: $normalizedPath NOT found in successfully scanned folder '$parentPath'");
         _invalidImages.add(normalizedPath);
         return false;
       }
@@ -88,7 +89,7 @@ class ImagePrecacheService {
       _validImages.add(normalizedPath);
       return true;
     } catch (e) {
-      debugPrint("ImagePrecacheService: Existence check failed for $normalizedPath: $e");
+      AppLog.error("ImagePrecacheService: Existence check failed for $normalizedPath", error: e);
       _invalidImages.add(normalizedPath);
       return false;
     }
@@ -101,14 +102,14 @@ class ImagePrecacheService {
     
     try {
       final ListResult result = await scanRef.listAll();
-      debugPrint("ImagePrecacheService: Scanned folder '$parentPath', found ${result.items.length} items");
+      AppLog.info("ImagePrecacheService: Scanned folder '$parentPath', found ${result.items.length} items");
       for (var item in result.items) {
         final fullGsPath = "gs://$bucket/${item.fullPath}";
         _validImages.add(fullGsPath);
       }
       _scannedFolders.add(parentPath);
     } catch (e) {
-      debugPrint("ImagePrecacheService: Folder scan failed for '$parentPath': $e");
+      AppLog.warn("ImagePrecacheService: Folder scan failed for '$parentPath': $e");
       // Don't add to _scannedFolders so we can try fallback or retry later
     } finally {
       _pendingScans.remove(parentPath);
@@ -136,11 +137,11 @@ class ImagePrecacheService {
               ImageStreamListener((_, __) {
                 // Success
               }, onError: (dynamic exception, StackTrace? stackTrace) {
-                debugPrint("ImagePrecacheService: Background precache failed for ${event.image}: $exception");
+                AppLog.error("ImagePrecacheService: Background precache failed for ${event.image}", error: exception);
               }),
             );
           } catch (e) {
-            debugPrint("ImagePrecacheService: Error resolving ${event.image}: $e");
+            AppLog.error("ImagePrecacheService: Error resolving ${event.image}", error: e);
           }
         }
       }
@@ -155,11 +156,11 @@ class ImagePrecacheService {
         final provider = FirebaseImageProvider(FirebaseUrl(path));
         provider.resolve(ImageConfiguration.empty).addListener(
           ImageStreamListener((_, __) {}, onError: (dynamic exception, StackTrace? stackTrace) {
-            debugPrint("ImagePrecacheService: Background precache failed for $path: $exception");
+            AppLog.error("ImagePrecacheService: Background precache failed for $path", error: exception);
           }),
         );
       } catch (e) {
-        debugPrint("ImagePrecacheService: Error resolving $path: $e");
+        AppLog.error("ImagePrecacheService: Error resolving $path", error: e);
       }
     }
   }
@@ -173,7 +174,7 @@ class ImagePrecacheService {
           final provider = CachedNetworkImageProvider(url);
           provider.resolve(ImageConfiguration.empty);
         } catch (e) {
-          debugPrint("Error precaching WP image: $e");
+          AppLog.error("Error precaching WP image", error: e);
         }
       }
     }

@@ -4,6 +4,7 @@ import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/HivePreferences.dart';
 import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 
 class FestivalProvider extends ChangeNotifier {
   Festival _festival = Festival();
@@ -51,7 +52,7 @@ class FestivalProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      debugPrint("Error loading festival from Hive: $e");
+      AppLog.error("Error loading festival from Hive", error: e);
     }
   }
 

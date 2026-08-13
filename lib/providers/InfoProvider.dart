@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:scenickazatva_app/models/InfoPost.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 
 /// Provider for managing general festival information (static content).
 /// Synchronizes with Firebase Realtime Database and supports administrative edits.
@@ -62,14 +63,14 @@ class InfoProvider extends ChangeNotifier {
             list.where((e) => e != null).map((model) => InfoPost.fromJson(Map<String, dynamic>.from(model))).toList(),
           );
         } catch (e) {
-          debugPrint("Error parsing info data: $e");
+          AppLog.error("Error parsing info data", error: e);
           setLoading(false);
         }
       } else {
         setInfo([]);
       }
     }, onError: (error) {
-      debugPrint("Info subscription error: $error");
+      AppLog.error("Info subscription error", error: error);
       setLoading(false);
     });
   }
@@ -88,7 +89,7 @@ class InfoProvider extends ChangeNotifier {
   /// Updates an existing info post (authorized only)
   Future<void> updateInfoPost(InfoPost post) async {
     if (!_canEdit) {
-      debugPrint("Unauthorized info update attempt blocked");
+      AppLog.warn("Unauthorized info update attempt blocked");
       return;
     }
     try {
@@ -97,10 +98,10 @@ class InfoProvider extends ChangeNotifier {
         await FirebaseDatabase.instance
             .ref("festivals/$_currentFestivalId/info/${post.id}")
             .update(post.toJson());
-        debugPrint("Firebase info save success");
+        AppLog.info("Firebase info save success");
       }
     } catch (error) {
-      debugPrint("Firebase info update error: $error");
+      AppLog.error("Firebase info update error", error: error);
     } finally {
       setLoading(false);
     }
@@ -109,7 +110,7 @@ class InfoProvider extends ChangeNotifier {
   /// Creates a new info post (authorized only)
   Future<String?> createInfoPost(InfoPost post) async {
     if (!_canEdit) {
-      debugPrint("Unauthorized info create attempt blocked");
+      AppLog.warn("Unauthorized info create attempt blocked");
       return null;
     }
     try {
@@ -120,11 +121,11 @@ class InfoProvider extends ChangeNotifier {
             .push();
         post.id = newRef.key ?? "";
         await newRef.set(post.toJson());
-        debugPrint("Firebase info create success: ${post.id}");
+        AppLog.info("Firebase info create success: ${post.id}");
         return post.id;
       }
     } catch (error) {
-      debugPrint("Firebase info create error: $error");
+      AppLog.error("Firebase info create error", error: error);
     } finally {
       setLoading(false);
     }
@@ -134,7 +135,7 @@ class InfoProvider extends ChangeNotifier {
   /// Deletes an info post (authorized only)
   Future<void> deleteInfoPost(String postId) async {
     if (!_canEdit) {
-      debugPrint("Unauthorized info delete attempt blocked");
+      AppLog.warn("Unauthorized info delete attempt blocked");
       return;
     }
     try {
@@ -143,10 +144,10 @@ class InfoProvider extends ChangeNotifier {
         await FirebaseDatabase.instance
             .ref("festivals/$_currentFestivalId/info/$postId")
             .remove();
-        debugPrint("Firebase info delete success");
+        AppLog.info("Firebase info delete success");
       }
     } catch (error) {
-      debugPrint("Firebase info delete error: $error");
+      AppLog.error("Firebase info delete error", error: error);
     } finally {
       setLoading(false);
     }

@@ -7,6 +7,7 @@ import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 import 'package:scenickazatva_app/widgets/DynamicIcon.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 
 /// Provider responsible for fetching, storing and managing festival events.
 /// Handles real-time synchronization with Firebase and role-based editing permissions.
@@ -145,7 +146,7 @@ class EventsProvider extends ChangeNotifier {
         setEvents([]);
       }
     }, onError: (err) {
-      debugPrint("Firebase Events Error: $err");
+      AppLog.error("Firebase Events Error", error: err);
       setLoading(false);
     });
   }
@@ -265,7 +266,7 @@ class EventsProvider extends ChangeNotifier {
   /// Blocks/Updates an existing event in Firebase (Admin/Editor only)
   void updateEvent(Event _e) async {
     if (!_canEdit) {
-      debugPrint("Unauthorized update attempt blocked");
+      AppLog.warn("Unauthorized update attempt blocked");
       return;
     }
     try {
@@ -276,10 +277,10 @@ class EventsProvider extends ChangeNotifier {
         await FirebaseDatabase.instance
             .ref("festivals/$_festival/events/${_e.id}/")
             .update(_e.toJson());
-        debugPrint("Firebase save success");
+        AppLog.info("Firebase save success");
       }
     } catch (error) {
-      debugPrint("Firebase update error: $error");
+      AppLog.error("Firebase update error", error: error);
     } finally {
       setLoading(false);
     }
@@ -288,7 +289,7 @@ class EventsProvider extends ChangeNotifier {
   /// Pushes a new event to Firebase (Admin/Editor only)
   Future<String?> createEvent(Event e) async {
     if (!_canEdit) {
-      debugPrint("Unauthorized create attempt blocked");
+      AppLog.warn("Unauthorized create attempt blocked");
       return null;
     }
     try {
@@ -301,11 +302,11 @@ class EventsProvider extends ChangeNotifier {
             .push();
         e.id = newEventRef.key ?? "";
         await newEventRef.set(e.toJson());
-        debugPrint("Firebase create success: ${e.id}");
+        AppLog.info("Firebase create success: ${e.id}");
         return e.id;
       }
     } catch (error) {
-      debugPrint("Firebase create error: $error");
+      AppLog.error("Firebase create error", error: error);
     } finally {
       setLoading(false);
     }
@@ -315,7 +316,7 @@ class EventsProvider extends ChangeNotifier {
   /// Removes an event from Firebase (Admin/Editor only)
   void deleteEvent(String eventId) async {
     if (!_canEdit) {
-      debugPrint("Unauthorized delete attempt blocked");
+      AppLog.warn("Unauthorized delete attempt blocked");
       return;
     }
     try {
@@ -326,10 +327,10 @@ class EventsProvider extends ChangeNotifier {
         await FirebaseDatabase.instance
             .ref("festivals/$_festival/events/$eventId")
             .remove();
-        debugPrint("Firebase delete success");
+        AppLog.info("Firebase delete success");
       }
     } catch (error) {
-      debugPrint("Firebase delete error: $error");
+      AppLog.error("Firebase delete error", error: error);
     } finally {
       setLoading(false);
     }

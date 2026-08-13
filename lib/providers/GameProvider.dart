@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:scenickazatva_app/models/GameConfig.dart';
@@ -114,7 +115,7 @@ class GameProvider extends ChangeNotifier {
       _loading = false;
       notifyListeners();
     }, onError: (err) {
-      debugPrint("Firebase Game Error: $err");
+      AppLog.error("Firebase Game Error", error: err);
       _loading = false;
       notifyListeners();
     });
@@ -142,7 +143,7 @@ class GameProvider extends ChangeNotifier {
       }
       notifyListeners();
     }, onError: (err) {
-      debugPrint("Firebase Submissions Error: $err");
+      AppLog.error("Firebase Submissions Error", error: err);
     });
   }
 
@@ -175,7 +176,7 @@ class GameProvider extends ChangeNotifier {
           .ref("users/$uid/game/$_currentFestivalId/${question.id}")
           .set(submission.toJson());
     } catch (e) {
-      debugPrint("Firebase answer save error: $e");
+      AppLog.error("Firebase answer save error", error: e);
     }
     return submission;
   }
@@ -188,7 +189,7 @@ class GameProvider extends ChangeNotifier {
           .ref("festivals/$_currentFestivalId/game/participants/$uid")
           .update({"winner": winner});
     } catch (e) {
-      debugPrint("Firebase setWinner error: $e");
+      AppLog.error("Firebase setWinner error", error: e);
     }
   }
 
@@ -201,7 +202,7 @@ class GameProvider extends ChangeNotifier {
           .ref("festivals/$_currentFestivalId/game")
           .update(config.toJson());
     } catch (e) {
-      debugPrint("Firebase saveGameMeta error: $e");
+      AppLog.error("Firebase saveGameMeta error", error: e);
     }
   }
 
@@ -215,7 +216,7 @@ class GameProvider extends ChangeNotifier {
       await newRef.set(question.toJson());
       return question.id;
     } catch (e) {
-      debugPrint("Firebase createQuestion error: $e");
+      AppLog.error("Firebase createQuestion error", error: e);
       return null;
     }
   }
@@ -227,7 +228,7 @@ class GameProvider extends ChangeNotifier {
           .ref("festivals/$_currentFestivalId/game/questions/${question.id}")
           .update(question.toJson());
     } catch (e) {
-      debugPrint("Firebase updateQuestion error: $e");
+      AppLog.error("Firebase updateQuestion error", error: e);
     }
   }
 
@@ -238,7 +239,7 @@ class GameProvider extends ChangeNotifier {
           .ref("festivals/$_currentFestivalId/game/questions/$questionId")
           .remove();
     } catch (e) {
-      debugPrint("Firebase deleteQuestion error: $e");
+      AppLog.error("Firebase deleteQuestion error", error: e);
     }
   }
 

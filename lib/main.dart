@@ -35,13 +35,18 @@ import 'package:scenickazatva_app/pages/GameResultsPage.dart';
 import 'package:scenickazatva_app/pages/GameEditPage.dart';
 import 'package:scenickazatva_app/pages/GameQuestionEditPage.dart';
 import 'package:scenickazatva_app/requests/NotificationService.dart';
+import 'package:scenickazatva_app/requests/ConnectivityService.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:scenickazatva_app/utils/ThemeFactory.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
+import 'package:scenickazatva_app/widgets/ConnectivityBanner.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:timezone/data/latest.dart' as tz;
+import 'package:app_links/app_links.dart';
+import 'package:scenickazatva_app/utils/DeepLinks.dart';
 
 final _router = GoRouter(
     routes: [
@@ -226,6 +231,9 @@ void main() async {
     webProvider: ReCaptchaV3Provider('6Lcj-R8qAAAAABpZ_O_U_9_Z_Z_Z_Z_Z_Z_Z_Z'),
   );
 
+  // Track RTDB connectivity for the offline banner
+  await ConnectivityService.instance.init();
+
   if (!kIsWeb) {
     FirebaseDatabase.instance.setPersistenceEnabled(true);
     
@@ -249,7 +257,7 @@ void main() async {
     if (user == null) {
       await authService().authFirebase();
     } else {
-      debugPrint('Auth state changed: ${user.uid}');
+      AppLog.info('Auth state changed: ${user.uid}');
     }
   });
 
@@ -266,19 +274,42 @@ void main() async {
       await authService().saveUserData(userSettings);
     }
   }).onError((err) {
-    debugPrint("Token refresh error: $err");
+    AppLog.error("Token refresh error", error: err);
   });
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    debugPrint('Got a message whilst in the foreground!');
+    AppLog.info('Got a message whilst in the foreground!');
     if (message.notification != null) {
-      debugPrint('Message also contained a notification: ${message.notification}');
+      AppLog.info('Message also contained a notification: ${message.notification}');
     }
   });
 
+  if (!kIsWeb) _initDeepLinks();
+
   initializeDateFormatting('sk_SK').then((_) => runApp(MyApp()));
+}
+
+/// Cold-start and warm-start deep-link routing. Web is skipped because
+/// go_router owns the browser URL there.
+Future<void> _initDeepLinks() async {
+  final appLinks = AppLinks();
+  try {
+    final initial = await appLinks.getInitialLink();
+    if (initial != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final path = DeepLinks.normalizeDeepLink(initial.toString());
+        if (path != null) _router.push(path);
+      });
+    }
+    appLinks.uriLinkStream.listen((uri) {
+      final path = DeepLinks.normalizeDeepLink(uri.toString());
+      if (path != null) _router.push(path);
+    });
+  } catch (e) {
+    AppLog.error('Deep links init failed', error: e);
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -349,6 +380,15 @@ class MyApp extends StatelessWidget {
                     festival: festival),
                 debugShowCheckedModeBanner: false,
                 routerConfig: _router,
+                builder: (context, child) => Column(
+                  children: [
+                    const SafeArea(
+                      bottom: false,
+                      child: ConnectivityBanner(),
+                    ),
+                    Expanded(child: child ?? const SizedBox.shrink()),
+                  ],
+                ),
               );
             },
           );

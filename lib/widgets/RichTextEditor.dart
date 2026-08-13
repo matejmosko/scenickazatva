@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/requests/ImageUploadService.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 
 /// Shared Quill rich-text editor with an image-upload toolbar button.
 ///
@@ -63,7 +64,7 @@ class _RichTextEditorState extends State<RichTextEditor> {
         widget.controller.selection,
       );
     } catch (e) {
-      debugPrint('RichTextEditor: image upload failed: $e');
+      AppLog.error('RichTextEditor: image upload failed', error: e);
       messenger.showSnackBar(
         const SnackBar(content: Text('Nepodarilo sa nahrať obrázok')),
       );

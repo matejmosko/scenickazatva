@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 
 class SystemServices {
   static final SystemServices _instance = SystemServices._internal();
@@ -36,7 +36,7 @@ class SystemServices {
         await launchUrl(_url, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
-      debugPrint('Could not launch $url: $e');
+      AppLog.error('Could not launch $url', error: e);
     }
   }
 }
@@ -61,7 +61,7 @@ class Analytics {
       await FirebaseAnalytics.instance
           .setDefaultEventParameters(<String, Object>{'festival_id': festivalId});
     } catch (e) {
-      debugPrint("Analytics: failed to sync festival: $e");
+      AppLog.warn("Analytics: failed to sync festival: $e");
     }
   }
 
@@ -70,7 +70,7 @@ class Analytics {
     try {
       await FirebaseAnalytics.instance.logEvent(name: name, parameters: parameters);
     } catch (e) {
-      debugPrint("Analytics: failed to log '$name': $e");
+      AppLog.warn("Analytics: failed to log '$name': $e");
     }
   }
 }

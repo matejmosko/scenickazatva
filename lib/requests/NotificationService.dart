@@ -4,6 +4,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:scenickazatva_app/models/Event.dart';
 import 'package:flutter/foundation.dart';
 import 'package:scenickazatva_app/utils/TimeUtils.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -22,7 +23,7 @@ class NotificationService {
     try {
       tz.setLocalLocation(TimeUtils.festivalLocation);
     } catch (e) {
-      debugPrint("NotificationService: Could not set default timezone: $e");
+      AppLog.warn("NotificationService: Could not set default timezone: $e");
     }
     
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -85,7 +86,7 @@ class NotificationService {
 
     // Don't schedule if the time has already passed
     if (scheduledDate.isBefore(tzNow)) {
-      debugPrint("NotificationService: Skipping schedule for ${event.title}, wall-clock time ($scheduledDate) already passed (now: $tzNow).");
+      AppLog.info("NotificationService: Skipping schedule for ${event.title}, wall-clock time ($scheduledDate) already passed (now: $tzNow).");
       return;
     }
 
@@ -116,15 +117,15 @@ class NotificationService {
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
-      debugPrint("NotificationService: Scheduled notification $id for ${event.title} at $scheduledDate (Instant: ${scheduledDate.toUtc()})");
+      AppLog.info("NotificationService: Scheduled notification $id for ${event.title} at $scheduledDate (Instant: ${scheduledDate.toUtc()})");
     } catch (e) {
-      debugPrint("NotificationService: Error scheduling notification for ${event.title}: $e");
+      AppLog.error("NotificationService: Error scheduling notification for ${event.title}", error: e);
     }
   }
 
   Future<void> cancelEventNotification(Event event) async {
     final id = event.id.hashCode & 0x7FFFFFFF;
     await _notificationsPlugin.cancel(id: id);
-    debugPrint("NotificationService: Cancelled notification $id for ${event.title}");
+    AppLog.info("NotificationService: Cancelled notification $id for ${event.title}");
   }
 }

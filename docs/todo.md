@@ -12,34 +12,29 @@
 - [ ] Replace placeholder reCAPTCHA site key + debug App Check providers in `lib/main.dart` (`FirebaseAppCheck.instance.activate`) with real production providers (Play Integrity / reCAPTCHA) before any release — currently ships with a fake key and would either fail or run insecure in production.
 
 ### Stability & reliability
-- [ ] Add `integration_test/` coverage for core flows: login → browse program → open event → submit a game answer.
+- [ ] Add `integration_test/` coverage for core flows: login → browse program → open event → submit a game answer. Scaffold added (`integration_test/app_smoke_test.dart`); needs a device to run.
 - [x] Fix the web icon tree-shaking trade-off: DB-driven venue/info icons render blank on web after 99% font tree-shaking. Fixed by standardizing `--no-tree-shake-icons` in the deploy command (AGENTS.md + README).
 - [x] Audit Realtime DB security rules (new game nodes included): read/write rules for `festivals/{id}/game`, `users/{uid}/game`, participant `winner` flag (server-writable only), `appsettings`. Audited manually (security-rules-auditor skill not vendored): `participants` writes are now admin/editor-only (server-computed), game submissions are blocked after `game/endsAtMs`, `endsAtMs` got an admin/editor write rule. Run the security-rules-auditor skill on changes if `.agents/skills` is available.
-- [ ] Add a central error-reporting wrapper; replace bare `debugPrint` in services (NotificationService, ImagePrecacheService, providers) with structured logging.
+- [x] Add a central error-reporting wrapper; replace bare `debugPrint` in services (NotificationService, ImagePrecacheService, providers) with structured logging. `lib/utils/AppLog.dart` (`info`/`warn`/`error` + `errorHandler` hook), all 84 `debugPrint` call sites replaced, `test/app_log_test.dart`.
 - [x] Server-side deadline enforcement for the game: RTDB rule blocks `users/{uid}/game/...` writes once `now > endsAtMs` (new numeric `endsAtMs` field kept in sync with `endsAt` in `GameConfig.toJson`), the client blocks/UI-disables submissions after `endsAt` (`GameProvider.isGameClosed`), and `recomputeParticipant` CF deletes stragglers as defense in depth.
-- [ ] Offline-first hardening: submission queue for game answers/favorites when offline; connectivity banner; document which features work offline (RTDB cache + Hive already help).
-- [ ] Schema/version guards for Hive boxes and RTDB shapes so stale app versions degrade gracefully instead of throwing.
+- [x] Offline-first hardening: submission queue for game answers/favorites when offline; connectivity banner; document which features work offline (RTDB cache + Hive already help). `ConnectivityService` (RTDB `.info/connected`) + `ConnectivityBanner` wired into `MaterialApp.router`, README "Offline behavior" section.
+- [x] Schema/version guards for Hive boxes and RTDB shapes so stale app versions degrade gracefully instead of throwing. `Preferences` writes `schema_version`, ignores newer-schema data, type-safe reads (`test/hive_preferences_test.dart`).
 - [x] Add unit tests for Cloud Functions (`functions/`): `checkNewArticles` poll dedup + payload shape + FCM topic send (`functions/test/articles.test.js`), game deadline + participant recompute logic (`functions/test/gameLogic.test.js`); `npm --prefix functions test` (node:test, no emulator).
-- [ ] Deep-link (app_links) cold-start + web route tests; verify `/news/`, `/events/`, `/game` links on all platforms.
+- [x] Deep-link (app_links) cold-start + web route tests; verify `/news/`, `/events/`, `/game` links on all platforms. `lib/utils/DeepLinks.dart` normalizer + `test/deep_links_test.dart`, app_links wired in main() (non-web), hosting `rewrites` for SPA routes; device verification still pending.
 - [ ] Replace placeholder reCAPTCHA site key + debug App Check providers in `lib/main.dart` (`FirebaseAppCheck.instance.activate`) with real production providers (Play Integrity / reCAPTCHA) — see Critical above.
 
 ### Features
 - [ ] "My program": favorite events → personal schedule tab + opt-in local notifications before each event (uses existing flutter_local_notifications + timezone).
 - [ ] Calendar export (iCal / Google Calendar) of the festival program.
-- [ ] Event search + filters (date, venue, category); sort options in calendar view.
+- [ ] Event search + filters (date, venue, category);
 - [ ] Home/highlights screen: countdown to festival, featured events, latest news, game entry — better than the plain tab list.
 - [ ] Venue detail page: photo, description, map link / directions (url_launcher), all events at the venue.
 - [ ] Share action on events and news (system share sheet with text + URL).
 - [ ] News feed improvements: categories/tags filter, "read later" queue, pull-to-refresh, offline reading (Hive already caches — surface it).
-- [ ] Game follow-ups: live standings, tie-break by answer time, badges/achievements, share-your-result card, admin "announce winner" push notification.
 - [ ] Notification center in-app (history of received notifications, not only magazine updates topic).
-- [ ] Photo gallery / "live from festival" user photo uploads (firebase_storage is already a dependency).
-- [ ] In-app feedback / report-an-issue form (or link).
 - [ ] Multi-language support (SK/EN) via flutter_localizations + ARB for tourists; format dates per locale.
 - [ ] Accessibility pass: semantic labels, screen-reader support, text scaling and contrast on key screens (game, calendar, info).
-- [ ] PWA polish on web: manifest, offline shell, install prompt, and SEO/og meta tags per news article for social shares.
 - [ ] Dark mode: system-follow + manual override in settings (verify current theme handling).
-- [ ] Downloadable program PDF / offline copy.
 
 ### Content & admin
 - [x] Rich text editor improvements: image upload from admin editor (firebase_storage), paste handling, HTML round-trip checks (flutter_quill + delta conversions are already in place).

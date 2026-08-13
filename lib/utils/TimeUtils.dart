@@ -1,12 +1,12 @@
 import 'package:timezone/timezone.dart' as tz;
-import 'package:flutter/foundation.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 
 class TimeUtils {
   static tz.Location get festivalLocation {
     try {
       return tz.getLocation('Europe/Prague');
     } catch (e) {
-      debugPrint("TimeUtils: Europe/Prague not found, falling back to UTC. Error: $e");
+      AppLog.warn("TimeUtils: Europe/Prague not found, falling back to UTC. Error: $e");
       return tz.UTC;
     }
   }

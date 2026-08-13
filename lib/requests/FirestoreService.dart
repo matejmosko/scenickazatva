@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:scenickazatva_app/models/UserData.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 
 /// Service for managing Firebase Authentication and user profile synchronization
 /// with the Realtime Database.
@@ -28,7 +28,7 @@ class authService {
       }
       return userCredential.user;
     } on FirebaseAuthException catch (e) {
-      debugPrint("Firebase Auth FAILED: ${e.code}");
+      AppLog.error("Firebase Auth FAILED: ${e.code}", error: e);
       return null;
     }
   }
@@ -100,7 +100,7 @@ class authService {
         return newUser;
       }
     } catch (e) {
-      debugPrint("Error in getUserData: $e");
+      AppLog.error("Error in getUserData", error: e);
       return UserData(id: user.uid);
     }
   }
@@ -115,9 +115,9 @@ class authService {
       await FirebaseDatabase.instance
           .ref("users/${user.id}")
           .update(data);
-      debugPrint("Firebase UserData save success");
+      AppLog.info("Firebase UserData save success");
     } catch (error) {
-      debugPrint("Error in saveUserData: $error");
+      AppLog.error("Error in saveUserData", error: error);
     }
   }
 }

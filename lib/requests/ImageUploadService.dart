@@ -1,5 +1,6 @@
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 
 /// Uploads rich-text images to Firebase Storage and returns a `gs://` URL
 /// that the rest of the app (FirebaseImage, ImagePrecacheService) can render.
@@ -16,7 +17,7 @@ class ImageUploadService {
       await ref.putData(bytes, SettableMetadata(contentType: 'image/png'));
       return 'gs://${storage.bucket}/${ref.fullPath}';
     } catch (e) {
-      debugPrint('ImageUploadService: upload failed: $e');
+      AppLog.error('ImageUploadService: upload failed', error: e);
       return null;
     }
   }

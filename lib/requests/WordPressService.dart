@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' hide Category;
 import 'dart:async';
 import 'package:wordpress_client/wordpress_client.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:http_cache_hive_store/http_cache_hive_store.dart';
 import 'package:path_provider/path_provider.dart';
@@ -165,15 +166,15 @@ class WordPressService {
       if (wpResponse is WordpressSuccessResponse<List<Post>>) {
         return wpResponse.data;
       } else if (wpResponse is WordpressFailureResponse<List<Post>>) {
-        debugPrint("WP Error: ${wpResponse.message}");
+        AppLog.error("WP Error: ${wpResponse.message}");
         if (wpResponse.error != null) {
-          debugPrint("WP Error Details: ${wpResponse.error}");
+          AppLog.error("WP Error Details: ${wpResponse.error}");
         }
         // Log the request parameters to help debug Bad Request
-        debugPrint("WP Request Failed for URL: $url, Page: $page, Search: $search, Category: $categoryId");
+        AppLog.warn("WP Request Failed for URL: $url, Page: $page, Search: $search, Category: $categoryId");
       }
     } catch (e) {
-      debugPrint("API Error: $e");
+      AppLog.error("API Error", error: e);
     }
 
     return [];
@@ -205,7 +206,7 @@ class WordPressService {
         return wpResponse.data;
       }
     } catch (e) {
-      debugPrint("API Error fetching categories: $e");
+      AppLog.error("API Error fetching categories", error: e);
     }
 
     return [];

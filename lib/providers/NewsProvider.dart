@@ -5,6 +5,7 @@ import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 
 class NewsProvider extends ChangeNotifier {
   static const int blogCategoryId = 999999;
@@ -76,7 +77,7 @@ class NewsProvider extends ChangeNotifier {
     bool newsUpdated = _lastNewsPostId != festival.lastNewsPostId;
 
     if (festivalChanged || newsUpdated) {
-      debugPrint("NewsProvider: Update triggered. Festival changed: $festivalChanged, News updated: $newsUpdated");
+      AppLog.info("NewsProvider: Update triggered. Festival changed: $festivalChanged, News updated: $newsUpdated");
       
       if (festivalChanged) {
         _currentFestivalId = festival.id;
@@ -115,7 +116,7 @@ class NewsProvider extends ChangeNotifier {
 
   void updateFromSettings(AppSettings settings) {
     if (_lastMagazinePostId != settings.lastMagazinePostId) {
-      debugPrint("NewsProvider: Magazine updated signal received.");
+      AppLog.info("NewsProvider: Magazine updated signal received.");
       _lastMagazinePostId = settings.lastMagazinePostId;
       if (_currentFestivalId != null) {
         fetchWpMagazine(refresh: true);
@@ -148,7 +149,7 @@ class NewsProvider extends ChangeNotifier {
 
       // 2. Check if cache is already up-to-date with Firestore update signal
       if (_newsSearchQuery == null && _wpnews.isNotEmpty && _wpnews.first.id == _lastNewsPostId) {
-        debugPrint("News is already up to date. Skipping network request. ID: $_lastNewsPostId");
+        AppLog.info("News is already up to date. Skipping network request. ID: $_lastNewsPostId");
         setLoading("news_src", false);
         return;
       }
@@ -175,7 +176,7 @@ class NewsProvider extends ChangeNotifier {
       ImagePrecacheService().precacheWpImages(data);
       setLoading("news_src", false);
     } catch (e) {
-      debugPrint("Error fetching WP news: $e");
+      AppLog.error("Error fetching WP news", error: e);
       setLoading("news_src", false);
     }
   }
@@ -244,7 +245,7 @@ class NewsProvider extends ChangeNotifier {
           _selectedMagazineCategoryId == null &&
           _wparticles.isNotEmpty &&
           _wparticles.first.id == _lastMagazinePostId) {
-        debugPrint("Magazine is already up to date. Skipping network request. ID: $_lastMagazinePostId");
+        AppLog.info("Magazine is already up to date. Skipping network request. ID: $_lastMagazinePostId");
         setLoading("magazine_src", false);
         return;
       }
@@ -307,7 +308,7 @@ class NewsProvider extends ChangeNotifier {
       ImagePrecacheService().precacheWpImages(data);
       setLoading("magazine_src", false);
     } catch (e) {
-      debugPrint("Error fetching WP magazine: $e");
+      AppLog.error("Error fetching WP magazine", error: e);
       setLoading("magazine_src", false);
     }
   }
@@ -346,13 +347,13 @@ class NewsProvider extends ChangeNotifier {
             'parent': 0,
           }));
         } catch (e) {
-          debugPrint("Could not add virtual Blog category: $e");
+          AppLog.warn("Could not add virtual Blog category: $e");
         }
       }
 
       notifyListeners();
     } catch (e) {
-      debugPrint("Error fetching categories: $e");
+      AppLog.error("Error fetching categories", error: e);
     }
   }
 

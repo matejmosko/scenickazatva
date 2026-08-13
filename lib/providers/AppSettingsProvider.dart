@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
@@ -49,7 +50,7 @@ class AppSettingsProvider extends ChangeNotifier {
   }
 
   AppSettingsProvider() {
-    debugPrint("DEBUG: AppSettingsProvider constructor started");
+    AppLog.info("DEBUG: AppSettingsProvider constructor started");
     loadSettings();
     syncWithFirebase();
   }
@@ -62,7 +63,7 @@ class AppSettingsProvider extends ChangeNotifier {
         _settings = prefs.getAppSettings();
         _allFestivals = _settings.festivals.values.toList();
         _allFestivals.sort((a, b) => (b.startDate ?? DateTime(0)).compareTo(a.startDate ?? DateTime(0)));
-        debugPrint("DEBUG: Hive load complete. ID: ${_settings.defaultfestival}");
+        AppLog.info("DEBUG: Hive load complete. ID: ${_settings.defaultfestival}");
         
         // If we have a valid-looking ID from Hive, we can mark as initialized
         if (_settings.defaultfestival.isNotEmpty && _settings.defaultfestival != "sutaze") {
@@ -75,7 +76,7 @@ class AppSettingsProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      debugPrint("DEBUG: Hive error: $e");
+      AppLog.error("DEBUG: Hive error", error: e);
     }
   }
 
@@ -84,7 +85,7 @@ class AppSettingsProvider extends ChangeNotifier {
     try {
       platform.invokeMethod('setInterceptLinks', {"enabled": _settings.interceptLinks});
     } catch (e) {
-      debugPrint("Error syncing interceptLinks with native: $e");
+      AppLog.warn("Error syncing interceptLinks with native: $e");
     }
   }
 
@@ -112,14 +113,14 @@ class AppSettingsProvider extends ChangeNotifier {
             if (userSnap.exists && userSnap.value != null) {
               // 2. If user has setting, use it
               selectedId = userSnap.value.toString();
-              debugPrint("DEBUG: Using User Preference: $selectedId");
+              AppLog.info("DEBUG: Using User Preference: $selectedId");
             } else {
               // 1. If user doesn't have setting, use global default and CREATE it for them
-              debugPrint("DEBUG: Creating user preference with global default: $selectedId");
+              AppLog.info("DEBUG: Creating user preference with global default: $selectedId");
               await userPrefRef.set(selectedId);
             }
           } catch (e) {
-            debugPrint("DEBUG: Error processing user preferences: $e");
+            AppLog.error("DEBUG: Error processing user preferences", error: e);
           }
         }
 
@@ -137,7 +138,7 @@ class AppSettingsProvider extends ChangeNotifier {
         if (_allFestivals.isNotEmpty) {
           bool exists = _allFestivals.any((f) => f.id == _settings.defaultfestival);
           if (!exists) {
-            debugPrint("DEBUG: Selected ID ${_settings.defaultfestival} not found in database. Falling back to ${_allFestivals.first.id}");
+            AppLog.warn("DEBUG: Selected ID ${_settings.defaultfestival} not found in database. Falling back to ${_allFestivals.first.id}");
             _settings.defaultfestival = _allFestivals.first.id;
           }
         }
@@ -153,7 +154,7 @@ class AppSettingsProvider extends ChangeNotifier {
         notifyListeners();
       }
     }, onError: (error) {
-      debugPrint("DEBUG: Firebase Subscription Error: $error");
+      AppLog.error("DEBUG: Firebase Subscription Error", error: error);
     });
   }
 
@@ -240,7 +241,7 @@ class AppSettingsProvider extends ChangeNotifier {
     try {
       platform.invokeMethod('setInterceptLinks', {"enabled": enabled});
     } catch (e) {
-      debugPrint("Error calling native setInterceptLinks: $e");
+      AppLog.warn("Error calling native setInterceptLinks: $e");
     }
 
     notifyListeners();

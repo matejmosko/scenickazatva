@@ -206,6 +206,7 @@ talks to the Realtime Database (the backend is entirely RTDB), not Firestore.
 
 ```tree
 requests
+├── ConnectivityService.dart # RTDB .info/connected tracking (offline banner)
 ├── FirestoreService.dart   # Auth + user records (RTDB)
 ├── ImagePrecacheService.dart
 ├── NotificationService.dart
@@ -239,8 +240,39 @@ This is the place to keep all our custom widgets.
 
 ```tree
 widgets
-└── DynamicIcon.dart
+├── ConnectivityBanner.dart
+├── DynamicIcon.dart
+├── EventListItem.dart
+├── FestivalInfoCard.dart
+├── FirebaseImage.dart
+├── GameCard.dart
+├── PostThumbnail.dart
+└── RichTextEditor.dart
 ```
+
+All app logging goes through `lib/utils/AppLog.dart` (`info`/`warn`/`error`)
+instead of bare `debugPrint`; every line is tagged with a timestamp and level.
+Set `AppLog.errorHandler` (default `null`) to forward errors to a remote
+reporting service without touching the console output.
+
+### Offline behavior
+
+The app is offline-first without an explicit network plugin:
+
+- The Realtime Database keeps an offline write queue, so game answers,
+  favorites and edits are stored locally and synced once the connection
+  returns. Participants are still recomputed server-side (Cloud Functions),
+  and submissions made after `game/endsAtMs` are rejected by the security
+  rules, regardless of when they were queued.
+- `ConnectivityService` watches the RTDB `.info/connected` signal (the real
+  backend state, not just the network link) and `ConnectivityBanner` shows a
+  "Ste offline" strip while disconnected.
+- Settings, festival config and news/magazine feeds are cached in Hive
+  (HTTP responses go through a Hive-backed cache in `WordPressService`), so
+  previously loaded content stays readable offline.
+- Hive preferences carry a `schema_version` key; if a newer build has written
+  a version the running build cannot read, settings/festival reset to defaults
+  instead of misinterpreting the data.
 
 
 ## Contribution guide

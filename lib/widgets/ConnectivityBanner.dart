@@ -15,20 +15,30 @@ class ConnectivityBanner extends StatelessWidget {
       listenable: ConnectivityService.instance,
       builder: (context, _) {
         final online = ConnectivityService.instance.isOnline;
+        // The banner lives directly above the Navigator, so it must claim the
+        // status-bar inset itself (an outer SafeArea would keep reserving that
+        // space even while online, pushing the whole app down and exposing the
+        // AppBar's top padding as a colored band above the title).
+        final topInset = MediaQuery.paddingOf(context).top;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 250),
-          height: online ? 0 : 36,
-          color: scheme.errorContainer,
-          alignment: Alignment.center,
+          height: online ? 0 : topInset + 36,
+          color: online ? Colors.transparent : scheme.errorContainer,
           child: online
               ? null
-              : Text(
-                  'Ste offline — zmeny sa uložia po obnovení pripojenia',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: scheme.onErrorContainer,
-                    fontSize: 13,
+              : Padding(
+                  padding: EdgeInsets.only(top: topInset),
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Ste offline — zmeny sa uložia po obnovení pripojenia',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: scheme.onErrorContainer,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ),
         );

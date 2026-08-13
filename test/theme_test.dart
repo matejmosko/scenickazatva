@@ -51,9 +51,9 @@ void main() {
       final theme = buildFestivalTheme(brightness: Brightness.light, fontSizeFactor: 1.0);
       expect(theme.appBarTheme.backgroundColor, darkColor);
       expect(theme.appBarTheme.foregroundColor, lightColor);
-      expect(theme.navigationBarTheme.backgroundColor, accentColor);
-      expect(theme.navigationBarTheme.indicatorColor, accentColorDarker);
-      expect(theme.navigationBarTheme.labelTextStyle!.resolve({})!.color, darkColor);
+      expect(theme.navigationBarTheme.backgroundColor, const Color(0xFF000000));
+      expect(theme.navigationBarTheme.indicatorColor, Colors.transparent);
+      expect(theme.navigationBarTheme.labelTextStyle!.resolve({})!.color, Colors.white);
     });
 
     test('keeps the static chrome for the default festival instance', () {
@@ -63,10 +63,10 @@ void main() {
         festival: Festival(),
       );
       expect(theme.appBarTheme.backgroundColor, darkColor);
-      expect(theme.navigationBarTheme.backgroundColor, accentColor);
+      expect(theme.navigationBarTheme.backgroundColor, const Color(0xFF000000));
     });
 
-    test('applies festival colors when configured', () {
+    test('applies festival colors to the app bar only, not the nav bar', () {
       final festival = Festival(
         id: 'zatva',
         festivalBackgroundColor: 'ff123456',
@@ -80,9 +80,29 @@ void main() {
       );
       expect(theme.appBarTheme.backgroundColor, const Color(0xFF123456));
       expect(theme.appBarTheme.foregroundColor, const Color(0xFF654321));
-      expect(theme.navigationBarTheme.backgroundColor, const Color(0xFF123456));
-      expect(theme.navigationBarTheme.indicatorColor, const Color(0xFF00AA00));
-      expect(theme.navigationBarTheme.labelTextStyle!.resolve({})!.color, const Color(0xFF654321));
+      expect(theme.navigationBarTheme.backgroundColor, const Color(0xFF000000));
+      expect(theme.navigationBarTheme.indicatorColor, Colors.transparent);
+      expect(theme.navigationBarTheme.labelTextStyle!.resolve({})!.color, Colors.white);
+    });
+
+    test('nav bar selected item is gold and unselected is white', () {
+      final theme = buildFestivalTheme(brightness: Brightness.light, fontSizeFactor: 1.0);
+      final labelStyle = theme.navigationBarTheme.labelTextStyle!;
+      final iconTheme = theme.navigationBarTheme.iconTheme!;
+      expect(labelStyle.resolve({})!.color, Colors.white);
+      expect(labelStyle.resolve({WidgetState.selected})!.color, accentColor);
+      expect(iconTheme.resolve({})!.color, Colors.white);
+      expect(iconTheme.resolve({WidgetState.selected})!.color, accentColor);
+    });
+
+    test('app bar uses the slim toolbar height', () {
+      final theme = buildFestivalTheme(brightness: Brightness.light, fontSizeFactor: 1.0);
+      expect(theme.appBarTheme.toolbarHeight, 48);
+    });
+
+    test('app bar blends with the status bar (transparent status bar color)', () {
+      final theme = buildFestivalTheme(brightness: Brightness.light, fontSizeFactor: 1.0);
+      expect(theme.appBarTheme.systemOverlayStyle!.statusBarColor, Colors.transparent);
     });
 
     test('dark theme ignores festival colors', () {

@@ -382,10 +382,7 @@ class MyApp extends StatelessWidget {
                 routerConfig: _router,
                 builder: (context, child) => Column(
                   children: [
-                    const SafeArea(
-                      bottom: false,
-                      child: ConnectivityBanner(),
-                    ),
+                    const ConnectivityBanner(),
                     Expanded(child: child ?? const SizedBox.shrink()),
                   ],
                 ),

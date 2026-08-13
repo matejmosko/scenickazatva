@@ -36,19 +36,15 @@ bool isFestivalConfigured(Festival? festival) {
 
 /// Chrome colors resolved from a configured festival. Returns null when the
 /// festival is not configured, signalling the caller to use the static theme.
+/// Only the AppBar follows the festival colors; the bottom navigation bar
+/// always uses the fixed javisko.sk colors (see [buildFestivalTheme]).
 class FestivalChrome {
   final Color appBarBackground;
   final Color appBarForeground;
-  final Color navBarBackground;
-  final Color navBarIndicator;
-  final Color navBarLabel;
 
   const FestivalChrome({
     required this.appBarBackground,
     required this.appBarForeground,
-    required this.navBarBackground,
-    required this.navBarIndicator,
-    required this.navBarLabel,
   });
 }
 
@@ -58,22 +54,19 @@ FestivalChrome? festivalChromeFor(Festival? festival) {
       parseFestivalColor(festival!.festivalBackgroundColor, darkColor);
   final appBarForeground =
       parseFestivalColor(festival.festivalForegroundColor, lightColor);
-  final accent = parseFestivalColor(festival.festivalThirdColor, accentColor);
   return FestivalChrome(
     appBarBackground: appBarBackground,
     appBarForeground: appBarForeground,
-    navBarBackground: appBarBackground,
-    navBarIndicator: accent,
-    navBarLabel: appBarForeground,
   );
 }
 
 bool _isLightColor(Color color) => color.computeLuminance() > 0.5;
 
-/// Builds the app theme. When [festival] is configured (see
-/// [isFestivalConfigured]) the AppBar and NavigationBar take on the festival's
-/// background/foreground/third colors; otherwise the static gold/dark chrome
-/// from `ColorScheme.dart` is used.
+/// Builds the app theme. The AppBar takes on the festival colors when
+/// [festival] is configured (see [isFestivalConfigured]); otherwise it uses
+/// the static dark chrome from `ColorScheme.dart`. The bottom navigation bar
+/// always uses the fixed javisko.sk colors (black background, gold selected
+/// item, white foreground) and never follows the festival.
 ThemeData buildFestivalTheme({
   required Brightness brightness,
   required double fontSizeFactor,
@@ -86,11 +79,6 @@ ThemeData buildFestivalTheme({
 
   final appBarBackground = chrome?.appBarBackground ?? darkColor;
   final appBarForeground = chrome?.appBarForeground ?? lightColor;
-  final navBarBackground =
-      chrome?.navBarBackground ?? (isDark ? colorScheme.surface : accentColor);
-  final navBarIndicator = chrome?.navBarIndicator ??
-      (isDark ? accentColor.withValues(alpha: 0.3) : accentColorDarker);
-  final navBarLabel = chrome?.navBarLabel ?? (isDark ? lightColor : darkColor);
   final isAppBarLight = _isLightColor(appBarBackground);
 
   return ThemeData(
@@ -99,10 +87,15 @@ ThemeData buildFestivalTheme({
     fontFamily: 'Space Grotesk',
     scaffoldBackgroundColor: colorScheme.surface,
     appBarTheme: AppBarTheme(
+      toolbarHeight: 48,
       iconTheme: IconThemeData(color: appBarForeground),
       backgroundColor: appBarBackground,
       foregroundColor: appBarForeground,
       systemOverlayStyle: SystemUiOverlayStyle(
+        // Transparent so the AppBar background paints behind the status bar
+        // and blends with the system UI (matches the M3 default). Ignored on
+        // Android 15+ where edge-to-edge is enforced.
+        statusBarColor: Colors.transparent,
         statusBarIconBrightness:
             isAppBarLight ? Brightness.dark : Brightness.light,
         statusBarBrightness:
@@ -118,15 +111,19 @@ ThemeData buildFestivalTheme({
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: navBarBackground,
-      indicatorColor: navBarIndicator,
-      indicatorShape: const BeveledRectangleBorder(),
-      labelTextStyle: WidgetStateProperty.all(
-        TextStyle(
-          color: navBarLabel,
+      backgroundColor: const Color(0xFF000000),
+      indicatorColor: Colors.transparent,
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return IconThemeData(color: selected ? accentColor : Colors.white);
+      }),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return TextStyle(
+          color: selected ? accentColor : Colors.white,
           fontSize: 12.0,
-        ),
-      ),
+        );
+      }),
     ),
     cardTheme: CardThemeData(
       color: isDark ? colorScheme.surfaceContainerHighest : lightColor,

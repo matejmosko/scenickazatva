@@ -7,6 +7,7 @@ import 'package:scenickazatva_app/models/GameQuestion.dart';
 import 'package:scenickazatva_app/models/GameSubmission.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
+import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 
 /// Solves a single quiz question. Renders the input UI according to the
 /// question type and locks the question once the answer is submitted.
@@ -109,7 +110,10 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
     if (!mounted) return;
     setState(() => _submitting = false);
 
-    Analytics().sendEvent("game answer submitted: ${question.title}");
+    Analytics().logEvent(AnalyticsEvents.gameAnswerSubmitted, parameters: {
+      AnalyticsEvents.paramQuestionId: question.id,
+      AnalyticsEvents.paramCorrect: submission?.correct ?? false,
+    });
     if (submission == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Odpoveď sa nepodarilo uložiť.")),
@@ -158,7 +162,24 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
         const SizedBox(height: 16),
         if (submission != null)
           _buildResult(context, question, submission)
-        else ...[
+        else if (provider.isGameClosed) ...[
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.lock_clock),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      "Hra sa skončila – odpovede už nemožno posielať.",
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ] else ...[
           _buildInput(context, question),
           buildSubmitButton(context, question),
         ],

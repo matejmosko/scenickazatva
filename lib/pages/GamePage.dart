@@ -6,6 +6,7 @@ import 'package:scenickazatva_app/models/GameQuestion.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
+import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 
 /// Overview of the festival game: shows every question and lets the user
 /// pick one to solve. Completed questions are marked in the list.
@@ -117,6 +118,23 @@ class GamePage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (provider.isGameClosed) ...[
+              Row(
+                children: [
+                  Icon(Icons.lock_clock,
+                      size: 18, color: Theme.of(context).colorScheme.error),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Hra sa skončila – odpovede už nemožno posielať.",
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: Theme.of(context).colorScheme.error),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             if (game.description.isNotEmpty) ...[
               Text(game.description),
               const SizedBox(height: 12),
@@ -195,7 +213,8 @@ class GamePage extends StatelessWidget {
           ],
         ),
         onTap: () {
-          Analytics().sendEvent("game question opened: ${q.title}");
+          Analytics().logEvent(AnalyticsEvents.gameQuestionOpened,
+              parameters: {AnalyticsEvents.paramQuestionId: q.id});
           context.go("/game/${q.id}");
         },
       ),

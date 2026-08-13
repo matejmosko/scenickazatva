@@ -20,8 +20,6 @@ class GameProvider extends ChangeNotifier {
   bool _canEdit = false;
   String? _currentFestivalId;
   String _uid = "";
-  String _fullName = "";
-  String _email = "";
 
   StreamSubscription<DatabaseEvent>? _gameSubscription;
   StreamSubscription<DatabaseEvent>? _submissionsSubscription;
@@ -38,6 +36,12 @@ class GameProvider extends ChangeNotifier {
   /// True when the festival has a configured game node.
   bool get hasGame => _game != null;
 
+  /// True when the game deadline (endsAt) has passed; submissions are frozen.
+  bool get isGameClosed {
+    final endsAt = _game?.endsAt;
+    return endsAt != null && !DateTime.now().isBefore(endsAt);
+  }
+
   int get answeredCount => _submissions.length;
   int get totalPoints => _game?.totalPoints ?? 0;
   int get score => _submissions.values
@@ -50,8 +54,6 @@ class GameProvider extends ChangeNotifier {
   /// Reacts to the logged-in user changing.
   void updateFromUser(UserData user) {
     _canEdit = user.userRole == "admin" || user.userRole == "editor";
-    _fullName = user.fullName;
-    _email = user.email;
     if (_uid != user.id) {
       _uid = user.id;
       if (_uid.isNotEmpty && _currentFestivalId != null) {
@@ -145,12 +147,15 @@ class GameProvider extends ChangeNotifier {
   }
 
   /// Evaluates and persists a user's answer. Marks the question completed.
+  /// Returns null when the submission is rejected (invalid answer, not signed
+  /// in, no active festival, or the game deadline has passed).
   Future<GameSubmission?> submitAnswer(
       GameQuestion question, Map<String, dynamic> answer) async {
     final uid = _uid.isEmpty
         ? FirebaseAuth.instance.currentUser?.uid ?? ""
         : _uid;
     if (_currentFestivalId == null || uid.isEmpty) return null;
+    if (isGameClosed) return null;
     if (!question.validateAnswer(answer)) return null;
 
     final correct = question.checkAnswer(answer);
@@ -169,32 +174,10 @@ class GameProvider extends ChangeNotifier {
       await FirebaseDatabase.instance
           .ref("users/$uid/game/$_currentFestivalId/${question.id}")
           .set(submission.toJson());
-      await _updateParticipant(submission, uid);
     } catch (e) {
       debugPrint("Firebase answer save error: $e");
     }
     return submission;
-  }
-
-  /// (Re)writes the participant record used for winner selection.
-  Future<void> _updateParticipant(GameSubmission submission, String uid) async {
-    final participant = GameParticipant(
-      uid: uid,
-      fullName: _fullName,
-      email: _email,
-      score: score,
-      correctCount: _submissions.values.where((s) => s.correct).length,
-      answeredCount: _submissions.length,
-      lastAnsweredAt: submission.answeredAt ?? DateTime.now(),
-    );
-    try {
-      // update() preserves the `winner` flag.
-      await FirebaseDatabase.instance
-          .ref("festivals/$_currentFestivalId/game/participants/$uid")
-          .update(participant.toJson());
-    } catch (e) {
-      debugPrint("Firebase participant update error: $e");
-    }
   }
 
   /// Marks (or clears) a participant as the quiz winner (admin only).

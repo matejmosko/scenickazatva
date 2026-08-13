@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:scenickazatva_app/models/GameConfig.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
 import 'package:scenickazatva_app/utils/GameUtils.dart';
 
@@ -177,6 +178,40 @@ void main() {
     test('type fromId falls back to text for unknown', () {
       expect(GameQuestionType.fromId('nonsense'), GameQuestionType.text);
       expect(GameQuestionType.fromId('match'), GameQuestionType.match);
+    });
+  });
+
+  group('game config deadline', () {
+    test('toJson writes endsAtMs as epoch millis for the security rule', () {
+      final endsAt = DateTime.utc(2026, 8, 1, 12);
+      final config = GameConfig(endsAt: endsAt);
+      final json = config.toJson();
+      expect(json['endsAtMs'], endsAt.millisecondsSinceEpoch);
+      expect(json['endsAt'], endsAt.toIso8601String());
+    });
+
+    test('fromJson accepts legacy ISO endsAt without endsAtMs', () {
+      final config = GameConfig.fromJson({
+        'title': 'Hra',
+        'endsAt': '2026-08-01T12:00:00.000Z',
+      });
+      expect(config.endsAt, DateTime.utc(2026, 8, 1, 12));
+      expect(config.endsAtMs, DateTime.utc(2026, 8, 1, 12).millisecondsSinceEpoch);
+    });
+
+    test('fromJson accepts endsAtMs when the ISO string is missing', () {
+      final config = GameConfig.fromJson({
+        'endsAtMs': DateTime.utc(2026, 8, 1, 12).millisecondsSinceEpoch,
+      });
+      expect(config.endsAt, DateTime.utc(2026, 8, 1, 12));
+    });
+
+    test('round-trips endsAtMs', () {
+      final endsAt = DateTime.utc(2026, 8, 15, 20, 30);
+      final restored =
+          GameConfig.fromJson(GameConfig(endsAt: endsAt).toJson());
+      expect(restored.endsAt, endsAt);
+      expect(restored.endsAtMs, endsAt.millisecondsSinceEpoch);
     });
   });
 }

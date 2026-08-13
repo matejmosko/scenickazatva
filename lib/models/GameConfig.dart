@@ -40,19 +40,32 @@ class GameConfig {
           .toList();
     }
 
+    // endsAtMs is the epoch-millis mirror used by the RTDB security rule for
+    // deadline enforcement (rules can't parse ISO strings).
+    final parsed = DateTime.tryParse(json['endsAt']?.toString() ?? "");
+    final endsAtMs = json['endsAtMs'];
+    final fromMs = endsAtMs is int
+        ? DateTime.fromMillisecondsSinceEpoch(endsAtMs, isUtc: true)
+        : null;
+
     return GameConfig(
       title: json['title'] ?? "",
       description: json['description'] ?? "",
-      endsAt: DateTime.tryParse(json['endsAt']?.toString() ?? ""),
+      endsAt: parsed ?? fromMs,
       questions: questions,
     );
   }
+
+  /// Epoch milliseconds of [endsAt] (0 when unset). Written alongside
+  /// [endsAt] so the RTDB rules can compare it with `now`.
+  int get endsAtMs => endsAt?.millisecondsSinceEpoch ?? 0;
 
   Map<String, dynamic> toJson() {
     return {
       'title': title,
       'description': description,
       'endsAt': endsAt?.toIso8601String() ?? "",
+      'endsAtMs': endsAtMs,
     };
   }
 

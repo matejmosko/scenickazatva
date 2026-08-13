@@ -3,6 +3,8 @@ const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onValueWritten} = require("firebase-functions/v2/database");
 const admin = require("firebase-admin");
 const axios = require("axios");
+const {shouldNotify, buildArticlePayload} = require("./articles");
+const {isPastDeadline, computeParticipantUpdate} = require("./gameLogic");
 
 admin.initializeApp();
 
@@ -90,6 +92,53 @@ exports.syncRolesFromPredefinedRoles = onValueWritten(
       }
     });
 
+/**
+ * Recomputes a participant's score from their submissions whenever one
+ * changes, and freezes submissions that arrive after the game deadline.
+ *
+ * Participant records are server-derived: the client cannot write them (the
+ * rules allow only admin/editor), which prevents players from inflating their
+ * own score or marking themselves as winners. The `winner` flag is preserved.
+ */
+exports.recomputeParticipant = onValueWritten(
+    {ref: "users/{uid}/game/{festivalId}/{questionId}", region: "europe-west1"},
+    async (event) => {
+      const {uid, festivalId} = event.params;
+      const db = admin.database();
+
+      const [gameSnapshot, submissionsSnapshot, participantSnapshot] =
+          await Promise.all([
+            db.ref(`festivals/${festivalId}/game`).get(),
+            db.ref(`users/${uid}/game/${festivalId}`).get(),
+            db.ref(`festivals/${festivalId}/game/participants/${uid}`).get(),
+          ]);
+
+      const game = gameSnapshot.val();
+      const endsAtMs = game && game.endsAtMs;
+
+      // Defense in depth: the security rules already reject late writes, but
+      // roll back any that slipped through (e.g. offline writes from an old
+      // app version).
+      if (isPastDeadline(endsAtMs, Date.now())) {
+        await event.data.after.ref.remove();
+        return;
+      }
+
+      const update = computeParticipantUpdate(
+          submissionsSnapshot.val(),
+          (game && game.questions) || null,
+          participantSnapshot.val(),
+      );
+
+      const participantRef =
+          db.ref(`festivals/${festivalId}/game/participants/${uid}`);
+      if (update === null) {
+        await participantRef.remove();
+      } else {
+        await participantRef.update(update);
+      }
+    });
+
 exports.checkNewArticles = onSchedule("every 30 minutes", async (event) => {
   const magazineUrl = "https://javisko.sk/wp-json/wp/v2/posts?per_page=1";
   const dbRef = admin.database().ref("appsettings/lastMagazinePostId");
@@ -105,22 +154,8 @@ exports.checkNewArticles = onSchedule("every 30 minutes", async (event) => {
     const snapshot = await dbRef.get();
     const lastId = snapshot.val();
 
-    if (latestPost.id !== lastId) {
-      const bodyText = latestPost.title.rendered
-          .replace(/&#8211;/g, "–")
-          .replace(/&amp;/g, "&");
-
-      const message = {
-        notification: {
-          title: "Nový článok na javisko.sk",
-          body: bodyText,
-        },
-        topic: "magazine_updates",
-        data: {
-          id: latestPost.id.toString(),
-          type: "magazine",
-        },
-      };
+    if (shouldNotify(lastId, latestPost.id)) {
+      const message = buildArticlePayload(latestPost);
 
       await admin.messaging().send(message);
       console.log("Notification sent for article:", latestPost.id);

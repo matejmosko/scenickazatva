@@ -3,6 +3,7 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:scenickazatva_app/providers/NewsProvider.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
+import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
@@ -90,7 +91,7 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white70),
             onPressed: () {
-              Analytics().sendEvent("menu: settings");
+              Analytics().logEvent(AnalyticsEvents.menuSettings);
               context.go('/settings');
             },
           )

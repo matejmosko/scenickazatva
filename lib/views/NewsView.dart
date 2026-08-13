@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/providers/NewsProvider.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
+import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:lazy_load_scrollview/lazy_load_scrollview.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
 import 'package:scenickazatva_app/utils/StringUtils.dart';
+import 'package:scenickazatva_app/widgets/PostThumbnail.dart';
 
 class NewsView extends StatefulWidget {
   @override
@@ -111,22 +112,13 @@ class _NewsViewState extends State<NewsView> with AutomaticKeepAliveClientMixin 
                                             ),
                                           ),
                                         ),
-                                        Container(
-                                          width: 120.0,
-                                          height: 120.0,
-                                          child: CachedNetworkImage(
-                                            imageUrl: item.featuredImageSourceUrl(),
-                                            fit: BoxFit.cover,
-                                            height: double.infinity,
-                                            width: double.infinity,
-                                            placeholder: (context, url) => Image.asset('assets/images/icon512.png'),
-                                            errorWidget: (context, url, error) => Image.asset('assets/images/icon512.png'),
-                                          ),
-                                        ),
+                                        PostThumbnail(imageUrl: item.featuredImageSourceUrl()),
                                       ]),
                                   onTap: () {
-                                    Analytics().sendEvent(item.title!.rendered);
-                                    Analytics().sendEvent("javisko article opened");
+                                    Analytics().logEvent(AnalyticsEvents.articleOpened, parameters: {
+                                      AnalyticsEvents.paramItemId: item.id.toString(),
+                                      AnalyticsEvents.paramTitle: item.title!.rendered ?? '',
+                                    });
                                     context.go("/news/" + item.id.toString());
                                   }),
                             );

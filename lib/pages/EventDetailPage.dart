@@ -6,6 +6,7 @@ import 'package:scenickazatva_app/providers/FestivalProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:intl/intl.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
+import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:firebase_cached_image/firebase_cached_image.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:markdown/markdown.dart' as MD;
@@ -25,6 +26,14 @@ class EventDetailPage extends StatefulWidget {
 
 class _EventDetailPageState extends State<EventDetailPage> {
   bool _isRedirecting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Analytics().logEvent(AnalyticsEvents.eventOpened, parameters: {
+      AnalyticsEvents.paramItemId: widget.eventId,
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +120,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
             IconButton(
               icon: const Icon(Icons.settings, color: Colors.white70),
               onPressed: () {
-                Analytics().sendEvent("menu: settings");
+                Analytics().logEvent(AnalyticsEvents.menuSettings);
                 context.go('/settings');
               },
             )

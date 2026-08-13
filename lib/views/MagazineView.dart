@@ -3,16 +3,16 @@ import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/providers/NewsProvider.dart';
 import 'package:lazy_load_scrollview/lazy_load_scrollview.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
+import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
 import 'package:scenickazatva_app/utils/StringUtils.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/models/Event.dart';
 //import 'package:scenickazatva_app/models/Ad.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
-import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
-import 'package:firebase_cached_image/firebase_cached_image.dart';
+import 'package:scenickazatva_app/widgets/PostThumbnail.dart';
+import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
 
 class MagazineView extends StatefulWidget {
   @override
@@ -234,23 +234,14 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                                             ),
                                           ),
                                         ),
-                                        Container(
-                                          width: 120.0,
-                                          height: 120.0,
-                                          child: CachedNetworkImage(
-                                            imageUrl: item.featuredImageSourceUrl(),
-                                            fit: BoxFit.cover,
-                                            height: double.infinity,
-                                            width: double.infinity,
-                                            placeholder: (context, url) => Image.asset('assets/images/icon512.png'),
-                                            errorWidget: (context, url, error) => Image.asset('assets/images/icon512.png'),
-                                          ),
-                                        ),
+                                        PostThumbnail(imageUrl: item.featuredImageSourceUrl()),
                                       ]),
                                   onTap: () {
                                     newsProvider.markAsRead(item.id);
-                                    Analytics().sendEvent(item.title!.rendered);
-                                    Analytics().sendEvent("festník article opened");
+                                    Analytics().logEvent(AnalyticsEvents.articleOpened, parameters: {
+                                      AnalyticsEvents.paramItemId: item.id.toString(),
+                                      AnalyticsEvents.paramTitle: item.title!.rendered ?? '',
+                                    });
                                     context.go("/magazine/" + item.id.toString());
                                   }),
                             );
@@ -346,26 +337,12 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                       child: Stack(
                         children: [
                           Positioned.fill(
-                            child: FutureBuilder<bool>(
-                              future: event.image.isNotEmpty
-                                  ? ImagePrecacheService().doesImageExist(event.image)
-                                  : Future.value(false),
-                              builder: (context, snapshot) {
-                                final bool exists =
-                                    snapshot.data ?? (ImagePrecacheService().checkCache(event.image) ?? false);
-                                final String effectiveUrl = exists ? event.image : fest.logo;
-
-                                if (effectiveUrl.isEmpty) {
-                                  return Image.asset('assets/images/icon512.png', fit: BoxFit.cover);
-                                }
-
-                                return Image(
-                                  image: FirebaseImageProvider(FirebaseUrl(effectiveUrl)),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      Image.asset('assets/images/icon512.png', fit: BoxFit.cover),
-                                );
-                              },
+                            child: FirebaseImage(
+                              url: event.image,
+                              fallbackUrl: fest.logo,
+                              fit: BoxFit.cover,
+                              placeholder:
+                                  Image.asset('assets/images/icon512.png', fit: BoxFit.cover),
                             ),
                           ),
                           Positioned.fill(
@@ -434,24 +411,11 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                       child: Stack(
                         children: [
                           Positioned.fill(
-                            child: FutureBuilder<bool>(
-                              future: ad.image.isNotEmpty
-                                  ? ImagePrecacheService().doesImageExist(ad.image)
-                                  : Future.value(false),
-                              builder: (context, snapshot) {
-                                final bool exists = snapshot.data ??
-                                    (ImagePrecacheService().checkCache(ad.image) ?? false);
-                                if (!exists || ad.image.isEmpty) {
-                                  return Container(color: Theme.of(context).colorScheme.primaryContainer);
-                                }
-
-                                return Image(
-                                  image: FirebaseImageProvider(FirebaseUrl(ad.image)),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      Container(color: Theme.of(context).colorScheme.primaryContainer),
-                                );
-                              },
+                            child: FirebaseImage(
+                              url: ad.image,
+                              fit: BoxFit.cover,
+                              placeholder:
+                                  Container(color: Theme.of(context).colorScheme.primaryContainer),
                             ),
                           ),
                           Positioned.fill(

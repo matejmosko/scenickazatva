@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart' hide EmailAuthProvider;
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
+import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:provider/provider.dart';
 
@@ -60,7 +61,7 @@ class _SettingsPageState extends State<SettingsPage> {
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white70),
             onPressed: () {
-              Analytics().sendEvent("menu: settings");
+              Analytics().logEvent(AnalyticsEvents.menuSettings);
               context.go('/settings');
             },
           )

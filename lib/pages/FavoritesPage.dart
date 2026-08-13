@@ -3,8 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/providers/EventsProvider.dart';
 import 'package:scenickazatva_app/providers/FestivalProvider.dart';
-import 'package:scenickazatva_app/views/CalendarView.dart'; // We can reuse EventListItem
+import 'package:scenickazatva_app/widgets/EventListItem.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
+import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:go_router/go_router.dart';
 
 class FavoritesPage extends StatelessWidget {
@@ -32,7 +33,7 @@ class FavoritesPage extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white70),
             onPressed: () {
-              Analytics().sendEvent("menu: settings");
+              Analytics().logEvent(AnalyticsEvents.menuSettings);
               context.go('/settings');
             },
           )

@@ -13,6 +13,7 @@ import 'package:scenickazatva_app/views/NewsView.dart';
 import 'package:scenickazatva_app/views/MagazineView.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
+import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 
 class TabPage extends StatefulWidget {
   final initialIndex;
@@ -43,7 +44,8 @@ class _TabPageState extends State<TabPage> {
   }
 
   void _itemTapped(int index, newsProvider, eventsProvider, infoProvider) {
-    Analytics().sendEvent("menu: "+index.toString());
+    Analytics().logEvent(AnalyticsEvents.tabSelected,
+        parameters: {AnalyticsEvents.paramTabIndex: index});
     setState(() {
       _selectedIndex = index;
       _pageController.jumpToPage(index);
@@ -148,14 +150,14 @@ class _TabPageState extends State<TabPage> {
           IconButton(
             icon: const Icon(Icons.favorite, color: Colors.white70),
             onPressed: () {
-              Analytics().sendEvent("menu: favorites");
+              Analytics().logEvent(AnalyticsEvents.menuFavorites);
               context.go('/favorites');
             },
           ),
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white70),
             onPressed: () {
-              Analytics().sendEvent("menu: settings");
+              Analytics().logEvent(AnalyticsEvents.menuSettings);
               context.go('/settings');
             },
           ),

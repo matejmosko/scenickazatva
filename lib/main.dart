@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -24,7 +23,6 @@ import 'package:scenickazatva_app/pages/EventEditPage.dart';
 import 'package:scenickazatva_app/pages/InfoEditPage.dart';
 import 'package:scenickazatva_app/pages/InfoDetailPage.dart';
 import 'package:scenickazatva_app/pages/FavoritesPage.dart';
-import 'package:scenickazatva_app/models/ColorScheme.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/models/Ad.dart';
@@ -37,6 +35,9 @@ import 'package:scenickazatva_app/pages/GameResultsPage.dart';
 import 'package:scenickazatva_app/pages/GameEditPage.dart';
 import 'package:scenickazatva_app/pages/GameQuestionEditPage.dart';
 import 'package:scenickazatva_app/requests/NotificationService.dart';
+import 'package:scenickazatva_app/requests/SystemServices.dart';
+import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
+import 'package:scenickazatva_app/utils/ThemeFactory.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -230,6 +231,9 @@ void main() async {
     
     // Handle local notification taps
     NotificationService().onNotificationTap = (String payload) {
+      Analytics().logEvent(AnalyticsEvents.notificationTapped, parameters: {
+        AnalyticsEvents.paramPayload: payload,
+      });
       _router.push(payload);
     };
 
@@ -278,84 +282,6 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  ThemeData _buildTheme(Brightness brightness, double fontSizeFactor) {
-    final isDark = brightness == Brightness.dark;
-    final colorScheme = isDark ? darkColorScheme : lightColorScheme;
-    final textColor = isDark ? lightColor : darkColor;
-
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: colorScheme,
-      fontFamily: 'Space Grotesk',
-      scaffoldBackgroundColor: colorScheme.surface,
-      appBarTheme: AppBarTheme(
-        iconTheme: IconThemeData(color: lightColor),
-        backgroundColor: darkColor,
-        foregroundColor: lightColor,
-        systemOverlayStyle: SystemUiOverlayStyle(
-          statusBarIconBrightness: Brightness.light,
-          statusBarBrightness: Brightness.dark,
-          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-        ),
-        titleTextStyle: const TextStyle(
-          fontFamily: 'Space Grotesk',
-          fontSize: 20.0,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: isDark ? colorScheme.surface : accentColor,
-        indicatorColor: isDark ? accentColor.withValues(alpha: 0.3) : accentColorDarker,
-        indicatorShape: const BeveledRectangleBorder(),
-        labelTextStyle: WidgetStateProperty.all(
-          TextStyle(
-            color: isDark ? lightColor : darkColor,
-            fontSize: 12.0,
-          ),
-        ),
-      ),
-      cardTheme: CardThemeData(
-        color: isDark ? colorScheme.surfaceContainerHighest : lightColor,
-        elevation: isDark ? 0 : 1,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      listTileTheme: ListTileThemeData(
-        textColor: isDark ? lightColor : darkColorLighter,
-        titleTextStyle: TextStyle(
-          fontFamily: 'Space Grotesk',
-          fontVariations: const [FontVariation('wght', 700)],
-          color: isDark ? lightColor : darkColor,
-          fontSize: 18.0 * fontSizeFactor,
-        ),
-      ),
-      textTheme: TextTheme(
-        displayLarge: TextStyle(
-            fontSize: 24.0 * fontSizeFactor,
-            fontVariations: const [FontVariation('wght', 700)],
-            color: textColor),
-        displayMedium: TextStyle(
-            fontSize: 18.0 * fontSizeFactor,
-            fontStyle: FontStyle.italic,
-            color: textColor),
-        displaySmall: TextStyle(
-            fontSize: 16.0 * fontSizeFactor,
-            fontWeight: FontWeight.bold,
-            color: textColor),
-        titleLarge: TextStyle(
-            fontSize: 19.0 * fontSizeFactor,
-            color: textColor),
-        titleMedium: TextStyle(
-            fontSize: 16.0 * fontSizeFactor,
-            fontWeight: FontWeight.w600,
-            color: textColor),
-        bodyLarge: TextStyle(fontSize: 14.0 * fontSizeFactor, color: textColor),
-        bodyMedium: TextStyle(fontSize: 14.0 * fontSizeFactor, color: textColor),
-        bodySmall: TextStyle(fontSize: 12.0 * fontSizeFactor, color: textColor),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -401,18 +327,30 @@ class MyApp extends StatelessWidget {
       child: Consumer<AppSettingsProvider>(
         builder: (context, settingsProvider, child) {
           final fontSizeFactor = settingsProvider.settings.fontSizeFactor;
-          return MaterialApp.router(
-            title: "javisko.sk",
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              FlutterQuillLocalizations.delegate,
-            ],
-            theme: _buildTheme(Brightness.light, fontSizeFactor),
-            darkTheme: _buildTheme(Brightness.dark, fontSizeFactor),
-            debugShowCheckedModeBanner: false,
-            routerConfig: _router,
+          return Consumer<FestivalProvider>(
+            builder: (context, festivalProvider, child) {
+              final festival = festivalProvider.festival;
+              Analytics().syncFestival(festival.id);
+              return MaterialApp.router(
+                title: "javisko.sk",
+                localizationsDelegates: const [
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  FlutterQuillLocalizations.delegate,
+                ],
+                theme: buildFestivalTheme(
+                    brightness: Brightness.light,
+                    fontSizeFactor: fontSizeFactor,
+                    festival: festival),
+                darkTheme: buildFestivalTheme(
+                    brightness: Brightness.dark,
+                    fontSizeFactor: fontSizeFactor,
+                    festival: festival),
+                debugShowCheckedModeBanner: false,
+                routerConfig: _router,
+              );
+            },
           );
         },
       ),

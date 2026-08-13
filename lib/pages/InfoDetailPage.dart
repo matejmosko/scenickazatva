@@ -4,6 +4,7 @@ import 'package:scenickazatva_app/providers/InfoProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
+import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:markdown/markdown.dart' as MD;
@@ -39,7 +40,7 @@ class InfoDetailPage extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white70),
             onPressed: () {
-              Analytics().sendEvent("menu: settings");
+              Analytics().logEvent(AnalyticsEvents.menuSettings);
               context.go('/settings');
             },
           )

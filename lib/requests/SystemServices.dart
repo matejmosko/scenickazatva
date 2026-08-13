@@ -42,11 +42,35 @@ class SystemServices {
 }
 
 class Analytics {
-  sendEvent(String? name) async {
-    if (name == null) return;
-    await FirebaseAnalytics.instance.logEvent(
-      name: "select_content",
-      parameters: {"content_type": "post", "item_id": name},
-    );
+  static final Analytics _instance = Analytics._();
+  factory Analytics() => _instance;
+  Analytics._();
+
+  String? _lastFestivalId;
+
+  /// Keeps the `festival_id` user property and default event parameters in
+  /// sync with the currently selected festival. No-ops when unchanged.
+  Future<void> syncFestival(String? festivalId) async {
+    if (festivalId == null || festivalId.isEmpty || festivalId == _lastFestivalId) {
+      return;
+    }
+    _lastFestivalId = festivalId;
+    try {
+      await FirebaseAnalytics.instance
+          .setUserProperty(name: 'festival_id', value: festivalId);
+      await FirebaseAnalytics.instance
+          .setDefaultEventParameters(<String, Object>{'festival_id': festivalId});
+    } catch (e) {
+      debugPrint("Analytics: failed to sync festival: $e");
+    }
+  }
+
+  Future<void> logEvent(String name,
+      {Map<String, Object> parameters = const {}}) async {
+    try {
+      await FirebaseAnalytics.instance.logEvent(name: name, parameters: parameters);
+    } catch (e) {
+      debugPrint("Analytics: failed to log '$name': $e");
+    }
   }
 }

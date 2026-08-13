@@ -13,15 +13,15 @@
 
 ### Stability & reliability
 - [ ] Add `integration_test/` coverage for core flows: login → browse program → open event → submit a game answer.
-- [ ] Run `flutter analyze` + `flutter test` in Codemagic on every PR/tag; add a pre-push hook.
-- [ ] Fix the web icon tree-shaking trade-off: DB-driven venue/info icons render blank on web after 99% font tree-shaking. Options: curated codepoint→`Icons.*` mapping, or standardize `--no-tree-shake-icons` in deploy docs/script.
-- [ ] Audit Realtime DB security rules (new game nodes included): read/write rules for `festivals/{id}/game`, `users/{uid}/game`, participant `winner` flag (server-writable only), `appsettings`. Run the security-rules-auditor skill on changes.
-- [ ] Add Firebase Crashlytics + a central error-reporting wrapper; replace bare `debugPrint` in services (NotificationService, ImagePrecacheService, providers) with structured logging.
-- [ ] Server-side deadline enforcement for the game (Cloud Function): freeze submissions at `endsAt`, verify `winner` picks against scores.
+- [x] Fix the web icon tree-shaking trade-off: DB-driven venue/info icons render blank on web after 99% font tree-shaking. Fixed by standardizing `--no-tree-shake-icons` in the deploy command (AGENTS.md + README).
+- [x] Audit Realtime DB security rules (new game nodes included): read/write rules for `festivals/{id}/game`, `users/{uid}/game`, participant `winner` flag (server-writable only), `appsettings`. Audited manually (security-rules-auditor skill not vendored): `participants` writes are now admin/editor-only (server-computed), game submissions are blocked after `game/endsAtMs`, `endsAtMs` got an admin/editor write rule. Run the security-rules-auditor skill on changes if `.agents/skills` is available.
+- [ ] Add a central error-reporting wrapper; replace bare `debugPrint` in services (NotificationService, ImagePrecacheService, providers) with structured logging.
+- [x] Server-side deadline enforcement for the game: RTDB rule blocks `users/{uid}/game/...` writes once `now > endsAtMs` (new numeric `endsAtMs` field kept in sync with `endsAt` in `GameConfig.toJson`), the client blocks/UI-disables submissions after `endsAt` (`GameProvider.isGameClosed`), and `recomputeParticipant` CF deletes stragglers as defense in depth.
 - [ ] Offline-first hardening: submission queue for game answers/favorites when offline; connectivity banner; document which features work offline (RTDB cache + Hive already help).
 - [ ] Schema/version guards for Hive boxes and RTDB shapes so stale app versions degrade gracefully instead of throwing.
-- [ ] Add unit tests for Cloud Functions (`functions/`): `checkNewArticles` poll dedup, payload shape, FCM topic send.
+- [x] Add unit tests for Cloud Functions (`functions/`): `checkNewArticles` poll dedup + payload shape + FCM topic send (`functions/test/articles.test.js`), game deadline + participant recompute logic (`functions/test/gameLogic.test.js`); `npm --prefix functions test` (node:test, no emulator).
 - [ ] Deep-link (app_links) cold-start + web route tests; verify `/news/`, `/events/`, `/game` links on all platforms.
+- [ ] Replace placeholder reCAPTCHA site key + debug App Check providers in `lib/main.dart` (`FirebaseAppCheck.instance.activate`) with real production providers (Play Integrity / reCAPTCHA) — see Critical above.
 
 ### Features
 - [ ] "My program": favorite events → personal schedule tab + opt-in local notifications before each event (uses existing flutter_local_notifications + timezone).
@@ -42,11 +42,11 @@
 - [ ] Downloadable program PDF / offline copy.
 
 ### Content & admin
-- [ ] Rich text editor improvements: image upload from admin editor (firebase_storage), paste handling, HTML round-trip checks (flutter_quill + delta conversions are already in place).
-- [ ] Multi-festival polish: per-festival theming (accent color/logo from `appsettings/festivals`), per-festival game + news.
-- [ ] Analytics funnel: measure event-detail opens, game participation, notification tap-through to tune content.
+- [x] Rich text editor improvements: image upload from admin editor (firebase_storage), paste handling, HTML round-trip checks (flutter_quill + delta conversions are already in place).
+- [x] Multi-festival polish: per-festival theming (accent color/logo from `appsettings/festivals`), per-festival game + news.
+- [x] Analytics funnel: measure event-detail opens, game participation, notification tap-through to tune content.
 
 ### Developer experience
-- [ ] Move shared inline widgets out of views into `lib/widgets/` (game card, dynamic icon, event tiles) and add a widget test for them.
-- [ ] Add `AGENTS.md` entries for game RTDB paths and the `--no-tree-shake-icons` web caveat.
-- [ ] Document the manual staging checklist (firebase deploy, web build, tag release) in README.
+- [x] Move shared inline widgets out of views into `lib/widgets/` (game card, dynamic icon, event tiles) and add a widget test for them.
+- [x] Add `AGENTS.md` entries for game RTDB paths and the `--no-tree-shake-icons` web caveat.
+- [x] Document the manual staging checklist (firebase deploy, web build, tag release) in README.

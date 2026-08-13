@@ -130,11 +130,27 @@ It helps us in making sure that we use our data in a way that makes sense.
 
 ```tree
 models
-├── Arrangement.dart
+├── Ad.dart
+├── AppSettings.dart
+├── ColorScheme.dart
 ├── Event.dart
+├── Festival.dart
+├── GameConfig.dart
+├── GameParticipant.dart
+├── GameQuestion.dart
+├── GameSubmission.dart
+├── HivePreferences.dart
 ├── InfoPost.dart
-└── NewsPost.dart
+├── Location.dart
+├── NewsPost.dart
+├── PostExtension.dart
+└── UserData.dart
 ```
+
+Hive-typed models (`Festival`, `AppSettings`, `Ad`) ship generated `*.g.dart`
+adapters (regenerate with `dart run build_runner build --delete-conflicting-outputs`).
+The game models (`GameConfig`, `GameQuestion`, `GameSubmission`, `GameParticipant`)
+mirror the Realtime Database structure under `festivals/{id}/game` and `users/{uid}/game`.
 
 > Tip: Use the amazing [JSON to Dart](https://javiercbk.github.io/json_to_dart/)-converter  by [Javier Lecuona](https://github.com/javiercbk) to generate dart classes from your JSON.
 
@@ -144,12 +160,19 @@ This is where we put whole "fully-scaffolded" pages.
 
 ```tree
 pages
-├── DetailPage.dart
 ├── EventDetailPage.dart
+├── EventEditPage.dart
+├── FavoritesPage.dart
+├── GameEditPage.dart
+├── GamePage.dart
+├── GameQuestionEditPage.dart
+├── GameQuestionPage.dart
+├── GameResultsPage.dart
 ├── InfoDetailPage.dart
+├── InfoEditPage.dart
 ├── NewsDetailPage.dart
-├── TabPage.dart
-└── counter.dart
+├── SettingsPage.dart
+└── TabPage.dart
 ```
 
 > See https://flutter.dev/docs/cookbook/navigation/navigation-basics for a good introduction to navigation.
@@ -160,28 +183,38 @@ This is the famous provider. Makes it easy to share state up and down the applic
 
 ```tree
 providers
-├── AppSettings.dart
-├── ArrangementProvider.dart
-├── EventProvider.dart
+├── AppSettingsProvider.dart
 ├── EventsProvider.dart
+├── FestivalProvider.dart
+├── GameProvider.dart
 ├── InfoProvider.dart
 ├── NewsProvider.dart
-└── counter_bloc.dart
+└── UserProvider.dart
 ```
+
+`AppSettingsProvider` holds the festival list and the selected festival
+(`defaultfestival`, persisted per-user in `users/{uid}/settings/selectedFestival`).
+`EventsProvider`, `InfoProvider`, `NewsProvider` and `GameProvider` are wired via
+`ChangeNotifierProxyProvider` and react to festival/user changes.
 
 > Todo: Write an introduction
 
 ### Requests
 
-This is where we add all our api-endpoints.
-Currently we only have one api, that we simply call `api.dart`. But in the future, we may have a api `weather.dart`.
+This is where we add all our services. Despite its name, `FirestoreService.dart`
+talks to the Realtime Database (the backend is entirely RTDB), not Firestore.
 
 ```tree
 requests
-└── api.dart
+├── FirestoreService.dart   # Auth + user records (RTDB)
+├── ImagePrecacheService.dart
+├── NotificationService.dart
+├── SystemServices.dart     # URL launching + Analytics
+└── WordPressService.dart   # news/magazine feeds (javisko.sk/wp-json)
 ```
 
-> The api is connected to a provider that takes the data and makes objects with our models, then provides that data to all our other widgets.
+> The services are connected to providers that turn the data into our models
+> and provide that data to all our other widgets.
 
 ### Views
 
@@ -194,9 +227,8 @@ A View needs to be shown inside a Page since it lacks the scaffolding that is ne
 views
 ├── CalendarView.dart
 ├── InfoView.dart
-├── IntroView.dart
-└── NewsView.
-dart
+├── MagazineView.dart
+└── NewsView.dart
 ```
 
 ### Widgets
@@ -207,10 +239,7 @@ This is the place to keep all our custom widgets.
 
 ```tree
 widgets
-├── FrostedButton.dart
-├── decrement.dart
-├── increment.dart
-└── toggleTheme.dart
+└── DynamicIcon.dart
 ```
 
 
@@ -239,6 +268,36 @@ git push origin v1.0.0
 
 Tagging a release should trigger a new build on [Codemagic](https://codemagic.io/app/5e2d8c6fb9213d0d957e20f8).
 [![Codemagic build status](https://api.codemagic.io/apps/5e2d8c6fb9213d0d957e20f8/5e2d8c6fb9213d0d957e20f7/status_badge.svg)](https://codemagic.io/apps/5e2d8c6fb9213d0d957e20f8/5e2d8c6fb9213d0d957e20f7/latest_build)
+
+### Deploying the web version
+
+```bash
+flutter build web --no-tree-shake-icons
+firebase deploy --only hosting
+```
+
+The `--no-tree-shake-icons` flag is required: venue/info icons are stored in
+the database as font codepoints (rendered by `lib/widgets/DynamicIcon.dart`)
+and would render blank on web with the default icon tree-shaking.
+
+### Staging / release checklist
+
+Run this before merging a release branch into `master`:
+
+1. `flutter analyze` and `flutter test` (game logic, event datetime, theme tests)
+2. `npm --prefix functions run lint` and `npm --prefix functions test`
+3. `firebase deploy --only database` — deploys `database.rules.json`
+   (contains the game deadline rule comparing `game/endsAtMs` to `now`)
+4. `firebase deploy --only storage` — deploys `storage.rules` (image uploads
+   for the rich-text editor, gated by size/type and auth)
+5. `firebase deploy --only functions` — **required** after any game change:
+   participant records are recomputed server-side by `recomputeParticipant`,
+   the client can no longer write them
+6. Web: `flutter build web --no-tree-shake-icons` then `firebase deploy --only hosting`
+7. Bump `version:` in `pubspec.yaml`, PR `develop` → `master`, tag `vX.Y.Z`
+   (triggers the Codemagic build)
+8. On-device smoke test: log in, browse all tabs, submit a game answer,
+   verify a notification arrives and tapping it opens the article
 
 
 ## Other stuff to remember

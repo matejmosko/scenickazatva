@@ -1,5 +1,5 @@
 /// A user's submitted answer for one question.
-/// Lives at `users/{uid}/game/{festivalId}/{questionId}` in the Realtime Database.
+/// Lives at `users/{uid}/game/{festivalId}/{gameId}/{questionId}` in the Realtime Database.
 class GameSubmission {
   String questionId;
   Map<String, dynamic> answer;

@@ -10,7 +10,8 @@ import 'package:scenickazatva_app/providers/UserProvider.dart';
 /// Admin view: lists all participants ranked by score so the organizer can
 /// declare the quiz winner on the draw date.
 class GameResultsPage extends StatefulWidget {
-  const GameResultsPage({Key? key}) : super(key: key);
+  final String gameId;
+  const GameResultsPage({Key? key, required this.gameId}) : super(key: key);
 
   @override
   State<GameResultsPage> createState() => _GameResultsPageState();
@@ -27,7 +28,7 @@ class _GameResultsPageState extends State<GameResultsPage> {
       if (!canEdit) {
         SchedulerBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            context.go('/game');
+            context.go('/game/${widget.gameId}');
           }
         });
       }
@@ -55,7 +56,7 @@ class _GameResultsPageState extends State<GameResultsPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
-          onPressed: () => context.go('/game'),
+          onPressed: () => context.go('/game/${widget.gameId}'),
         ),
         title: const Text("Výsledky a víťaz"),
       ),

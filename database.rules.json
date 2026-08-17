@@ -19,27 +19,14 @@
         "locations": {
           ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
         },
-        "game": {
-          "title": {
-            ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
-          },
-          "description": {
-            ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
-          },
-          "endsAt": {
-            ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
-          },
-          "endsAtMs": {
-            ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
-          },
-          "questions": {
-            ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
-          },
-          "participants": {
-            "$uid": {
-              ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'",
-              "winner": {
-                ".validate": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
+        "games": {
+          "$gameId": {
+            ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'",
+            "participants": {
+              "$uid": {
+                "winner": {
+                  ".validate": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'"
+                }
               }
             }
           }
@@ -75,7 +62,9 @@
         },
         "game": {
           "$festivalId": {
-            ".write": "(auth != null && auth.uid == $uid) && (!root.child('festivals').child($festivalId).child('game').child('endsAtMs').exists() || root.child('festivals').child($festivalId).child('game').child('endsAtMs').val() == 0 || root.child('festivals').child($festivalId).child('game').child('endsAtMs').val() >= now)"
+            "$gameId": {
+              ".write": "(auth != null && auth.uid == $uid) && (!root.child('festivals').child($festivalId).child('games').child($gameId).child('endsAtMs').exists() || root.child('festivals').child($festivalId).child('games').child($gameId).child('endsAtMs').val() == 0 || root.child('festivals').child($festivalId).child('games').child($gameId).child('endsAtMs').val() >= now)"
+            }
           }
         }
       }

@@ -8,11 +8,13 @@ import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
 import 'package:scenickazatva_app/utils/StringUtils.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
+import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/models/Event.dart';
 //import 'package:scenickazatva_app/models/Ad.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/widgets/PostThumbnail.dart';
 import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
+import 'package:scenickazatva_app/utils/DeepLinks.dart';
 
 class MagazineView extends StatefulWidget {
   @override
@@ -166,6 +168,7 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                           itemBuilder: (BuildContext context, int index) {
                             final item = newsProvider.wparticles[index];
                             final label = newsProvider.getPostLabel(item.link);
+                            final isSaved = newsProvider.isReadLater(item.link);
                             return Card(
                               child: GestureDetector(
                                   child: Row(
@@ -234,11 +237,16 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                                             ),
                                           ),
                                         ),
+                                        IconButton(
+                                          icon: Icon(
+                                            isSaved ? Icons.bookmark : Icons.bookmark_outline,
+                                            color: isSaved ? const Color(0xffCCA965) : null,
+                                          ),
+                                          onPressed: () => newsProvider.toggleReadLater(item,
+                                              route: "/magazine/${item.id}"),
+                                        ),
                                         PostThumbnail(
                                           imageUrl: item.featuredImageSourceUrl(),
-                                          isBookmarked: newsProvider.isReadLater(item.link),
-                                          onBookmark: () => newsProvider.toggleReadLater(item,
-                                              route: "/magazine/${item.id}"),
                                         ),
                                       ]),
                                   onTap: () {
@@ -305,8 +313,11 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
   Widget _buildTopSection(BuildContext context, AppSettingsProvider appSettings) {
     final liveEvents = appSettings.currentlyPlayingEvents;
     final ads = appSettings.activeAds;
+    final games = Provider.of<GameProvider>(context).visibleGames;
 
-    if (liveEvents.isEmpty && ads.isEmpty) return const SizedBox.shrink();
+    if (liveEvents.isEmpty && ads.isEmpty && games.isEmpty) return const SizedBox.shrink();
+
+    final totalItems = liveEvents.length + ads.length + games.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,7 +335,7 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: liveEvents.length + ads.length,
+            itemCount: totalItems,
             itemBuilder: (context, index) {
               if (index < liveEvents.length) {
                 final Festival fest = liveEvents[index].key;
@@ -398,13 +409,18 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                     ),
                   ),
                 );
-              } else {
+              } else if (index < liveEvents.length + ads.length) {
                 final ad = ads[index - liveEvents.length];
 
                 return GestureDetector(
                   onTap: () {
                     if (ad.link.isNotEmpty) {
-                      SystemServices().launchURL(ad.link);
+                      final deepLink = DeepLinks.normalizeDeepLink(ad.link);
+                      if (deepLink != null) {
+                        context.go(deepLink);
+                      } else {
+                        SystemServices().launchURL(ad.link);
+                      }
                     }
                   },
                   child: Container(
@@ -486,6 +502,99 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                                       ),
                                     ),
                                   ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              } else {
+                final game = games[index - liveEvents.length - ads.length];
+
+                return GestureDetector(
+                  onTap: () {
+                    Analytics().logEvent(AnalyticsEvents.gameOpened);
+                    context.go("/game/${game.id}");
+                  },
+                  child: Container(
+                    width: 260,
+                    child: Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: FirebaseImage(
+                              url: game.imageUrl,
+                              fit: BoxFit.cover,
+                              placeholder: Container(
+                                color: Theme.of(context).colorScheme.primaryContainer,
+                              ),
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.7),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 16,
+                            bottom: 16,
+                            left: 16,
+                            right: 16,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  game.title.isNotEmpty ? game.title : "Festivalová hra",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 20 * appSettings.settings.fontSizeFactor,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (game.description.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Text(
+                                      game.description,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    "Hrať",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),

@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/models/GameConfig.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
-import 'package:scenickazatva_app/pages/GamePage.dart';
+import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
+import 'package:scenickazatva_app/requests/ImageUploadService.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
+import 'package:scenickazatva_app/widgets/DeepLinkButton.dart';
+import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
 
 /// Admin page: edits the game meta (title, description, draw date) and
 /// manages the question list.
 class GameEditPage extends StatefulWidget {
-  const GameEditPage({Key? key}) : super(key: key);
+  final String gameId;
+  const GameEditPage({Key? key, required this.gameId}) : super(key: key);
 
   @override
   State<GameEditPage> createState() => _GameEditPageState();
@@ -22,6 +28,9 @@ class _GameEditPageState extends State<GameEditPage> {
   final _formKey = GlobalKey<FormState>();
   late GameConfig _edited;
   bool _authorized = false;
+  bool _uploadingImage = false;
+  final ImagePicker _picker = ImagePicker();
+  final ImageUploadService _uploader = ImageUploadService();
 
   @override
   void didChangeDependencies() {
@@ -31,43 +40,88 @@ class _GameEditPageState extends State<GameEditPage> {
       if (!canEdit) {
         SchedulerBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            context.go('/game');
+            context.go('/game/${widget.gameId}');
           }
         });
       }
       final game = Provider.of<GameProvider>(context).game;
       _edited = game != null
           ? GameConfig(
+              id: game.id,
               title: game.title,
               description: game.description,
               endsAt: game.endsAt,
+              status: game.status,
+              imageUrl: game.imageUrl,
             )
-          : GameConfig();
+          : GameConfig(id: widget.gameId);
       _authorized = true;
     }
   }
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    final firstDate = DateTime(now.year - 1);
+    final lastDate = DateTime(now.year + 3);
+    var initial = _edited.endsAt ?? now;
+    if (initial.isBefore(firstDate)) initial = firstDate;
+    if (initial.isAfter(lastDate)) initial = lastDate;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _edited.endsAt ?? now,
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 3),
+      initialDate: initial,
+      firstDate: firstDate,
+      lastDate: lastDate,
     );
     if (picked != null) {
       setState(() => _edited.endsAt = picked);
     }
   }
 
+  Future<void> _pickAndUploadImage() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final picked = await _picker.pickImage(source: ImageSource.gallery);
+      if (picked == null) return;
+      setState(() => _uploadingImage = true);
+      final bytes = await picked.readAsBytes();
+      final festivalId =
+          Provider.of<AppSettingsProvider>(context, listen: false).defaultfestival;
+      final url = await _uploader.uploadBytes(bytes, festivalId: festivalId);
+      if (!mounted) return;
+      if (url == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Nepodarilo sa nahrať obrázok')),
+        );
+        return;
+      }
+      setState(() => _edited.imageUrl = url);
+    } catch (e) {
+      AppLog.error('GameEditPage: image upload failed', error: e);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Nepodarilo sa nahrať obrázok')),
+      );
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
-    await Provider.of<GameProvider>(context, listen: false).saveGameMeta(_edited);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Uložené')),
-    );
+    try {
+      await Provider.of<GameProvider>(context, listen: false).saveGameMeta(_edited);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Uložené')),
+      );
+    } catch (e) {
+      AppLog.error("GameEditPage._save failed", error: e);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Chyba pri ukladaní: ${e.toString().replaceAll('Exception: ', '')}')),
+      );
+    }
   }
 
   void _confirmDelete(GameQuestion question) {
@@ -102,10 +156,11 @@ class _GameEditPageState extends State<GameEditPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
-          onPressed: () => context.go('/game'),
+          onPressed: () => context.go('/game/${widget.gameId}'),
         ),
         title: const Text("Upraviť hru"),
         actions: [
+          const DeepLinkButton(),
           IconButton(
             icon: const Icon(Icons.save, color: Colors.white),
             onPressed: _save,
@@ -144,6 +199,52 @@ class _GameEditPageState extends State<GameEditPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    if (_edited.imageUrl.isNotEmpty)
+                      Stack(
+                        alignment: Alignment.topRight,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: FirebaseImage(
+                                url: _edited.imageUrl,
+                                fit: BoxFit.cover,
+                                errorPlaceholder: const SizedBox.shrink(),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: GestureDetector(
+                              onTap: () => setState(() => _edited.imageUrl = ''),
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.black54,
+                                  shape: BoxShape.circle,
+                                ),
+                                padding: const EdgeInsets.all(4),
+                                child: const Icon(Icons.close, size: 18, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (_edited.imageUrl.isNotEmpty) const SizedBox(height: 12),
+                    if (_uploadingImage)
+                      const LinearProgressIndicator()
+                    else
+                      OutlinedButton.icon(
+                        onPressed: _pickAndUploadImage,
+                        icon: const Icon(Icons.add_photo_alternate_outlined),
+                        label: Text(
+                          _edited.imageUrl.isEmpty
+                              ? 'Pridať hlavný obrázok hry'
+                              : 'Zmeniť hlavný obrázok',
+                        ),
+                      ),
+                    const SizedBox(height: 12),
                     InkWell(
                       onTap: _pickDate,
                       child: InputDecorator(
@@ -158,6 +259,22 @@ class _GameEditPageState extends State<GameEditPage> {
                               : "Nezadané",
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: _edited.status,
+                      decoration: const InputDecoration(
+                        labelText: "Stav hry",
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: "draft", child: Text("Koncept")),
+                        DropdownMenuItem(value: "published", child: Text("Publikovaná")),
+                        DropdownMenuItem(value: "ended", child: Text("Ukončená")),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) setState(() => _edited.status = value);
+                      },
                     ),
                   ],
                 ),
@@ -174,7 +291,7 @@ class _GameEditPageState extends State<GameEditPage> {
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 FilledButton.icon(
-                  onPressed: () => context.go("/game/edit/new"),
+                  onPressed: () => context.go("/game/${widget.gameId}/edit/new"),
                   icon: const Icon(Icons.add),
                   label: const Text("Pridať"),
                 ),
@@ -193,26 +310,44 @@ class _GameEditPageState extends State<GameEditPage> {
           for (final question in provider.questions)
             Card(
               child: ListTile(
-                leading: Icon(
-                  GamePage.typeIcon(question.type),
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                leading: question.imageUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: FirebaseImage(
+                            url: question.imageUrl,
+                            fit: BoxFit.cover,
+                            errorPlaceholder: Icon(
+                              _typeIcon(question.type),
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Icon(
+                        _typeIcon(question.type),
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                 title: Text(question.title),
                 subtitle: Text(
-                  "${question.type.label}  •  ${question.points} b",
+                  question.type == GameQuestionType.textarea
+                      ? "Textové pole  •  Bez bodov"
+                      : "${question.type.label}  •  ${question.points} b",
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => context.go("/game/edit/${question.id}"),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.redAccent),
-                      onPressed: () => _confirmDelete(question),
-                    ),
+                trailing: PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      context.go("/game/${widget.gameId}/edit/${question.id}");
+                    } else if (value == 'delete') {
+                      _confirmDelete(question);
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'edit', child: Text('Upraviť')),
+                    PopupMenuItem(value: 'delete', child: Text('Zmazať')),
                   ],
                 ),
               ),
@@ -221,5 +356,20 @@ class _GameEditPageState extends State<GameEditPage> {
         ],
       ),
     );
+  }
+
+  static IconData _typeIcon(GameQuestionType type) {
+    switch (type) {
+      case GameQuestionType.text:
+        return Icons.text_fields;
+      case GameQuestionType.abc:
+        return Icons.radio_button_checked;
+      case GameQuestionType.sort:
+        return Icons.swap_vert;
+      case GameQuestionType.match:
+        return Icons.link;
+      case GameQuestionType.textarea:
+        return Icons.notes;
+    }
   }
 }

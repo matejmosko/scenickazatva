@@ -8,11 +8,14 @@ import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
+import 'package:scenickazatva_app/widgets/DeepLinkButton.dart';
+import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
 
-/// Overview of the festival game: shows every question and lets the user
+/// Overview of a specific festival game: shows every question and lets the user
 /// pick one to solve. Completed questions are marked in the list.
 class GamePage extends StatefulWidget {
-  const GamePage({Key? key}) : super(key: key);
+  final String gameId;
+  const GamePage({Key? key, required this.gameId}) : super(key: key);
 
   @override
   State<GamePage> createState() => _GamePageState();
@@ -27,6 +30,8 @@ class GamePage extends StatefulWidget {
         return Icons.swap_vert;
       case GameQuestionType.match:
         return Icons.link;
+      case GameQuestionType.textarea:
+        return Icons.notes;
     }
   }
 }
@@ -40,6 +45,8 @@ class _GamePageState extends State<GamePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final gameProvider = Provider.of<GameProvider>(context, listen: false);
+      gameProvider.selectGame(widget.gameId);
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       _nameController.text = userProvider.userData.fullName;
     });
@@ -67,11 +74,14 @@ class _GamePageState extends State<GamePage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
-          onPressed: () => context.go('/info'),
+          onPressed: () => context.go('/games'),
         ),
         title: Text(provider.game?.title.isNotEmpty == true
             ? provider.game!.title
             : "Hra"),
+        actions: const [
+          DeepLinkButton(),
+        ],
       ),
       body: _buildBody(context, provider),
       floatingActionButton: canEdit ? _buildAdminFab(context) : null,
@@ -99,12 +109,26 @@ class _GamePageState extends State<GamePage> {
             if (canEdit) ...[
               const SizedBox(height: 16),
               FilledButton.icon(
-                onPressed: () => context.go('/game/edit'),
-                icon: const Icon(Icons.add),
-                label: const Text("Pridať hru"),
+                onPressed: () => context.go('/games'),
+                icon: const Icon(Icons.arrow_back),
+                label: const Text("Späť na zoznam hier"),
               ),
             ],
           ],
+        ),
+      );
+    }
+
+    // Draft: only visible to admins/editors
+    if (provider.isGameDraft && !Provider.of<UserProvider>(context).canEdit) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            "Žiadna hra momentálne nie je aktívna.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey[600]),
+          ),
         ),
       );
     }
@@ -150,6 +174,28 @@ class _GamePageState extends State<GamePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (provider.isGameDraft) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.edit_note, size: 18, color: Colors.orange[700]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Toto je koncept – vidia ho len administrátori.",
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.orange[700]),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             if (provider.isGameClosed) ...[
               Row(
                 children: [
@@ -164,6 +210,20 @@ class _GamePageState extends State<GamePage> {
                         ?.copyWith(color: Theme.of(context).colorScheme.error),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (game.imageUrl.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: FirebaseImage(
+                    url: game.imageUrl,
+                    fit: BoxFit.cover,
+                    errorPlaceholder: const SizedBox.shrink(),
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
             ],
@@ -230,7 +290,7 @@ class _GamePageState extends State<GamePage> {
             if (total > 0) ...[
               const Divider(height: 24),
               OutlinedButton.icon(
-                onPressed: () => context.go('/game/winners'),
+                onPressed: () => context.go('/game/${widget.gameId}/winners'),
                 icon: const Icon(Icons.emoji_events_outlined),
                 label: const Text("Kto už hru vyriešil?"),
                 style: OutlinedButton.styleFrom(
@@ -248,18 +308,19 @@ class _GamePageState extends State<GamePage> {
     final provider = Provider.of<GameProvider>(context);
     final answered = provider.isAnswered(q.id);
     final submission = provider.submissionFor(q.id);
+    final isTextarea = q.type == GameQuestionType.textarea;
 
     final IconData statusIcon;
     final Color statusColor;
     if (!answered) {
-      statusIcon = Icons.radio_button_unchecked;
+      statusIcon = isTextarea ? Icons.notes : Icons.radio_button_unchecked;
       statusColor = Colors.grey;
     } else if (submission!.correct) {
       statusIcon = Icons.check_circle;
       statusColor = Colors.green;
     } else {
-      statusIcon = Icons.cancel;
-      statusColor = Colors.orange;
+      statusIcon = isTextarea ? Icons.check_circle : Icons.cancel;
+      statusColor = isTextarea ? Colors.green : Colors.orange;
     }
 
     return Card(
@@ -278,18 +339,20 @@ class _GamePageState extends State<GamePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "${q.points} b",
+              isTextarea ? "Spätná väzba" : "${q.points} b",
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(width: 8),
             Icon(statusIcon, color: statusColor),
           ],
         ),
-        onTap: () {
-          Analytics().logEvent(AnalyticsEvents.gameQuestionOpened,
-              parameters: {AnalyticsEvents.paramQuestionId: q.id});
-          context.go("/game/${q.id}");
-        },
+        onTap: provider.isGameClosed
+            ? null
+            : () {
+                Analytics().logEvent(AnalyticsEvents.gameQuestionOpened,
+                    parameters: {AnalyticsEvents.paramQuestionId: q.id});
+                context.go("/game/${widget.gameId}/${q.id}");
+              },
       ),
     );
   }
@@ -307,7 +370,7 @@ class _GamePageState extends State<GamePage> {
                 title: const Text("Upraviť hru"),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
-                  context.go("/game/edit");
+                  context.go("/game/${widget.gameId}/edit");
                 },
               ),
               ListTile(
@@ -315,7 +378,7 @@ class _GamePageState extends State<GamePage> {
                 title: const Text("Výsledky a víťaz"),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
-                  context.go("/game/results");
+                  context.go("/game/${widget.gameId}/results");
                 },
               ),
             ],

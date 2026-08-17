@@ -10,11 +10,12 @@ import 'package:scenickazatva_app/models/GameParticipant.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/models/UserData.dart';
 
-/// Provider for the festival game (quiz).
-/// Subscribes to the festival game config + participants and to the current
-/// user's submissions, and handles answer evaluation + persistence.
+/// Provider for festival games (quiz / feedback).
+/// Manages multiple games per festival. Subscribes to the games list
+/// and to the current user's submissions for the selected game.
 class GameProvider extends ChangeNotifier {
-  GameConfig? _game;
+  final Map<String, GameConfig> _games = {};
+  String? _selectedGameId;
   List<GameParticipant> _participants = [];
   Map<String, GameSubmission> _submissions = {};
   bool _loading = true;
@@ -22,29 +23,42 @@ class GameProvider extends ChangeNotifier {
   String? _currentFestivalId;
   String _uid = "";
 
-  StreamSubscription<DatabaseEvent>? _gameSubscription;
+  StreamSubscription<DatabaseEvent>? _gamesSubscription;
   StreamSubscription<DatabaseEvent>? _submissionsSubscription;
 
   GameProvider();
 
-  // Getters
-  GameConfig? get game => _game;
-  List<GameQuestion> get questions => _game?.questions ?? [];
+  // ── Getters ──────────────────────────────────────────────────────────
+
+  /// All games for the current festival.
+  List<GameConfig> get games => _games.values.toList();
+
+  /// The currently selected game (or null).
+  GameConfig? get game => _selectedGameId != null ? _games[_selectedGameId] : null;
+
+  /// Whether the festival has any games.
+  bool get hasGames => _games.isNotEmpty;
+
+  /// Convenience: whether a game is currently selected and loaded.
+  bool get hasGame => game != null;
+
+  List<GameQuestion> get questions => game?.questions ?? [];
   List<GameParticipant> get participants => _participants;
   Map<String, GameSubmission> get submissions => _submissions;
   bool get loading => _loading;
 
-  /// True when the festival has a configured game node.
-  bool get hasGame => _game != null;
-
-  /// True when the game deadline (endsAt) has passed; submissions are frozen.
   bool get isGameClosed {
-    final endsAt = _game?.endsAt;
+    if (game?.status == "ended") return true;
+    final endsAt = game?.endsAt;
     return endsAt != null && !DateTime.now().isBefore(endsAt);
   }
 
+  bool get isGamePlayable => game?.status == "published" && !isGameClosed;
+  bool get isGameDraft => game?.status == "draft" || game == null;
+  String get gameStatus => game?.status ?? "draft";
+
   int get answeredCount => _submissions.length;
-  int get totalPoints => _game?.totalPoints ?? 0;
+  int get totalPoints => game?.totalPoints ?? 0;
   int get score => _submissions.values
       .where((s) => s.correct)
       .fold(0, (sum, s) => sum + s.points);
@@ -52,79 +66,138 @@ class GameProvider extends ChangeNotifier {
   bool isAnswered(String questionId) => _submissions.containsKey(questionId);
   GameSubmission? submissionFor(String questionId) => _submissions[questionId];
 
-  /// Reacts to the logged-in user changing.
+  /// Games visible to the current user (admin sees all, others see published/ended).
+  List<GameConfig> get visibleGames {
+    if (_canEdit) return games;
+    return games.where((g) => g.status != "draft").toList();
+  }
+
+  // ── Reactivity ───────────────────────────────────────────────────────
+
   void updateFromUser(UserData user) {
     _canEdit = user.userRole == "admin" || user.userRole == "editor";
     if (_uid != user.id) {
       _uid = user.id;
-      if (_uid.isNotEmpty && _currentFestivalId != null) {
-        _fetchSubmissions(_currentFestivalId!, _uid);
+      if (_uid.isNotEmpty && _currentFestivalId != null && _selectedGameId != null) {
+        _fetchSubmissions(_currentFestivalId!, _uid, _selectedGameId!);
       }
     }
   }
 
-  /// Reacts to the active festival changing.
   void updateFromFestival(Festival festival) {
     if (_currentFestivalId != festival.id) {
       _currentFestivalId = festival.id;
-      _game = null;
+      _games.clear();
+      _selectedGameId = null;
       _participants = [];
       _submissions = {};
-      _fetchGame(festival.id);
-      if (_uid.isNotEmpty) {
-        _fetchSubmissions(festival.id, _uid);
-      }
+      _fetchGames(festival.id);
     }
   }
 
-  /// Subscribes to the game config and participants for a festival.
-  void _fetchGame(String festivalId) async {
-    await _gameSubscription?.cancel();
+  /// Select a specific game and fetch its submissions.
+  void selectGame(String gameId) {
+    if (_selectedGameId == gameId) return;
+    _selectedGameId = gameId;
+    _participants = [];
+    _submissions = {};
+    if (_currentFestivalId != null && _uid.isNotEmpty) {
+      _fetchSubmissions(_currentFestivalId!, _uid, gameId);
+    }
+    notifyListeners();
+  }
+
+  // ── Firebase subscriptions ───────────────────────────────────────────
+
+  void _fetchGames(String festivalId) async {
+    await _gamesSubscription?.cancel();
+    await _submissionsSubscription?.cancel();
     _loading = true;
     notifyListeners();
 
-    final gameRef = FirebaseDatabase.instance.ref("festivals/$festivalId/game");
+    final gamesRef = FirebaseDatabase.instance.ref("festivals/$festivalId/games");
     if (!kIsWeb) {
-      gameRef.keepSynced(true);
+      gamesRef.keepSynced(true);
     }
 
-    _gameSubscription = gameRef.onValue.listen((DatabaseEvent event) {
+    _gamesSubscription = gamesRef.onValue.listen((DatabaseEvent event) {
+      _games.clear();
       final Object? raw = event.snapshot.value;
       if (raw is Map) {
-        final map = Map<String, dynamic>.from(raw);
-        _game = GameConfig.fromJson(map);
+        raw.forEach((key, value) {
+          if (value is Map) {
+            final map = Map<String, dynamic>.from(value);
+            final config = GameConfig.fromJson(map);
+            config.id = key.toString();
+            _games[config.id] = config;
 
-        final rawParticipants = map['participants'];
-        if (rawParticipants is Map) {
-          _participants = rawParticipants.entries.map((entry) {
-            final participant = GameParticipant.fromJson(
-              Map<String, dynamic>.from(entry.value as Map),
-            );
-            if (participant.uid.isEmpty) {
-              participant.uid = entry.key.toString();
+            // Parse participants nested inside each game node
+            final rawParticipants = map['participants'];
+            if (rawParticipants is Map && config.id == _selectedGameId) {
+              _participants = rawParticipants.entries.map((entry) {
+                final participant = GameParticipant.fromJson(
+                  Map<String, dynamic>.from(entry.value as Map),
+                );
+                if (participant.uid.isEmpty) {
+                  participant.uid = entry.key.toString();
+                }
+                return participant;
+              }).toList();
             }
-            return participant;
-          }).toList();
-        } else {
-          _participants = [];
-        }
-      } else {
-        _game = null;
-        _participants = [];
+          }
+        });
       }
+
+      // Auto-select first game if none selected
+      if (_selectedGameId == null || !_games.containsKey(_selectedGameId)) {
+        _selectedGameId = _games.isNotEmpty ? _games.keys.first : null;
+      }
+
+      // Refresh participants for the selected game
+      if (_selectedGameId != null) {
+        final selectedGame = _games[_selectedGameId];
+        if (selectedGame != null) {
+          // Re-parse participants from the raw data for the selected game
+          if (raw is Map) {
+            final gameData = raw[_selectedGameId];
+            if (gameData is Map) {
+              final rawParticipants = gameData['participants'];
+              if (rawParticipants is Map) {
+                _participants = rawParticipants.entries.map((entry) {
+                  final participant = GameParticipant.fromJson(
+                    Map<String, dynamic>.from(entry.value as Map),
+                  );
+                  if (participant.uid.isEmpty) {
+                    participant.uid = entry.key.toString();
+                  }
+                  return participant;
+                }).toList();
+              } else {
+                _participants = [];
+              }
+            }
+          }
+        }
+      }
+
+      // Fetch submissions for the selected game
+      if (_selectedGameId != null && _uid.isNotEmpty) {
+        _fetchSubmissions(festivalId, _uid, _selectedGameId!);
+      }
+
       _loading = false;
       notifyListeners();
     }, onError: (err) {
-      AppLog.error("Firebase Game Error", error: err);
+      AppLog.error("Firebase Games Error", error: err);
       _loading = false;
       notifyListeners();
     });
   }
 
-  /// Subscribes to the current user's submissions for a festival.
-  void _fetchSubmissions(String festivalId, String uid) async {
+  void _fetchSubmissions(String festivalId, String uid, String gameId) async {
     await _submissionsSubscription?.cancel();
-    final subRef = FirebaseDatabase.instance.ref("users/$uid/game/$festivalId");
+    _submissions = {};
+    final subRef = FirebaseDatabase.instance.ref("users/$uid/game/$festivalId/$gameId");
 
     _submissionsSubscription = subRef.onValue.listen((DatabaseEvent event) {
       _submissions = {};
@@ -147,34 +220,36 @@ class GameProvider extends ChangeNotifier {
     });
   }
 
-  /// Evaluates and persists a user's answer. Marks the question completed.
-  /// Returns null when the submission is rejected (invalid answer, not signed
-  /// in, no active festival, or the game deadline has passed).
+  // ── User actions ─────────────────────────────────────────────────────
+
   Future<GameSubmission?> submitAnswer(
       GameQuestion question, Map<String, dynamic> answer) async {
     final uid = _uid.isEmpty
         ? FirebaseAuth.instance.currentUser?.uid ?? ""
         : _uid;
-    if (_currentFestivalId == null || uid.isEmpty) return null;
+    final gameId = _selectedGameId;
+    if (_currentFestivalId == null || uid.isEmpty || gameId == null) return null;
     if (isGameClosed) return null;
     if (!question.validateAnswer(answer)) return null;
 
     final correct = question.checkAnswer(answer);
+    final isTextarea = question.type == GameQuestionType.textarea;
     final submission = GameSubmission(
       questionId: question.id,
       answer: answer,
-      correct: correct,
-      points: correct ? question.points : 0,
+      correct: isTextarea ? false : correct,
+      points: isTextarea ? 0 : (correct ? question.points : 0),
       answeredAt: DateTime.now(),
     );
 
-    if (correct) {
+    // Textarea submissions are always saved; quiz submissions only when correct.
+    if (isTextarea || correct) {
       _submissions[question.id] = submission;
       notifyListeners();
 
       try {
         await FirebaseDatabase.instance
-            .ref("users/$uid/game/$_currentFestivalId/${question.id}")
+            .ref("users/$uid/game/$_currentFestivalId/$gameId/${question.id}")
             .set(submission.toJson());
       } catch (e) {
         AppLog.error("Firebase answer save error", error: e);
@@ -184,36 +259,63 @@ class GameProvider extends ChangeNotifier {
     return submission;
   }
 
-  /// Marks (or clears) a participant as the quiz winner (admin only).
   Future<void> setWinner(String uid, {required bool winner}) async {
-    if (!_canEdit || _currentFestivalId == null) return;
+    if (!_canEdit || _currentFestivalId == null || _selectedGameId == null) return;
     try {
       await FirebaseDatabase.instance
-          .ref("festivals/$_currentFestivalId/game/participants/$uid")
+          .ref("festivals/$_currentFestivalId/games/$_selectedGameId/participants/$uid")
           .update({"winner": winner});
     } catch (e) {
       AppLog.error("Firebase setWinner error", error: e);
     }
   }
 
-  // Admin CRUD
+  // ── Admin CRUD ───────────────────────────────────────────────────────
+
+  /// Creates a new game and returns its ID.
+  Future<String?> createGame() async {
+    if (!_canEdit || _currentFestivalId == null) return null;
+    try {
+      final newRef = FirebaseDatabase.instance
+          .ref("festivals/$_currentFestivalId/games")
+          .push();
+      final config = GameConfig(
+        id: newRef.key ?? "",
+        title: "Nová hra",
+        status: "draft",
+      );
+      await newRef.set(config.toJson());
+      _selectedGameId = newRef.key;
+      notifyListeners();
+      return newRef.key;
+    } catch (e) {
+      AppLog.error("Firebase createGame error", error: e);
+      return null;
+    }
+  }
 
   Future<void> saveGameMeta(GameConfig config) async {
-    if (!_canEdit || _currentFestivalId == null) return;
+    if (!_canEdit || _currentFestivalId == null || config.id.isEmpty) {
+      AppLog.warn("saveGameMeta skipped: _canEdit=$_canEdit, festivalId=$_currentFestivalId, gameId=${config.id}");
+      throw Exception("saveGameMeta skipped: _canEdit=$_canEdit, festivalId=$_currentFestivalId");
+    }
     try {
+      AppLog.info("saveGameMeta: saving to festivals/$_currentFestivalId/games/${config.id}");
       await FirebaseDatabase.instance
-          .ref("festivals/$_currentFestivalId/game")
+          .ref("festivals/$_currentFestivalId/games/${config.id}")
           .update(config.toJson());
+      AppLog.info("saveGameMeta: update completed");
     } catch (e) {
-      AppLog.error("Firebase saveGameMeta error", error: e);
+      AppLog.error("saveGameMeta failed", error: e);
+      throw Exception("saveGameMeta failed: $e");
     }
   }
 
   Future<String?> createQuestion(GameQuestion question) async {
-    if (!_canEdit || _currentFestivalId == null) return null;
+    if (!_canEdit || _currentFestivalId == null || _selectedGameId == null) return null;
     try {
       final newRef = FirebaseDatabase.instance
-          .ref("festivals/$_currentFestivalId/game/questions")
+          .ref("festivals/$_currentFestivalId/games/$_selectedGameId/questions")
           .push();
       question.id = newRef.key ?? "";
       await newRef.set(question.toJson());
@@ -225,10 +327,10 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> updateQuestion(GameQuestion question) async {
-    if (!_canEdit || _currentFestivalId == null || question.id.isEmpty) return;
+    if (!_canEdit || _currentFestivalId == null || _selectedGameId == null || question.id.isEmpty) return;
     try {
       await FirebaseDatabase.instance
-          .ref("festivals/$_currentFestivalId/game/questions/${question.id}")
+          .ref("festivals/$_currentFestivalId/games/$_selectedGameId/questions/${question.id}")
           .update(question.toJson());
     } catch (e) {
       AppLog.error("Firebase updateQuestion error", error: e);
@@ -236,10 +338,10 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> deleteQuestion(String questionId) async {
-    if (!_canEdit || _currentFestivalId == null) return;
+    if (!_canEdit || _currentFestivalId == null || _selectedGameId == null) return;
     try {
       await FirebaseDatabase.instance
-          .ref("festivals/$_currentFestivalId/game/questions/$questionId")
+          .ref("festivals/$_currentFestivalId/games/$_selectedGameId/questions/$questionId")
           .remove();
     } catch (e) {
       AppLog.error("Firebase deleteQuestion error", error: e);
@@ -248,7 +350,7 @@ class GameProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _gameSubscription?.cancel();
+    _gamesSubscription?.cancel();
     _submissionsSubscription?.cancel();
     super.dispose();
   }

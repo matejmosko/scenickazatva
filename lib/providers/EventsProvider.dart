@@ -341,4 +341,71 @@ class EventsProvider extends ChangeNotifier {
     notifyListeners();
     setLoading(false);
   }
+
+  /// Returns a location by ID, or null if not found.
+  Location? getLocationById(String id) {
+    final matches = _venues.where((v) => v.id == id);
+    return matches.isNotEmpty ? matches.first : null;
+  }
+
+  /// Pushes a new location to Firebase (Admin/Editor only).
+  Future<String?> createLocation(Location loc) async {
+    if (!_canEdit) {
+      AppLog.warn("Unauthorized create location attempt blocked");
+      return null;
+    }
+    try {
+      String? festival = _lastFetchedId;
+      if (festival != null) {
+        DatabaseReference newRef = FirebaseDatabase.instance
+            .ref("festivals/$festival/locations")
+            .push();
+        loc.id = newRef.key ?? "";
+        await newRef.set(loc.toJson());
+        AppLog.info("Firebase create location success: ${loc.id}");
+        return loc.id;
+      }
+    } catch (error) {
+      AppLog.error("Firebase create location error", error: error);
+    }
+    return null;
+  }
+
+  /// Updates an existing location in Firebase (Admin/Editor only).
+  Future<void> updateLocation(Location loc) async {
+    if (!_canEdit) {
+      AppLog.warn("Unauthorized update location attempt blocked");
+      return;
+    }
+    try {
+      String? festival = _lastFetchedId;
+      if (festival != null && loc.id.isNotEmpty) {
+        await FirebaseDatabase.instance
+            .ref("festivals/$festival/locations/${loc.id}")
+            .update(loc.toJson());
+        AppLog.info("Firebase update location success");
+      }
+    } catch (error) {
+      AppLog.error("Firebase update location error", error: error);
+    }
+  }
+
+  /// Removes a location from Firebase (Admin/Editor only).
+  Future<void> deleteLocation(String locationId) async {
+    if (!_canEdit) {
+      AppLog.warn("Unauthorized delete location attempt blocked");
+      return;
+    }
+    try {
+      String? festival = _lastFetchedId;
+      if (festival != null && locationId.isNotEmpty) {
+        await FirebaseDatabase.instance
+            .ref("festivals/$festival/locations/$locationId")
+            .remove();
+        AppLog.info("Firebase delete location success");
+      }
+    } catch (error) {
+      AppLog.error("Firebase delete location error", error: error);
+    }
+  }
 }

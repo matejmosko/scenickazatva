@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
+import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
+import 'package:scenickazatva_app/requests/ImageUploadService.dart';
+import 'package:scenickazatva_app/utils/AppLog.dart';
+import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
 
 /// Admin page: creates or edits a single quiz question, with per-type editors.
 class GameQuestionEditPage extends StatefulWidget {
+  final String gameId;
   final String questionId;
-  const GameQuestionEditPage({Key? key, required this.questionId}) : super(key: key);
+  const GameQuestionEditPage({Key? key, required this.gameId, required this.questionId}) : super(key: key);
 
   @override
   State<GameQuestionEditPage> createState() => _GameQuestionEditPageState();
@@ -28,6 +34,9 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
   final List<bool> _optionCorrect = [];
   final List<TextEditingController> _leftControllers = [];
   final List<TextEditingController> _rightControllers = [];
+  final ImagePicker _picker = ImagePicker();
+  final ImageUploadService _uploader = ImageUploadService();
+  bool _uploadingImage = false;
 
   @override
   void didChangeDependencies() {
@@ -38,7 +47,7 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
     if (!canEdit) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          context.go('/game/edit');
+          context.go('/game/${widget.gameId}/edit');
         }
       });
     }
@@ -63,7 +72,7 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
       } else if (!provider.loading) {
         SchedulerBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            context.go('/game/edit');
+            context.go('/game/${widget.gameId}/edit');
           }
         });
       }
@@ -85,6 +94,7 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
       pairs: question.pairs
           .map((p) => GameMatchPair(left: p.left, right: p.right))
           .toList(),
+      imageUrl: question.imageUrl,
     );
     _answerController.text = question.answer;
     _acceptableController.text = question.acceptableAnswers.join('\n');
@@ -125,6 +135,35 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
       _leftControllers.removeAt(index).dispose();
       _rightControllers.removeAt(index).dispose();
     });
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final picked = await _picker.pickImage(source: ImageSource.gallery);
+      if (picked == null) return;
+      setState(() => _uploadingImage = true);
+      final bytes = await picked.readAsBytes();
+      final festivalId =
+          Provider.of<AppSettingsProvider>(context, listen: false).defaultfestival;
+      final url = await _uploader.uploadBytes(bytes, festivalId: festivalId);
+      if (!mounted) return;
+      if (url == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Nepodarilo sa nahrať obrázok')),
+        );
+        return;
+      }
+      setState(() => _edited.imageUrl = url);
+    } catch (e) {
+      AppLog.error('GameQuestionEditPage: image upload failed', error: e);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Nepodarilo sa nahrať obrázok')),
+      );
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
   }
 
   List<String> _lines(TextEditingController controller) {
@@ -169,6 +208,7 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
       correctIndexes: correctIndexes,
       sortOrder: _lines(_sortController),
       pairs: pairs,
+      imageUrl: _edited.imageUrl,
     );
 
     final provider = Provider.of<GameProvider>(context, listen: false);
@@ -181,7 +221,7 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Uložené')),
     );
-    context.go('/game/edit');
+    context.go('/game/${widget.gameId}/edit');
   }
 
   @override
@@ -194,7 +234,7 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
-          onPressed: () => context.go('/game/edit'),
+          onPressed: () => context.go('/game/${widget.gameId}/edit'),
         ),
         title: Text(_isNew ? "Nová otázka" : "Upraviť otázku"),
         actions: [
@@ -236,6 +276,49 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    if (_edited.imageUrl.isNotEmpty)
+                      Stack(
+                        alignment: Alignment.topRight,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: FirebaseImage(
+                              url: _edited.imageUrl,
+                              fit: BoxFit.cover,
+                              errorPlaceholder: const SizedBox.shrink(),
+                            ),
+                          ),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: GestureDetector(
+                              onTap: () => setState(() => _edited.imageUrl = ''),
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.black54,
+                                  shape: BoxShape.circle,
+                                ),
+                                padding: const EdgeInsets.all(4),
+                                child: const Icon(Icons.close, size: 18, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (_edited.imageUrl.isNotEmpty) const SizedBox(height: 12),
+                    if (_uploadingImage)
+                      const LinearProgressIndicator()
+                    else
+                      OutlinedButton.icon(
+                        onPressed: _pickAndUploadImage,
+                        icon: const Icon(Icons.add_photo_alternate_outlined),
+                        label: Text(
+                          _edited.imageUrl.isEmpty
+                              ? 'Pridať obrázok'
+                              : 'Zmeniť obrázok',
+                        ),
+                      ),
+                    const SizedBox(height: 12),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -265,7 +348,9 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
                         Expanded(
                           flex: 1,
                           child: TextFormField(
-                            initialValue: _edited.points.toString(),
+                            initialValue: _edited.type == GameQuestionType.textarea
+                                ? "0"
+                                : _edited.points.toString(),
                             keyboardType: TextInputType.number,
                             onSaved: (value) =>
                                 _edited.points = int.tryParse(value ?? "") ?? 10,
@@ -285,6 +370,7 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
           const SizedBox(height: 16),
           switch (_edited.type) {
             GameQuestionType.text => _buildTextEditor(),
+            GameQuestionType.textarea => _buildTextareaEditor(),
             GameQuestionType.abc => _buildAbcEditor(context),
             GameQuestionType.sort => _buildSortEditor(),
             GameQuestionType.match => _buildMatchEditor(context),
@@ -319,6 +405,36 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
                 labelText: "Akceptované varianty (každá na nový riadok)",
                 border: OutlineInputBorder(),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextareaEditor() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.notes, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Textové pole – používatelia sem napíšu voľný text (spätná väzba, návrhy, komentáre).",
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Body sú automaticky nastavené na 0. Odpoveď sa nekontroluje.",
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
             ),
           ],
         ),

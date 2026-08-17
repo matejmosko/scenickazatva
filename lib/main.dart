@@ -22,9 +22,12 @@ import 'package:scenickazatva_app/pages/NewsDetailPage.dart';
 import 'package:scenickazatva_app/pages/EventEditPage.dart';
 import 'package:scenickazatva_app/pages/InfoEditPage.dart';
 import 'package:scenickazatva_app/pages/InfoDetailPage.dart';
+import 'package:scenickazatva_app/pages/LocationDetailPage.dart';
+import 'package:scenickazatva_app/pages/LocationEditPage.dart';
 import 'package:scenickazatva_app/pages/FavoritesPage.dart';
 import 'package:scenickazatva_app/pages/ReadLaterPage.dart';
 import 'package:scenickazatva_app/pages/GameWinnersPage.dart';
+import 'package:scenickazatva_app/pages/GamesListPage.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/models/Ad.dart';
@@ -89,6 +92,25 @@ final _router = GoRouter(
                     path: ':eventId/edit',
                     builder: (context, state) =>
                         EventEditPage(eventId: state.pathParameters["eventId"] ?? ""),
+                  ),
+                ]),
+            GoRoute(
+                path: 'locations',
+                builder: (context, state) => TabPage(initialIndex: 1),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (context, state) => const LocationEditPage(),
+                  ),
+                  GoRoute(
+                    path: ':locationId',
+                    builder: (context, state) =>
+                        LocationDetailPage(locationId: state.pathParameters["locationId"] ?? ""),
+                  ),
+                  GoRoute(
+                    path: ':locationId/edit',
+                    builder: (context, state) =>
+                        LocationEditPage(locationId: state.pathParameters["locationId"] ?? ""),
                   ),
                 ]),
             GoRoute(
@@ -182,32 +204,52 @@ final _router = GoRouter(
               builder: (context, state) => const ReadLaterPage(),
             ),
             GoRoute(
+              path: 'games',
+              builder: (context, state) => const GamesListPage(),
+            ),
+            GoRoute(
               path: 'game',
-              builder: (context, state) => const GamePage(),
+              redirect: (context, state) => '/games',
+            ),
+            GoRoute(
+              path: 'game/:gameId',
+              builder: (context, state) => GamePage(
+                gameId: state.pathParameters['gameId'] ?? '',
+              ),
               routes: [
                 GoRoute(
                   path: 'results',
-                  builder: (context, state) => const GameResultsPage(),
+                  builder: (context, state) => GameResultsPage(
+                    gameId: state.pathParameters['gameId'] ?? '',
+                  ),
                 ),
                 GoRoute(
                   path: 'winners',
-                  builder: (context, state) => const GameWinnersPage(),
+                  builder: (context, state) => GameWinnersPage(
+                    gameId: state.pathParameters['gameId'] ?? '',
+                  ),
                 ),
                 GoRoute(
                   path: 'edit',
-                  builder: (context, state) => const GameEditPage(),
+                  builder: (context, state) => GameEditPage(
+                    gameId: state.pathParameters['gameId'] ?? '',
+                  ),
                   routes: [
                     GoRoute(
                       path: ':questionId',
                       builder: (context, state) => GameQuestionEditPage(
-                          questionId: state.pathParameters["questionId"] ?? "new"),
+                        gameId: state.pathParameters['gameId'] ?? '',
+                        questionId: state.pathParameters['questionId'] ?? "new",
+                      ),
                     ),
                   ],
                 ),
                 GoRoute(
                   path: ':questionId',
                   builder: (context, state) => GameQuestionPage(
-                      questionId: state.pathParameters["questionId"] ?? ""),
+                    gameId: state.pathParameters['gameId'] ?? '',
+                    questionId: state.pathParameters['questionId'] ?? "",
+                  ),
                 ),
               ],
             ),

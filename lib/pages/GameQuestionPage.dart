@@ -8,12 +8,14 @@ import 'package:scenickazatva_app/models/GameSubmission.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
+import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
 
 /// Solves a single quiz question. Renders the input UI according to the
 /// question type and locks the question once the answer is submitted.
 class GameQuestionPage extends StatefulWidget {
+  final String gameId;
   final String questionId;
-  const GameQuestionPage({Key? key, required this.questionId}) : super(key: key);
+  const GameQuestionPage({Key? key, required this.gameId, required this.questionId}) : super(key: key);
 
   @override
   State<GameQuestionPage> createState() => _GameQuestionPageState();
@@ -74,6 +76,7 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
   Map<String, dynamic>? _buildAnswer(GameQuestion question) {
     switch (question.type) {
       case GameQuestionType.text:
+      case GameQuestionType.textarea:
         final text = _textController.text.trim();
         if (text.isEmpty) return null;
         return {'text': text};
@@ -118,6 +121,10 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Odpoveď sa nepodarilo uložiť.")),
       );
+    } else if (question.type == GameQuestionType.textarea) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Ďakujeme za spätnú väzbu!")),
+      );
     } else if (!submission.correct) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -136,7 +143,7 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
-          onPressed: () => context.go('/game'),
+          onPressed: () => context.go('/game/${widget.gameId}'),
         ),
         title: Text(question?.title ?? "Otázka"),
       ),
@@ -149,6 +156,7 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
   Widget _buildBody(BuildContext context, GameQuestion question) {
     final provider = Provider.of<GameProvider>(context);
     final submission = provider.submissionFor(question.id);
+    final isTextarea = question.type == GameQuestionType.textarea;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -158,15 +166,37 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
             question.description,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
+        if (question.description.isNotEmpty && question.imageUrl.isNotEmpty)
+          const SizedBox(height: 8),
+        if (question.imageUrl.isNotEmpty)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: FirebaseImage(
+              url: question.imageUrl,
+              fit: BoxFit.fitWidth,
+              errorPlaceholder: const SizedBox.shrink(),
+            ),
+          ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            const Icon(Icons.stars, size: 18),
-            const SizedBox(width: 6),
-            Text("${question.points} bodov", style: Theme.of(context).textTheme.bodyMedium),
-          ],
-        ),
-        const SizedBox(height: 16),
+        if (!isTextarea) ...[
+          Row(
+            children: [
+              const Icon(Icons.stars, size: 18),
+              const SizedBox(width: 6),
+              Text("${question.points} bodov", style: Theme.of(context).textTheme.bodyMedium),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ] else ...[
+          Row(
+            children: [
+              const Icon(Icons.notes, size: 18),
+              const SizedBox(width: 6),
+              Text("Textové pole – spätná väzba", style: Theme.of(context).textTheme.bodyMedium),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
         if (submission != null)
           _buildResult(context, question, submission)
         else if (provider.isGameClosed) ...[
@@ -197,15 +227,19 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
   Widget _buildInput(BuildContext context, GameQuestion question) {
     switch (question.type) {
       case GameQuestionType.text:
+      case GameQuestionType.textarea:
         return Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
               controller: _textController,
               maxLines: null,
-              decoration: const InputDecoration(
-                labelText: "Tvoja odpoveď",
-                border: OutlineInputBorder(),
+              minLines: question.type == GameQuestionType.textarea ? 4 : 1,
+              decoration: InputDecoration(
+                labelText: question.type == GameQuestionType.textarea
+                    ? "Tvoja spätná väzba"
+                    : "Tvoja odpoveď",
+                border: const OutlineInputBorder(),
               ),
             ),
           ),
@@ -308,19 +342,22 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
 
   Widget _buildResult(BuildContext context, GameQuestion question, GameSubmission submission) {
     final correct = submission.correct;
+    final isTextarea = question.type == GameQuestionType.textarea;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Card(
-          color: correct ? Colors.green.shade50 : Colors.orange.shade50,
+          color: isTextarea
+              ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
+              : (correct ? Colors.green.shade50 : Colors.orange.shade50),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Icon(
-                  correct ? Icons.check_circle : Icons.cancel,
-                  color: correct ? Colors.green : Colors.orange,
+                  isTextarea ? Icons.check_circle : (correct ? Icons.check_circle : Icons.cancel),
+                  color: isTextarea ? Theme.of(context).colorScheme.primary : (correct ? Colors.green : Colors.orange),
                   size: 32,
                 ),
                 const SizedBox(width: 12),
@@ -329,13 +366,11 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        correct ? "Správne!" : "Nesprávne.",
+                        isTextarea ? "Ďakujeme za spätnú väzbu!" : (correct ? "Správne!" : "Nesprávne."),
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                      if (correct)
-                        Text("Získal si ${submission.points} bodov.")
-                      else
-                        Text("Skóre sa nezmenilo."),
+                      if (!isTextarea)
+                        Text(correct ? "Získal si ${submission.points} bodov." : "Skóre sa nezmenilo."),
                     ],
                   ),
                 ),
@@ -344,8 +379,10 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
           ),
         ),
         const SizedBox(height: 16),
-        _buildCorrectAnswer(context, question),
-        const SizedBox(height: 16),
+        if (!isTextarea) ...[
+          _buildCorrectAnswer(context, question),
+          const SizedBox(height: 16),
+        ],
         _buildSubmittedAnswer(context, question, submission.answer),
       ],
     );
@@ -355,6 +392,7 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
     String text;
     switch (question.type) {
       case GameQuestionType.text:
+      case GameQuestionType.textarea:
         final corrects = [question.answer, ...question.acceptableAnswers]
             .where((a) => a.isNotEmpty)
             .toSet()
@@ -387,6 +425,7 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
     String text;
     switch (question.type) {
       case GameQuestionType.text:
+      case GameQuestionType.textarea:
         text = "Tvoja odpoveď: ${answer['text']}";
         break;
       case GameQuestionType.abc:
@@ -423,7 +462,9 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.send),
-        label: const Text("Odoslať odpoveď"),
+        label: Text(question.type == GameQuestionType.textarea
+            ? "Odoslať"
+            : "Odoslať odpoveď"),
       ),
     );
   }

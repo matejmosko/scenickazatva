@@ -1,5 +1,5 @@
 /// A quiz participant, used by organizers to pick the winner.
-/// Lives at `festivals/{festivalId}/game/participants/{uid}`.
+/// Lives at `festivals/{festivalId}/games/{gameId}/participants/{uid}`.
 class GameParticipant {
   String uid;
   String fullName;

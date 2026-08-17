@@ -14,6 +14,7 @@ import 'package:scenickazatva_app/views/MagazineView.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
+import 'package:scenickazatva_app/widgets/DeepLinkButton.dart';
 
 class TabPage extends StatefulWidget {
   final initialIndex;
@@ -69,6 +70,9 @@ class _TabPageState extends State<TabPage> {
       _selectedIndex = index;
     });
   }
+
+  static const _tabPaths = ['/magazine', '/events', '/news', '/info'];
+  String _tabPath(int index) => _tabPaths[index.clamp(0, _tabPaths.length - 1)];
 
   Widget buildPageView(newsProvider, eventsProvider, infoProvider) {
     return PageView(
@@ -147,6 +151,7 @@ class _TabPageState extends State<TabPage> {
                 },
               ),
         actions: <Widget>[
+          DeepLinkButton(pathOverride: _tabPath(_selectedIndex)),
           IconButton(
             icon: const Icon(Icons.bookmark_outline, color: Colors.white70),
             onPressed: () {

@@ -8,6 +8,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
 import 'package:wordpress_client/wordpress_client.dart' as wpclient;
+import 'package:share_plus/share_plus.dart';
+import 'package:scenickazatva_app/widgets/DeepLinkButton.dart';
 
 class NewsDetailPage extends StatefulWidget {
   final dynamic newsId;
@@ -107,6 +109,17 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
             builder: (context, snapshot) {
               if (!snapshot.hasData) return const SizedBox.shrink();
               final post = snapshot.data!;
+              return IconButton(
+                icon: const Icon(Icons.share, color: Colors.white70),
+                onPressed: () => SharePlus.instance.share(ShareParams(text: post.link)),
+              );
+            },
+          ),
+          FutureBuilder<wpclient.Post>(
+            future: _articleFuture,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox.shrink();
+              final post = snapshot.data!;
               final isMagazine =
                   GoRouterState.of(context).uri.toString().contains("magazine");
               final isSaved = newsProvider.isReadLater(post.link);
@@ -122,6 +135,7 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
               );
             },
           ),
+          const DeepLinkButton(),
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white70),
             onPressed: () {

@@ -11,9 +11,8 @@ void main() {
       'https://javisko.sk/info': '/info',
       'https://javisko.sk/settings': '/settings',
       'https://javisko.sk/favorites': '/favorites',
-      'https://javisko.sk/game': '/game',
-      'https://javisko.sk/game/results': '/game/results',
-      'https://javisko.sk/game/edit': '/game/edit',
+      'https://javisko.sk/games': '/games',
+      'https://javisko.sk/game': '/games',
     };
     cases.forEach((input, expected) {
       test('$input → $expected', () {
@@ -48,14 +47,40 @@ void main() {
           DeepLinks.normalizeDeepLink('https://javisko.sk/info/abc/edit'),
           '/info/abc/edit');
     });
+    test('game detail by push key', () {
+      expect(
+          DeepLinks.normalizeDeepLink('https://javisko.sk/game/-OzqFBxvxs_sHCKDWL0Y'),
+          '/game/-OzqFBxvxs_sHCKDWL0Y');
+    });
+    test('game edit', () {
+      expect(
+          DeepLinks.normalizeDeepLink('https://javisko.sk/game/-OzqFBxvxs_sHCKDWL0Y/edit'),
+          '/game/-OzqFBxvxs_sHCKDWL0Y/edit');
+    });
+    test('game results', () {
+      expect(
+          DeepLinks.normalizeDeepLink('https://javisko.sk/game/-OzqFBxvxs_sHCKDWL0Y/results'),
+          '/game/-OzqFBxvxs_sHCKDWL0Y/results');
+    });
+    test('game winners', () {
+      expect(
+          DeepLinks.normalizeDeepLink('https://javisko.sk/game/-OzqFBxvxs_sHCKDWL0Y/winners'),
+          '/game/-OzqFBxvxs_sHCKDWL0Y/winners');
+    });
     test('game question', () {
       expect(
-          DeepLinks.normalizeDeepLink('https://javisko.sk/game/q-1'), '/game/q-1');
+          DeepLinks.normalizeDeepLink('https://javisko.sk/game/-OzqFBxvxs_sHCKDWL0Y/-OzqFFGza6ZqhE0eBoqL'),
+          '/game/-OzqFBxvxs_sHCKDWL0Y/-OzqFFGza6ZqhE0eBoqL');
     });
-    test('game edit question', () {
+    test('game edit question (legacy)', () {
       expect(
           DeepLinks.normalizeDeepLink('https://javisko.sk/game/edit/q-1'),
           '/game/edit/q-1');
+    });
+    test('game edit question (new)', () {
+      expect(
+          DeepLinks.normalizeDeepLink('https://javisko.sk/game/-OzqFBxvxs_sHCKDWL0Y/edit/q-1'),
+          '/game/-OzqFBxvxs_sHCKDWL0Y/edit/q-1');
     });
   });
 
@@ -77,7 +102,7 @@ void main() {
           DeepLinks.normalizeDeepLink('scenickazatva://news/123'), '/news/123');
     });
     test('uppercase host still maps', () {
-      expect(DeepLinks.normalizeDeepLink('HTTPS://JAVISKO.SK/game'), '/game');
+      expect(DeepLinks.normalizeDeepLink('HTTPS://JAVISKO.SK/games'), '/games');
     });
   });
 
@@ -101,6 +126,11 @@ void main() {
     test('returns null for unknown path on any host', () {
       expect(
           DeepLinks.normalizeDeepLink('https://javisko.sk/unknown'), isNull);
+    });
+    test('non-push-key game segment returns null', () {
+      expect(
+          DeepLinks.normalizeDeepLink('https://javisko.sk/game/results'),
+          isNull);
     });
   });
 }

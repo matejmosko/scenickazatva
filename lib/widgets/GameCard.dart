@@ -6,55 +6,52 @@ import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 
-/// Shows the festival game status (or an admin shortcut to create one).
+/// Shows a "Festivalové hry" card linking to the games list.
+/// Non-admins only see the card when there are published/ended games.
 class GameCard extends StatelessWidget {
   const GameCard({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final gameProvider = Provider.of<GameProvider>(context);
+    final canEdit = Provider.of<UserProvider>(context).canEdit;
 
-    if (!gameProvider.hasGame) {
-      final canEdit = Provider.of<UserProvider>(context).canEdit;
-      if (!canEdit) return const SizedBox.shrink();
-      return Card(
-        margin: const EdgeInsets.all(8.0),
-        child: ListTile(
-          leading: Icon(Icons.add_circle_outline,
-              size: 40, color: Theme.of(context).colorScheme.primary),
-          title: const Text("Pridať festivalovú hru"),
-          subtitle: const Text("Vytvor kvíz pre návštevníkov festivalu."),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            Analytics().logEvent(AnalyticsEvents.gameCreateOpened);
-            context.go('/game/edit');
-          },
-        ),
-      );
-    }
+    // Non-admins only see the card when there are visible games
+    if (!canEdit && !gameProvider.hasGames) return const SizedBox.shrink();
+    if (!canEdit && gameProvider.visibleGames.isEmpty) return const SizedBox.shrink();
 
-    final game = gameProvider.game!;
-    final total = gameProvider.questions.length;
-    final answered = gameProvider.answeredCount;
+    final gameCount = gameProvider.visibleGames.length;
 
     return Card(
       margin: const EdgeInsets.all(8.0),
       child: ListTile(
-        leading: const Icon(Icons.emoji_events, size: 40, color: Colors.amber),
+        leading: Icon(
+          Icons.emoji_events,
+          size: 40,
+          color: gameProvider.hasGames ? Colors.amber : Theme.of(context).colorScheme.primary,
+        ),
         title: Text(
-          game.title.isEmpty ? "Festivalová hra" : game.title,
+          "Festivalové hry",
           style: Theme.of(context).textTheme.titleMedium,
         ),
         subtitle: Text(
-          "Zodpovedané: $answered / $total   •   Skóre: ${gameProvider.score}",
+          canEdit
+              ? "$gameCount ${_gameCountLabel(gameCount)}"
+              : "$gameCount aktívnych",
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {
           Analytics().logEvent(AnalyticsEvents.gameOpened);
-          context.go("/game");
+          context.go("/games");
         },
       ),
     );
+  }
+
+  static String _gameCountLabel(int count) {
+    if (count == 1) return "hra";
+    if (count >= 2 && count <= 4) return "hry";
+    return "hier";
   }
 }

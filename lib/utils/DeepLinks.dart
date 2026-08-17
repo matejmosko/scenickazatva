@@ -16,9 +16,10 @@ class DeepLinks {
     '/profile': '/profile',
     '/favorites': '/favorites',
     '/user': '/user',
-    '/game': '/game',
-    '/game/results': '/game/results',
-    '/game/edit': '/game/edit',
+    '/locations': '/locations',
+    '/locations/new': '/locations/new',
+    '/games': '/games',
+    '/game': '/games',
   };
 
   static String? normalizeDeepLink(String link) {
@@ -63,6 +64,8 @@ class DeepLinks {
     if (_staticPaths.containsKey(path)) return _staticPaths[path];
 
     final segments = path.substring(1).split('/');
+
+    // 2-segment: /news/:id, /events/:id, /locations/:id, /game/:gameId
     if (segments.length == 2) {
       final id = _validId(segments[1]);
       if (id != null) {
@@ -71,23 +74,66 @@ class DeepLinks {
           case 'magazine':
           case 'events':
           case 'info':
-          case 'game':
+          case 'locations':
             return '/${segments[0]}/$id';
+          case 'game':
+            // Firebase push keys start with '-', static paths don't
+            if (id.startsWith('-')) return '/game/$id';
+            return null;
         }
       }
-    } else if (segments.length == 3) {
-      if (segments[0] == 'game' && segments[1] == 'edit') {
-        final id = _validId(segments[2]);
-        if (id != null) return '/game/edit/$id';
-      } else if (segments[2] == 'edit') {
+    }
+
+    // 3-segment: /events/:id/edit, /locations/:id/edit, /game/:gameId/edit,
+    //            /game/:gameId/results, /game/:gameId/winners,
+    //            /game/:gameId/:questionId, /game/edit/:questionId (legacy)
+    if (segments.length == 3) {
+      if (segments[0] == 'game') {
+        final second = segments[1];
+        final third = segments[2];
+
+        // /game/edit/:questionId (legacy compat)
+        if (second == 'edit') {
+          final qid = _validId(third);
+          if (qid != null) return '/game/edit/$qid';
+        }
+
+        // /game/:gameId/edit, /game/:gameId/results, /game/:gameId/winners
+        final gameId = _validId(second);
+        if (gameId != null && gameId.startsWith('-')) {
+          switch (third) {
+            case 'edit':
+              return '/game/$gameId/edit';
+            case 'results':
+              return '/game/$gameId/results';
+            case 'winners':
+              return '/game/$gameId/winners';
+            default:
+              // /game/:gameId/:questionId
+              final qid = _validId(third);
+              if (qid != null) return '/game/$gameId/$qid';
+          }
+        }
+      } else {
+        // /:collection/:id/edit
         final id = _validId(segments[1]);
-        if (id != null) {
+        if (id != null && segments[2] == 'edit') {
           switch (segments[0]) {
             case 'events':
             case 'info':
+            case 'locations':
               return '/${segments[0]}/$id/edit';
           }
         }
+      }
+    }
+
+    // 4-segment: /game/:gameId/edit/:questionId
+    if (segments.length == 4 && segments[0] == 'game') {
+      final gameId = _validId(segments[1]);
+      if (gameId != null && gameId.startsWith('-') && segments[2] == 'edit') {
+        final qid = _validId(segments[3]);
+        if (qid != null) return '/game/$gameId/edit/$qid';
       }
     }
 

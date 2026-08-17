@@ -142,6 +142,7 @@ class _NewsViewState extends State<NewsView> with AutomaticKeepAliveClientMixin 
                           itemCount: newsProvider.wpnews.length,
                           itemBuilder: (BuildContext context, int index) {
                             final item = newsProvider.wpnews[index];
+                            final isSaved = newsProvider.isReadLater(item.link);
 
                             return Card(
                               child: GestureDetector(
@@ -167,11 +168,16 @@ class _NewsViewState extends State<NewsView> with AutomaticKeepAliveClientMixin 
                                             ),
                                           ),
                                         ),
+                                        IconButton(
+                                          icon: Icon(
+                                            isSaved ? Icons.bookmark : Icons.bookmark_outline,
+                                            color: isSaved ? const Color(0xffCCA965) : null,
+                                          ),
+                                          onPressed: () => newsProvider.toggleReadLater(item,
+                                              route: "/news/${item.id}"),
+                                        ),
                                         PostThumbnail(
                                           imageUrl: item.featuredImageSourceUrl(),
-                                          isBookmarked: newsProvider.isReadLater(item.link),
-                                          onBookmark: () => newsProvider.toggleReadLater(item,
-                                              route: "/news/${item.id}"),
                                         ),
                                       ]),
                                   onTap: () {

@@ -101,16 +101,19 @@ exports.syncRolesFromPredefinedRoles = onValueWritten(
  * own score or marking themselves as winners. The `winner` flag is preserved.
  */
 exports.recomputeParticipant = onValueWritten(
-    {ref: "users/{uid}/game/{festivalId}/{questionId}", region: "europe-west1"},
+    {ref: "users/{uid}/game/{festivalId}/{gameId}/{questionId}",
+      region: "europe-west1"},
     async (event) => {
-      const {uid, festivalId} = event.params;
+      const {uid, festivalId, gameId} = event.params;
       const db = admin.database();
 
       const [gameSnapshot, submissionsSnapshot, participantSnapshot] =
           await Promise.all([
-            db.ref(`festivals/${festivalId}/game`).get(),
-            db.ref(`users/${uid}/game/${festivalId}`).get(),
-            db.ref(`festivals/${festivalId}/game/participants/${uid}`).get(),
+            db.ref(`festivals/${festivalId}/games/${gameId}`).get(),
+            db.ref(`users/${uid}/game/${festivalId}/${gameId}`).get(),
+            db.ref(
+                `festivals/${festivalId}/games/${gameId}/participants/${uid}`,
+            ).get(),
           ]);
 
       const game = gameSnapshot.val();
@@ -131,7 +134,7 @@ exports.recomputeParticipant = onValueWritten(
       );
 
       const participantRef =
-          db.ref(`festivals/${festivalId}/game/participants/${uid}`);
+          db.ref(`festivals/${festivalId}/games/${gameId}/participants/${uid}`);
       if (update === null) {
         await participantRef.remove();
       } else {

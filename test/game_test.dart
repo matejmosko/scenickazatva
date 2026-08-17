@@ -181,6 +181,40 @@ void main() {
     });
   });
 
+  group('textarea question', () {
+    final q = GameQuestion(
+      type: GameQuestionType.textarea,
+      points: 0,
+    );
+
+    test('checkAnswer always returns true', () {
+      expect(q.checkAnswer({'text': 'Any feedback'}), isTrue);
+      expect(q.checkAnswer({'text': ''}), isTrue);
+    });
+
+    test('validateAnswer requires non-empty text', () {
+      expect(q.validateAnswer({'text': 'Great festival!'}), isTrue);
+      expect(q.validateAnswer({'text': '  '}), isFalse);
+      expect(q.validateAnswer({}), isFalse);
+    });
+
+    test('fromId resolves textarea', () {
+      expect(GameQuestionType.fromId('textarea'), GameQuestionType.textarea);
+    });
+
+    test('serialization round-trips textarea type', () {
+      final q = GameQuestion(
+        id: 'fb1',
+        title: 'Spätná väzba',
+        type: GameQuestionType.textarea,
+        points: 0,
+      );
+      final restored = GameQuestion.fromJson(q.toJson(), id: 'fb1');
+      expect(restored.type, GameQuestionType.textarea);
+      expect(restored.points, 0);
+    });
+  });
+
   group('game config deadline', () {
     test('toJson writes endsAtMs as epoch millis for the security rule', () {
       final endsAt = DateTime.utc(2026, 8, 1, 12);
@@ -212,6 +246,29 @@ void main() {
           GameConfig.fromJson(GameConfig(endsAt: endsAt).toJson());
       expect(restored.endsAt, endsAt);
       expect(restored.endsAtMs, endsAt.millisecondsSinceEpoch);
+    });
+
+    test('fromJson treats epoch dates as null', () {
+      final config = GameConfig.fromJson({
+        'endsAt': '1970-01-01T00:00:00.000Z',
+        'endsAtMs': 0,
+      });
+      expect(config.endsAt, isNull);
+    });
+
+    test('fromJson treats endsAtMs=0 as null', () {
+      final config = GameConfig.fromJson({
+        'endsAtMs': 0,
+      });
+      expect(config.endsAt, isNull);
+    });
+
+    test('fromJson reads and writes id field', () {
+      final config = GameConfig(id: 'game-123', title: 'Test');
+      final json = config.toJson();
+      expect(json['id'], 'game-123');
+      final restored = GameConfig.fromJson(json);
+      expect(restored.id, 'game-123');
     });
   });
 }

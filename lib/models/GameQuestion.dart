@@ -5,7 +5,8 @@ enum GameQuestionType {
   text('text', 'Textová odpoveď'),
   abc('abc', 'ABC odpoveď'),
   sort('sort', 'Zoradenie'),
-  match('match', 'Priraďovanie');
+  match('match', 'Priraďovanie'),
+  textarea('textarea', 'Textové pole');
 
   final String id;
   final String label;
@@ -66,6 +67,9 @@ class GameQuestion {
   /// Match answers: left/right pairs.
   List<GameMatchPair> pairs;
 
+  /// Optional image URL (Firebase Storage gs:// URL) displayed with the question.
+  String imageUrl;
+
   GameQuestion({
     this.id = '',
     this.title = '',
@@ -78,6 +82,7 @@ class GameQuestion {
     this.correctIndexes = const [],
     this.sortOrder = const [],
     this.pairs = const [],
+    this.imageUrl = '',
   });
 
   factory GameQuestion.fromJson(Map<String, dynamic> json, {String? id}) {
@@ -114,6 +119,7 @@ class GameQuestion {
       correctIndexes: intList(json['correctIndexes']),
       sortOrder: stringList(json['sortOrder']),
       pairs: pairs,
+      imageUrl: json['imageUrl'] ?? '',
     );
   }
 
@@ -131,6 +137,7 @@ class GameQuestion {
     if (correctIndexes.isNotEmpty) data['correctIndexes'] = correctIndexes;
     if (sortOrder.isNotEmpty) data['sortOrder'] = sortOrder;
     if (pairs.isNotEmpty) data['pairs'] = pairs.map((p) => p.toJson()).toList();
+    data['imageUrl'] = imageUrl;
     return data;
   }
 
@@ -139,6 +146,7 @@ class GameQuestion {
   bool validateAnswer(Map<String, dynamic> answer) {
     switch (type) {
       case GameQuestionType.text:
+      case GameQuestionType.textarea:
         final text = answer['text'];
         return text is String && text.trim().isNotEmpty;
       case GameQuestionType.abc:
@@ -164,8 +172,11 @@ class GameQuestion {
   }
 
   /// Correctness check: is the submitted payload the correct answer?
+  /// Textarea questions always return true (feedback is always accepted).
   bool checkAnswer(Map<String, dynamic> answer) {
     switch (type) {
+      case GameQuestionType.textarea:
+        return true;
       case GameQuestionType.text:
         final submitted = answer['text']?.toString() ?? "";
         if (GameUtils.textEquals(submitted, this.answer)) return true;

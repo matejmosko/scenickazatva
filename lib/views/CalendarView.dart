@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/widgets/EventListItem.dart';
+import 'package:go_router/go_router.dart';
 
 // Calendar view displays data from EventsProvider in a calendar. It observes all Providers to be able to do that.
 
@@ -98,6 +99,12 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
           child: Row(
             children: [
               Expanded(child: _buildLocationDropdown()),
+              if (context.watch<UserProvider>().canEdit)
+                IconButton(
+                  icon: const Icon(Icons.add_location_alt, size: 20),
+                  tooltip: "Nová lokalita",
+                  onPressed: () => context.go('/locations/new'),
+                ),
               const SizedBox(width: 8),
               Text(
                 "Iba obľúbené",

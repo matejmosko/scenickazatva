@@ -8,12 +8,20 @@ import 'package:wordpress_client/wordpress_client.dart';
 void main() {
   late Directory tempDir;
 
-  setUp(() async {
+  setUpAll(() async {
     tempDir = Directory.systemTemp.createTempSync('news_provider_test');
     Hive.init(tempDir.path);
   });
 
-  tearDown(() async {
+  setUp(() async {
+    final box = await Hive.openBox('read_later');
+    await box.clear();
+    final articles = await Hive.openBox('read_articles');
+    await articles.clear();
+    await Hive.close();
+  });
+
+  tearDownAll(() async {
     await Hive.close();
     tempDir.deleteSync(recursive: true);
   });

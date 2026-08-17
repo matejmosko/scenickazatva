@@ -9,6 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:markdown/markdown.dart' as MD;
 import 'package:go_router/go_router.dart';
+import 'package:scenickazatva_app/widgets/DeepLinkButton.dart';
 
 class InfoDetailPage extends StatelessWidget {
   final infoId;
@@ -37,6 +38,7 @@ class InfoDetailPage extends StatelessWidget {
           "Informácie",
         ),
         actions: <Widget>[
+          const DeepLinkButton(),
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white70),
             onPressed: () {

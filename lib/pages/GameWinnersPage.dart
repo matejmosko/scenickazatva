@@ -7,21 +7,22 @@ import 'package:scenickazatva_app/providers/GameProvider.dart';
 
 /// Displays participants who correctly answered all game questions.
 class GameWinnersPage extends StatelessWidget {
-  const GameWinnersPage({super.key});
+  final String gameId;
+  const GameWinnersPage({super.key, required this.gameId});
 
   List<GameParticipant> _getWinners(GameProvider provider) {
     final totalQuestions = provider.questions.length;
     if (totalQuestions == 0) return [];
 
     final winners = provider.participants.where((p) => p.correctCount == totalQuestions).toList();
-    
+
     // Sort by lastAnsweredAt (oldest first)
     winners.sort((a, b) {
       final t1 = a.lastAnsweredAt ?? DateTime(9999);
       final t2 = b.lastAnsweredAt ?? DateTime(9999);
       return t1.compareTo(t2);
     });
-    
+
     return winners;
   }
 
@@ -35,7 +36,7 @@ class GameWinnersPage extends StatelessWidget {
         title: const Text("Úspešní riešitelia"),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
-          onPressed: () => context.go('/game'),
+          onPressed: () => context.go('/game/$gameId'),
         ),
       ),
       body: winners.isEmpty

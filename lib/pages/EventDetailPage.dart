@@ -14,6 +14,9 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:scenickazatva_app/utils/TimeUtils.dart';
 import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:scenickazatva_app/widgets/DeepLinkButton.dart';
+import 'package:scenickazatva_app/utils/StringUtils.dart';
 
 class EventDetailPage extends StatefulWidget {
   final String eventId;
@@ -103,6 +106,23 @@ class _EventDetailPageState extends State<EventDetailPage> {
           event.title,
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white70),
+            onPressed: () {
+              final e = event!;
+              final buffer = StringBuffer(e.title);
+              if (e.artist.isNotEmpty) buffer.write('\n${e.artist}');
+              buffer.write('\n$startDate $startTime$endTime');
+              if (e.location.isNotEmpty) {
+                buffer.write('\n${eventsProvider.getLocationName(e.location)}');
+              }
+              if (e.description.isNotEmpty) {
+                final stripped = StringUtils.stripHtml(MD.markdownToHtml(e.description));
+                buffer.write('\n\n$stripped');
+              }
+              SharePlus.instance.share(ShareParams(text: buffer.toString()));
+            },
+          ),
           Consumer<UserProvider>(
             builder: (context, userProvider, child) {
               final isFav = userProvider.isFavorite(festival.id, event!.id);
@@ -117,14 +137,14 @@ class _EventDetailPageState extends State<EventDetailPage> {
               );
             },
           ),
-            IconButton(
-              icon: const Icon(Icons.settings, color: Colors.white70),
-              onPressed: () {
-                Analytics().logEvent(AnalyticsEvents.menuSettings);
-                context.go('/settings');
-              },
-            )
-
+          const DeepLinkButton(),
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white70),
+            onPressed: () {
+              Analytics().logEvent(AnalyticsEvents.menuSettings);
+              context.go('/settings');
+            },
+          )
         ],
       ),
       body: SafeArea(
@@ -285,25 +305,30 @@ class _EventDetailPageState extends State<EventDetailPage> {
                           Flexible(
                             flex: 1,
                             fit: FlexFit.tight,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: <Widget>[
-                                eventsProvider.getLocationIcon(event.location, color: eventsProvider.getLocationColor(event.location), size: 26),
-                                const SizedBox(height: 4),
-                                Text(
-                                  eventsProvider.getLocationName(event.location),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: eventsProvider.getLocationColor(event.location),
-                                    fontWeight: FontWeight.bold,
+                            child: GestureDetector(
+                              onTap: event.location.isNotEmpty
+                                  ? () => context.go('/locations/${event!.location}')
+                                  : null,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: <Widget>[
+                                  eventsProvider.getLocationIcon(event.location, color: eventsProvider.getLocationColor(event.location), size: 26),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    eventsProvider.getLocationName(event.location),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: eventsProvider.getLocationColor(event.location),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                    softWrap: true,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  textAlign: TextAlign.center,
-                                  softWrap: true,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ],

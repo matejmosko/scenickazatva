@@ -8,6 +8,7 @@ import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:intl/intl.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:go_router/go_router.dart';
+import 'package:scenickazatva_app/widgets/DeepLinkButton.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -227,6 +228,7 @@ class EventEditPageState extends State<EventEditPage> {
             onPressed: () => _isNew ? context.go("/events") : context.go("/events/${widget.eventId}")),
         title: Text(_isNew ? "Nové podujatie" : "Upraviť podujatie"),
         actions: <Widget>[
+          const DeepLinkButton(),
           if (!_isNew)
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.redAccent),

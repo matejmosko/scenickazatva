@@ -89,11 +89,11 @@ class _GamePageState extends State<GamePage> {
   }
 
   Widget _buildBody(BuildContext context, GameProvider provider) {
+    final canEdit = Provider.of<UserProvider>(context).canEdit;
     if (provider.loading) {
       return const Center(child: CircularProgressIndicator());
     }
     if (!provider.hasGame) {
-      final canEdit = Provider.of<UserProvider>(context).canEdit;
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -120,7 +120,7 @@ class _GamePageState extends State<GamePage> {
     }
 
     // Draft: only visible to admins/editors
-    if (provider.isGameDraft && !Provider.of<UserProvider>(context).canEdit) {
+    if (provider.isGameDraft && !canEdit) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -139,7 +139,7 @@ class _GamePageState extends State<GamePage> {
 
     return ListView(
       children: [
-        _buildHeaderCard(context, provider, answered, total),
+        _buildHeaderCard(context, provider, answered, total, canEdit),
         if (questions.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -163,7 +163,7 @@ class _GamePageState extends State<GamePage> {
     );
   }
 
-  Widget _buildHeaderCard(BuildContext context, GameProvider provider, int answered, int total) {
+  Widget _buildHeaderCard(BuildContext context, GameProvider provider, int answered, int total, bool canEdit) {
     final game = provider.game!;
     final progress = total == 0 ? 0.0 : answered / total;
 
@@ -245,35 +245,37 @@ class _GamePageState extends State<GamePage> {
               ),
               const SizedBox(height: 12),
             ],
-            const Divider(),
-            Text(
-              "Tvoje meno pre hru",
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                hintText: "Zadaj svoje meno...",
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 8),
+            if (!provider.isGameClosed || canEdit) ...[
+              const Divider(),
+              Text(
+                "Tvoje meno pre hru",
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
               ),
-              style: Theme.of(context).textTheme.bodyLarge,
-              onTap: () => setState(() => _isEditingName = true),
-              onChanged: (value) {
-                if (_debounce?.isActive ?? false) _debounce!.cancel();
-                _debounce = Timer(const Duration(milliseconds: 500), () {
-                  if (mounted) {
-                    Provider.of<UserProvider>(context, listen: false).updateFullName(value);
-                  }
-                });
-              },
-              onSubmitted: (value) => setState(() => _isEditingName = false),
-              onTapOutside: (_) {
-                FocusScope.of(context).unfocus();
-                setState(() => _isEditingName = false);
-              },
-            ),
+              const SizedBox(height: 4),
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  hintText: "Zadaj svoje meno...",
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                ),
+                style: Theme.of(context).textTheme.bodyLarge,
+                onTap: () => setState(() => _isEditingName = true),
+                onChanged: (value) {
+                  if (_debounce?.isActive ?? false) _debounce!.cancel();
+                  _debounce = Timer(const Duration(milliseconds: 500), () {
+                    if (mounted) {
+                      Provider.of<UserProvider>(context, listen: false).updateFullName(value);
+                    }
+                  });
+                },
+                onSubmitted: (value) => setState(() => _isEditingName = false),
+                onTapOutside: (_) {
+                  FocusScope.of(context).unfocus();
+                  setState(() => _isEditingName = false);
+                },
+              ),
+            ],
             const SizedBox(height: 16),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
@@ -346,9 +348,7 @@ class _GamePageState extends State<GamePage> {
             Icon(statusIcon, color: statusColor),
           ],
         ),
-        onTap: provider.isGameClosed
-            ? null
-            : () {
+        onTap: () {
                 Analytics().logEvent(AnalyticsEvents.gameQuestionOpened,
                     parameters: {AnalyticsEvents.paramQuestionId: q.id});
                 context.go("/game/${widget.gameId}/${q.id}");

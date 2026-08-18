@@ -51,7 +51,7 @@ class GamesListPage extends StatelessWidget {
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => context.go('/info'),
         ),
-        title: const Text("Festivalové hry"),
+        title: const Text("Kvízy, hry a dotazníky"),
         actions: const [
           DeepLinkButton(),
         ],

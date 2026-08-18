@@ -53,6 +53,8 @@ class _GameEditPageState extends State<GameEditPage> {
               endsAt: game.endsAt,
               status: game.status,
               imageUrl: game.imageUrl,
+              ctaText: game.ctaText,
+              showInAds: game.showInAds,
             )
           : GameConfig(id: widget.gameId);
       _authorized = true;
@@ -275,6 +277,26 @@ class _GameEditPageState extends State<GameEditPage> {
                       onChanged: (value) {
                         if (value != null) setState(() => _edited.status = value);
                       },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      initialValue: _edited.ctaText,
+                      onSaved: (value) => _edited.ctaText = value ?? "",
+                      decoration: const InputDecoration(
+                        labelText: "Text tlačidla v reklamách",
+                        hintText: "Hrať",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    CheckboxListTile(
+                      value: _edited.showInAds,
+                      onChanged: (value) {
+                        setState(() => _edited.showInAds = value ?? true);
+                      },
+                      title: const Text("Zobraziť v reklamách"),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
                     ),
                   ],
                 ),

@@ -6,7 +6,7 @@ import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 
-/// Shows a "Festivalové hry" card linking to the games list.
+/// Shows a "Kvízy, hry a dotazníky" card linking to the games list.
 /// Non-admins only see the card when there are published/ended games.
 class GameCard extends StatelessWidget {
   const GameCard({Key? key}) : super(key: key);
@@ -31,7 +31,7 @@ class GameCard extends StatelessWidget {
           color: gameProvider.hasGames ? Colors.amber : Theme.of(context).colorScheme.primary,
         ),
         title: Text(
-          "Festivalové hry",
+          "Kvízy, hry a dotazníky",
           style: Theme.of(context).textTheme.titleMedium,
         ),
         subtitle: Text(

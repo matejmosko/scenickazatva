@@ -313,7 +313,10 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
   Widget _buildTopSection(BuildContext context, AppSettingsProvider appSettings) {
     final liveEvents = appSettings.currentlyPlayingEvents;
     final ads = appSettings.activeAds;
-    final games = Provider.of<GameProvider>(context).visibleGames;
+    final games = Provider.of<GameProvider>(context)
+        .visibleGames
+        .where((g) => g.showInAds)
+        .toList();
 
     if (liveEvents.isEmpty && ads.isEmpty && games.isEmpty) return const SizedBox.shrink();
 
@@ -580,21 +583,22 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                                     ),
                                   ),
                                 const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.primary,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    "Hrať",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                                if (game.ctaText.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.primary,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      game.ctaText,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
-                                ),
                               ],
                             ),
                           ),

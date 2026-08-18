@@ -45,8 +45,20 @@
 		<false/>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleURLName</key>
+				<string>javiko</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>javiko</string>
+				</array>
+			</dict>
+		</array>
 		<key>LSApplicationQueriesSchemes</key>
 		<array>
+			<string>javiko</string>
 			<string>http</string>
 			<string>https</string>
 		</array>

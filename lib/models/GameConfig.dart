@@ -17,6 +17,13 @@ class GameConfig {
   /// list and at the top of the game page.
   String imageUrl;
 
+  /// Call-to-action button text shown in the magazine carousel.
+  /// Defaults to "Hrať" when empty.
+  String ctaText;
+
+  /// Whether to show this game in the magazine top carousel ads.
+  bool showInAds;
+
   List<GameQuestion> questions;
 
   GameConfig({
@@ -26,6 +33,8 @@ class GameConfig {
     this.endsAt,
     this.status = "draft",
     this.imageUrl = "",
+    this.ctaText = "",
+    this.showInAds = true,
     this.questions = const [],
   });
 
@@ -69,6 +78,8 @@ class GameConfig {
       endsAt: endsAt,
       status: json['status'] ?? "draft",
       imageUrl: json['imageUrl'] ?? "",
+      ctaText: json['ctaText'] ?? "",
+      showInAds: json['showInAds'] ?? true,
       questions: questions,
     );
   }
@@ -86,6 +97,8 @@ class GameConfig {
       'endsAtMs': endsAtMs,
       'status': status,
       'imageUrl': imageUrl,
+      'ctaText': ctaText,
+      'showInAds': showInAds,
     };
   }
 

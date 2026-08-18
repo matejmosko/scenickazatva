@@ -270,5 +270,21 @@ void main() {
       final restored = GameConfig.fromJson(json);
       expect(restored.id, 'game-123');
     });
+
+    test('fromJson defaults ctaText to empty and showInAds to true', () {
+      final config = GameConfig.fromJson({});
+      expect(config.ctaText, '');
+      expect(config.showInAds, isTrue);
+    });
+
+    test('round-trips ctaText and showInAds', () {
+      final config = GameConfig(
+        ctaText: 'Odpovedať',
+        showInAds: false,
+      );
+      final restored = GameConfig.fromJson(config.toJson());
+      expect(restored.ctaText, 'Odpovedať');
+      expect(restored.showInAds, isFalse);
+    });
   });
 }

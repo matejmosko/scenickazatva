@@ -26,12 +26,11 @@ function isPastDeadline(endsAtMs, nowMs) {
  * @param {Object|null} existing The current participant record (winner flag is
  *     preserved; it is only writable by admins).
  * @param {string} userFullName The user's display name from their profile.
- * @param {string} userEmail The user's email from their profile.
  * @return {Object|null} The participant update, or null when there are no
  *     submissions (caller should delete the record).
  */
 function computeParticipantUpdate(submissions, questions, existing,
-    userFullName, userEmail) {
+    userFullName) {
   const entries = Object.entries(submissions || {});
   let score = 0;
   let correctCount = 0;
@@ -64,15 +63,11 @@ function computeParticipantUpdate(submissions, questions, existing,
     if (typeof existing.fullName === "string" && existing.fullName) {
       update.fullName = existing.fullName;
     }
-    if (typeof existing.email === "string" && existing.email) {
-      update.email = existing.email;
-    }
     // winner is admin-managed only; keep whatever is already set.
     if (existing.winner === true) update.winner = true;
   }
-  // Fill in user profile fields if not already present in existing record.
+  // Fill in user profile name if not already present in existing record.
   if (!update.fullName && userFullName) update.fullName = userFullName;
-  if (!update.email && userEmail) update.email = userEmail;
   return update;
 }
 

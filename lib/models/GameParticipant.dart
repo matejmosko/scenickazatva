@@ -3,7 +3,6 @@
 class GameParticipant {
   String uid;
   String fullName;
-  String email;
   int score;
   int correctCount;
   int answeredCount;
@@ -13,7 +12,6 @@ class GameParticipant {
   GameParticipant({
     this.uid = "",
     this.fullName = "",
-    this.email = "",
     this.score = 0,
     this.correctCount = 0,
     this.answeredCount = 0,
@@ -25,7 +23,6 @@ class GameParticipant {
     return GameParticipant(
       uid: json['uid'] ?? "",
       fullName: json['fullName'] ?? "",
-      email: json['email'] ?? "",
       score: json['score'] is int
           ? json['score'] as int
           : (int.tryParse(json['score']?.toString() ?? "0") ?? 0),
@@ -45,7 +42,6 @@ class GameParticipant {
     return {
       'uid': uid,
       'fullName': fullName,
-      'email': email,
       'score': score,
       'correctCount': correctCount,
       'answeredCount': answeredCount,
@@ -55,7 +51,6 @@ class GameParticipant {
 
   String get displayName {
     if (fullName.isNotEmpty) return fullName;
-    // Never expose email addresses to other users.
     return "Neznámy hráč";
   }
 }

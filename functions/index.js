@@ -122,8 +122,6 @@ exports.recomputeParticipant = onValueWritten(
       const userProfile = userSnapshot.val();
       const userFullName = userProfile && typeof userProfile.fullName === "string"
           ? userProfile.fullName : "";
-      const userEmail = userProfile && typeof userProfile.email === "string"
-          ? userProfile.email : "";
 
       // Defense in depth: the security rules already reject late writes, but
       // roll back any that slipped through (e.g. offline writes from an old
@@ -138,7 +136,6 @@ exports.recomputeParticipant = onValueWritten(
           (game && game.questions) || null,
           participantSnapshot.val(),
           userFullName,
-          userEmail,
       );
 
       const participantRef =

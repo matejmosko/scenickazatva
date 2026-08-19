@@ -124,9 +124,6 @@ class _GameResultsPageState extends State<GameResultsPage> {
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    if (participant.email.isNotEmpty)
-                                      Text(participant.email,
-                                          style: Theme.of(context).textTheme.bodySmall),
                                     Text(
                                       "Skóre: ${participant.score}  •  Správne: ${participant.correctCount}/$quizQuestionCount",
                                     ),

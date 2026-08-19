@@ -115,7 +115,7 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
 
     Analytics().logEvent(AnalyticsEvents.gameAnswerSubmitted, parameters: {
       AnalyticsEvents.paramQuestionId: question.id,
-      AnalyticsEvents.paramCorrect: submission?.correct ?? false,
+      AnalyticsEvents.paramCorrect: (submission?.correct ?? false).toString(),
     });
     if (submission == null) {
       ScaffoldMessenger.of(context).showSnackBar(

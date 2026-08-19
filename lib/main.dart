@@ -45,7 +45,6 @@ import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:scenickazatva_app/utils/ThemeFactory.dart';
 import 'package:scenickazatva_app/utils/AppLog.dart';
-import 'package:scenickazatva_app/widgets/ConnectivityBanner.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -426,12 +425,7 @@ class MyApp extends StatelessWidget {
                     festival: festival),
                 debugShowCheckedModeBanner: false,
                 routerConfig: _router,
-                builder: (context, child) => Column(
-                  children: [
-                    const ConnectivityBanner(),
-                    Expanded(child: child ?? const SizedBox.shrink()),
-                  ],
-                ),
+                builder: (context, child) => child ?? const SizedBox.shrink(),
               );
             },
           );

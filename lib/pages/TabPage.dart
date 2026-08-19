@@ -14,6 +14,7 @@ import 'package:scenickazatva_app/views/MagazineView.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
+import 'package:scenickazatva_app/widgets/ConnectivityBanner.dart';
 import 'package:scenickazatva_app/widgets/DeepLinkButton.dart';
 
 class TabPage extends StatefulWidget {
@@ -194,38 +195,44 @@ class _TabPageState extends State<TabPage> {
           return const SizedBox.shrink();
         },
       ),
-      bottomNavigationBar: Consumer<NewsProvider>(
-        builder: (context, newsProvider, _) {
-          return NavigationBar(
-              destinations: <Widget>[
-                NavigationDestination(
-                  icon: Badge(
-                    label: Text(newsProvider.unreadMagazineCount.toString()),
-                    isLabelVisible: newsProvider.unreadMagazineCount > 0,
-                    child: const Icon(Icons.menu_book),
-                  ),
-                  label: 'javisko.sk',
-                ),
-                NavigationDestination(
-                  icon: const Icon(Icons.date_range),
-                  label: festival.menuTitle,
-                ),
-                NavigationDestination(
-                  icon: const Icon(Icons.notifications),
-                  label: 'Novinky',
-                ),
-                NavigationDestination(
-                  icon: const Icon(Icons.info),
-                  label: 'Info',
-                ),
-              ],
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: (index) {
-                final eventsProvider = Provider.of<EventsProvider>(context, listen: false);
-                final infoProvider = Provider.of<InfoProvider>(context, listen: false);
-                _itemTapped(index, newsProvider, eventsProvider, infoProvider);
-              });
-        },
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const ConnectivityBanner(),
+          Consumer<NewsProvider>(
+            builder: (context, newsProvider, _) {
+              return NavigationBar(
+                  destinations: <Widget>[
+                    NavigationDestination(
+                      icon: Badge(
+                        label: Text(newsProvider.unreadMagazineCount.toString()),
+                        isLabelVisible: newsProvider.unreadMagazineCount > 0,
+                        child: const Icon(Icons.menu_book),
+                      ),
+                      label: 'javisko.sk',
+                    ),
+                    NavigationDestination(
+                      icon: const Icon(Icons.date_range),
+                      label: festival.menuTitle,
+                    ),
+                    NavigationDestination(
+                      icon: const Icon(Icons.notifications),
+                      label: 'Novinky',
+                    ),
+                    NavigationDestination(
+                      icon: const Icon(Icons.info),
+                      label: 'Info',
+                    ),
+                  ],
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: (index) {
+                    final eventsProvider = Provider.of<EventsProvider>(context, listen: false);
+                    final infoProvider = Provider.of<InfoProvider>(context, listen: false);
+                    _itemTapped(index, newsProvider, eventsProvider, infoProvider);
+                  });
+            },
+          ),
+        ],
       ),
     );
   }

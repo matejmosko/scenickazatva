@@ -9,6 +9,7 @@ import 'package:scenickazatva_app/models/GameSubmission.dart';
 import 'package:scenickazatva_app/models/GameParticipant.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/models/UserData.dart';
+import 'package:scenickazatva_app/requests/ConnectivityService.dart';
 
 /// Provider for festival games (quiz / feedback).
 /// Manages multiple games per festival. Subscribes to the games list
@@ -253,6 +254,8 @@ class GameProvider extends ChangeNotifier {
             .set(submission.toJson());
       } catch (e) {
         AppLog.error("Firebase answer save error", error: e);
+        ConnectivityService.instance.showTemporaryBanner(
+            "Odpoveď sa nepodarilo uložiť — skúste znova");
       }
     }
 
@@ -307,6 +310,8 @@ class GameProvider extends ChangeNotifier {
       AppLog.info("saveGameMeta: update completed");
     } catch (e) {
       AppLog.error("saveGameMeta failed", error: e);
+      ConnectivityService.instance.showTemporaryBanner(
+          "Zmeny sa nepodarilo uložiť — skúste znova");
       throw Exception("saveGameMeta failed: $e");
     }
   }

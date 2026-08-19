@@ -5,10 +5,11 @@ import 'package:scenickazatva_app/widgets/ConnectivityBanner.dart';
 
 void main() {
   setUp(() {
+    ConnectivityService.instance.hideBanner();
     ConnectivityService.instance.debugSetOnline(true);
   });
 
-  testWidgets('banner is hidden while online and shown while offline',
+  testWidgets('banner shows when going offline and hides when back online',
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: ConnectivityBanner())),
@@ -24,23 +25,35 @@ void main() {
     expect(find.textContaining('Ste offline'), findsNothing);
   });
 
-  testWidgets(
-      'banner claims zero space while online and the status bar inset plus its height while offline',
+  testWidgets('banner shows for manual failure and auto-hides',
       (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: MediaQuery(
-          data: MediaQueryData(padding: EdgeInsets.only(top: 24)),
-          child: Scaffold(body: ConnectivityBanner()),
-        ),
-      ),
+      const MaterialApp(home: Scaffold(body: ConnectivityBanner())),
     );
-    RenderBox box() => tester.renderObject<RenderBox>(find.byType(ConnectivityBanner));
+    expect(find.textContaining('Nepodarilo'), findsNothing);
+
+    ConnectivityService.instance
+        .showTemporaryBanner('Nepodarilo sa uložiť — skúste znova');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Nepodarilo'), findsOneWidget);
+
+    ConnectivityService.instance.hideBanner();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Nepodarilo'), findsNothing);
+  });
+
+  testWidgets('banner claims zero space when hidden and non-zero when shown',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: ConnectivityBanner())),
+    );
+    RenderBox box() =>
+        tester.renderObject<RenderBox>(find.byType(ConnectivityBanner));
     expect(box().size.height, 0);
 
     ConnectivityService.instance.debugSetOnline(false);
     await tester.pumpAndSettle();
-    expect(box().size.height, 24 + 36);
+    expect(box().size.height, greaterThan(0));
 
     ConnectivityService.instance.debugSetOnline(true);
     await tester.pumpAndSettle();

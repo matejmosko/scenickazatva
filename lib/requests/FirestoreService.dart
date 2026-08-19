@@ -4,6 +4,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:scenickazatva_app/models/UserData.dart';
 import 'package:scenickazatva_app/utils/AppLog.dart';
+import 'package:scenickazatva_app/requests/ConnectivityService.dart';
 
 /// Service for managing Firebase Authentication and user profile synchronization
 /// with the Realtime Database.
@@ -118,6 +119,8 @@ class authService {
       AppLog.info("Firebase UserData save success");
     } catch (error) {
       AppLog.error("Error in saveUserData", error: error);
+      ConnectivityService.instance.showTemporaryBanner(
+          "Zmeny sa nepodarilo uložiť — skúste znova");
     }
   }
 }

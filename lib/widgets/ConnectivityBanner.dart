@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:scenickazatva_app/requests/ConnectivityService.dart';
 
-/// Slim banner pinned above the app content that appears when the Realtime
-/// Database connection is lost. Writes (game answers, favorites, edits) are
-/// still queued locally by the RTDB offline queue, so the banner reassures
-/// the user their changes will sync once the connection returns.
+/// Temporary overlay banner that appears just above the bottom navigation bar
+/// when a save/refresh fails or the device goes offline. Auto-dismisses after
+/// 7 seconds (managed by [ConnectivityService]).
 class ConnectivityBanner extends StatelessWidget {
   const ConnectivityBanner({super.key});
 
@@ -14,25 +13,24 @@ class ConnectivityBanner extends StatelessWidget {
     return ListenableBuilder(
       listenable: ConnectivityService.instance,
       builder: (context, _) {
-        final online = ConnectivityService.instance.isOnline;
-        // The banner lives directly above the Navigator, so it must claim the
-        // status-bar inset itself (an outer SafeArea would keep reserving that
-        // space even while online, pushing the whole app down and exposing the
-        // AppBar's top padding as a colored band above the title).
-        final topInset = MediaQuery.paddingOf(context).top;
-        return AnimatedContainer(
+        final message = ConnectivityService.instance.bannerMessage;
+        final visible = message != null;
+        return AnimatedSize(
           duration: const Duration(milliseconds: 250),
-          height: online ? 0 : topInset + 36,
-          color: online ? Colors.transparent : scheme.errorContainer,
-          child: online
-              ? null
-              : Padding(
-                  padding: EdgeInsets.only(top: topInset),
-                  child: Align(
-                    alignment: Alignment.center,
+          curve: Curves.easeInOut,
+          child: visible
+              ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  color: scheme.errorContainer,
+                  child: SafeArea(
+                    top: false,
                     child: Text(
-                      'Ste offline — zmeny sa uložia po obnovení pripojenia',
-                      maxLines: 1,
+                      message,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: scheme.onErrorContainer,
@@ -40,7 +38,8 @@ class ConnectivityBanner extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
+                )
+              : const SizedBox.shrink(),
         );
       },
     );

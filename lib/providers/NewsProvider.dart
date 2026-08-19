@@ -6,6 +6,7 @@ import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:scenickazatva_app/requests/ImagePrecacheService.dart';
 import 'package:scenickazatva_app/utils/AppLog.dart';
+import 'package:scenickazatva_app/requests/ConnectivityService.dart';
 import 'package:scenickazatva_app/utils/StringUtils.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
 
@@ -269,6 +270,8 @@ class NewsProvider extends ChangeNotifier {
       setLoading("news_src", false);
     } catch (e) {
       AppLog.error("Error fetching WP news", error: e);
+      ConnectivityService.instance.showTemporaryBanner(
+          "Nepodarilo sa načítať novinky — skúste znova");
       setLoading("news_src", false);
     }
   }
@@ -401,6 +404,8 @@ class NewsProvider extends ChangeNotifier {
       setLoading("magazine_src", false);
     } catch (e) {
       AppLog.error("Error fetching WP magazine", error: e);
+      ConnectivityService.instance.showTemporaryBanner(
+          "Nepodarilo sa načítať články — skúste znova");
       setLoading("magazine_src", false);
     }
   }

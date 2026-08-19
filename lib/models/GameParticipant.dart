@@ -55,7 +55,7 @@ class GameParticipant {
 
   String get displayName {
     if (fullName.isNotEmpty) return fullName;
-    if (email.isNotEmpty) return email;
+    // Never expose email addresses to other users.
     return "Neznámy hráč";
   }
 }

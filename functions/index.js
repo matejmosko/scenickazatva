@@ -107,21 +107,28 @@ exports.recomputeParticipant = onValueWritten(
       const {uid, festivalId, gameId} = event.params;
       const db = admin.database();
 
-      const [gameSnapshot, submissionsSnapshot, participantSnapshot, userSnapshot] =
+      const [gameSnap, subSnap, partSnap, userSnap] =
           await Promise.all([
-            db.ref(`festivals/${festivalId}/games/${gameId}`).get(),
-            db.ref(`users/${uid}/game/${festivalId}/${gameId}`).get(),
             db.ref(
-                `festivals/${festivalId}/games/${gameId}/participants/${uid}`,
+                `festivals/${festivalId}/games/${gameId}`,
+            ).get(),
+            db.ref(
+                `users/${uid}/game/${festivalId}/${gameId}`,
+            ).get(),
+            db.ref(
+                `festivals/${festivalId}/games/${gameId}` +
+                `/participants/${uid}`,
             ).get(),
             db.ref(`users/${uid}`).get(),
           ]);
 
-      const game = gameSnapshot.val();
+      const game = gameSnap.val();
       const endsAtMs = game && game.endsAtMs;
-      const userProfile = userSnapshot.val();
-      const userFullName = userProfile && typeof userProfile.fullName === "string"
-          ? userProfile.fullName : "";
+      const userProfile = userSnap.val();
+      const userFullName =
+          userProfile &&
+          typeof userProfile.fullName === "string" ?
+              userProfile.fullName : "";
 
       // Defense in depth: the security rules already reject late writes, but
       // roll back any that slipped through (e.g. offline writes from an old
@@ -132,9 +139,9 @@ exports.recomputeParticipant = onValueWritten(
       }
 
       const update = computeParticipantUpdate(
-          submissionsSnapshot.val(),
+          subSnap.val(),
           (game && game.questions) || null,
-          participantSnapshot.val(),
+          partSnap.val(),
           userFullName,
       );
 

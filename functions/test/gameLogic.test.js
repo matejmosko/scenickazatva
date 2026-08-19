@@ -74,7 +74,8 @@ test("computeParticipantUpdate", async (t) => {
     const submissions = {
       q1: {correct: true, answeredAt: "2026-08-01T10:00:00Z"},
     };
-    const update = computeParticipantUpdate(submissions, questions, null, "John");
+    const update = computeParticipantUpdate(
+        submissions, questions, null, "John");
     assert.strictEqual(update.winner, undefined);
   });
 
@@ -97,7 +98,7 @@ test("computeParticipantUpdate", async (t) => {
     assert.strictEqual(update.fullName, "Existing Name");
   });
 
-  await t.test("falls back to user profile when existing fullName is empty", () => {
+  await t.test("falls back when fullName is empty", () => {
     const submissions = {
       q1: {correct: true, answeredAt: "2026-08-01T10:00:00Z"},
     };

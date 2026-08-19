@@ -36,8 +36,8 @@ class GameCard extends StatelessWidget {
         ),
         subtitle: Text(
           canEdit
-              ? "$gameCount ${_gameCountLabel(gameCount)}"
-              : "$gameCount aktívnych",
+              ? "Zapojte sa do festivalových hier či kvízov alebo nám nechajte spätnú väzbu. Spolu je ich tu: $gameCount"
+              : "Zapojte sa do festivalových hier či kvízov alebo nám nechajte spätnú väzbu. Spolu je ich tu: $gameCount",
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         trailing: const Icon(Icons.chevron_right),
@@ -50,8 +50,8 @@ class GameCard extends StatelessWidget {
   }
 
   static String _gameCountLabel(int count) {
-    if (count == 1) return "hra";
-    if (count >= 2 && count <= 4) return "hry";
-    return "hier";
+    if (count == 1) return "položka";
+    if (count >= 2 && count <= 4) return "položky";
+    return "položiek";
   }
 }

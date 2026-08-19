@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -267,17 +268,21 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
-  // Initialize App Check to silence "No AppCheckProvider installed" warnings
-  // We use debug provider for development/emulator environments
-  await FirebaseAppCheck.instance.activate(
-    providerAndroid: AndroidDebugProvider(),
-    providerApple: AppleDebugProvider(),
-    providerWeb: ReCaptchaV3Provider('6Lcj-R8qAAAAABpZ_O_U_9_Z_Z_Z_Z_Z_Z_Z_Z'),
-  );
 
-  // Track RTDB connectivity for the offline banner
-  await ConnectivityService.instance.init();
+  // Parallelize independent initializations
+  await Future.wait([
+    FirebaseAppCheck.instance.activate(
+      providerAndroid: AndroidDebugProvider(),
+      providerApple: AppleDebugProvider(),
+      providerWeb: ReCaptchaV3Provider('6Lcj-R8qAAAAABpZ_O_U_9_Z_Z_Z_Z_Z_Z_Z_Z'),
+    ),
+    ConnectivityService.instance.init(),
+    Hive.initFlutter().then((_) {
+      Hive.registerAdapter(FestivalAdapter());
+      Hive.registerAdapter(AppSettingsAdapter());
+      Hive.registerAdapter(AdAdapter());
+    }),
+  ]);
 
   if (!kIsWeb) {
     FirebaseDatabase.instance.setPersistenceEnabled(true);
@@ -290,11 +295,12 @@ void main() async {
       _router.push(payload);
     };
 
-    await NotificationService().init();
-    
-    // Subscribe to global topics for new articles
-    FirebaseMessaging.instance.subscribeToTopic('magazine_updates');
-    FirebaseMessaging.instance.subscribeToTopic('news_updates');
+    // Defer non-critical init to after first frame
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      NotificationService().init();
+      FirebaseMessaging.instance.subscribeToTopic('magazine_updates');
+      FirebaseMessaging.instance.subscribeToTopic('news_updates');
+    });
   }
 
   // Initialize Authentication
@@ -314,11 +320,6 @@ void main() async {
       authService().authFirebase();
     }
   });
-
-  await Hive.initFlutter();
-  Hive.registerAdapter(FestivalAdapter());
-  Hive.registerAdapter(AppSettingsAdapter());
-  Hive.registerAdapter(AdAdapter());
 
   FirebaseMessaging.instance.onTokenRefresh.listen((fcmToken) async {
     final user = fauth.FirebaseAuth.instance.currentUser;

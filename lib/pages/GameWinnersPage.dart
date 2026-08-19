@@ -38,6 +38,12 @@ class GameWinnersPage extends StatelessWidget {
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => context.go('/game/$gameId'),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white70),
+            onPressed: () => context.go('/settings'),
+          ),
+        ],
       ),
       body: winners.isEmpty
           ? const Center(

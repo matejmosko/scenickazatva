@@ -52,8 +52,12 @@ class GamesListPage extends StatelessWidget {
           onPressed: () => context.go('/info'),
         ),
         title: const Text("Kvízy, hry a dotazníky"),
-        actions: const [
-          DeepLinkButton(),
+        actions: [
+          const DeepLinkButton(),
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white70),
+            onPressed: () => context.go('/settings'),
+          ),
         ],
       ),
       body: provider.loading

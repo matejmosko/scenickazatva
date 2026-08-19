@@ -58,6 +58,12 @@ class _GameResultsPageState extends State<GameResultsPage> {
           onPressed: () => context.go('/game/${widget.gameId}'),
         ),
         title: Text(canEdit ? "Výsledky a víťaz" : "Úspešní riešitelia"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white70),
+            onPressed: () => context.go('/settings'),
+          ),
+        ],
       ),
       body: provider.participants.isEmpty
           ? const Center(

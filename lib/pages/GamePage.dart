@@ -79,8 +79,12 @@ class _GamePageState extends State<GamePage> {
         title: Text(provider.game?.title.isNotEmpty == true
             ? provider.game!.title
             : "Hra"),
-        actions: const [
-          DeepLinkButton(),
+        actions: [
+          const DeepLinkButton(),
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white70),
+            onPressed: () => context.go('/settings'),
+          ),
         ],
       ),
       body: _buildBody(context, provider),

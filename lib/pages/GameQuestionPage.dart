@@ -146,6 +146,12 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
           onPressed: () => context.go('/game/${widget.gameId}'),
         ),
         title: Text(question?.title ?? "Otázka"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white70),
+            onPressed: () => context.go('/settings'),
+          ),
+        ],
       ),
       body: question == null
           ? const Center(child: Text("Otázka sa nenašla."))

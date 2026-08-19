@@ -242,6 +242,10 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
             icon: const Icon(Icons.save, color: Colors.white),
             onPressed: _save,
           ),
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white70),
+            onPressed: () => context.go('/settings'),
+          ),
         ],
       ),
       body: ListView(

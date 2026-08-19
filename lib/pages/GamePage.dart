@@ -292,9 +292,9 @@ class _GamePageState extends State<GamePage> {
             if (total > 0) ...[
               const Divider(height: 24),
               OutlinedButton.icon(
-                onPressed: () => context.go('/game/${widget.gameId}/winners'),
+                onPressed: () => context.go('/game/${widget.gameId}/results'),
                 icon: const Icon(Icons.emoji_events_outlined),
-                label: const Text("Kto už hru vyriešil?"),
+                label: const Text("Výsledky a víťaz"),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 40),
                 ),

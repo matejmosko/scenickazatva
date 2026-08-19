@@ -98,7 +98,7 @@ class DeepLinks {
           if (qid != null) return '/game/edit/$qid';
         }
 
-        // /game/:gameId/edit, /game/:gameId/results, /game/:gameId/winners
+        // /game/:gameId/edit, /game/:gameId/results
         final gameId = _validId(second);
         if (gameId != null && gameId.startsWith('-')) {
           switch (third) {
@@ -106,8 +106,6 @@ class DeepLinks {
               return '/game/$gameId/edit';
             case 'results':
               return '/game/$gameId/results';
-            case 'winners':
-              return '/game/$gameId/winners';
             default:
               // /game/:gameId/:questionId
               final qid = _validId(third);

@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:scenickazatva_app/models/GameParticipant.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 
-/// Admin view: lists all participants ranked by score so the organizer can
-/// declare the quiz winner on the draw date.
+/// Displays all participants ranked by score.
+/// Admins can toggle winner status; non-admins see the leaderboard.
 class GameResultsPage extends StatefulWidget {
   final String gameId;
   const GameResultsPage({Key? key, required this.gameId}) : super(key: key);
@@ -18,24 +17,6 @@ class GameResultsPage extends StatefulWidget {
 }
 
 class _GameResultsPageState extends State<GameResultsPage> {
-  bool _authorized = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_authorized) {
-      final canEdit = Provider.of<UserProvider>(context).canEdit;
-      if (!canEdit) {
-        SchedulerBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            context.go('/game/${widget.gameId}');
-          }
-        });
-      }
-      _authorized = true;
-    }
-  }
-
   List<GameParticipant> _sortedParticipants(GameProvider provider) {
     final list = [...provider.participants];
     list.sort((a, b) {
@@ -51,6 +32,8 @@ class _GameResultsPageState extends State<GameResultsPage> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<GameProvider>(context);
+    final canEdit = Provider.of<UserProvider>(context).canEdit;
+    final sorted = _sortedParticipants(provider);
 
     return Scaffold(
       appBar: AppBar(
@@ -58,9 +41,9 @@ class _GameResultsPageState extends State<GameResultsPage> {
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => context.go('/game/${widget.gameId}'),
         ),
-        title: const Text("Výsledky a víťaz"),
+        title: Text(canEdit ? "Výsledky a víťaz" : "Úspešní riešitelia"),
       ),
-      body: provider.participants.isEmpty
+      body: sorted.isEmpty
           ? const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
@@ -72,9 +55,10 @@ class _GameResultsPageState extends State<GameResultsPage> {
               ),
             )
           : ListView.builder(
-              itemCount: provider.participants.length,
+              padding: const EdgeInsets.all(8),
+              itemCount: sorted.length,
               itemBuilder: (context, index) {
-                final participant = _sortedParticipants(provider)[index];
+                final participant = sorted[index];
                 return Card(
                   child: ListTile(
                     leading: CircleAvatar(
@@ -114,21 +98,24 @@ class _GameResultsPageState extends State<GameResultsPage> {
                               ),
                             ),
                           ),
-                        IconButton(
-                          icon: Icon(
-                            participant.winner ? Icons.emoji_events : Icons.emoji_events_outlined,
-                            color: participant.winner ? Colors.amber : Colors.grey,
-                          ),
-                          tooltip: participant.winner
-                              ? "Odobrať víťazstvo"
-                              : "Vyhlásiť víťaza",
-                          onPressed: () {
-                            provider.setWinner(
-                              participant.uid,
-                              winner: !participant.winner,
-                            );
-                          },
-                        ),
+                        if (canEdit)
+                          IconButton(
+                            icon: Icon(
+                              participant.winner ? Icons.emoji_events : Icons.emoji_events_outlined,
+                              color: participant.winner ? Colors.amber : Colors.grey,
+                            ),
+                            tooltip: participant.winner
+                                ? "Odobrať víťazstvo"
+                                : "Vyhlásiť víťaza",
+                            onPressed: () {
+                              provider.setWinner(
+                                participant.uid,
+                                winner: !participant.winner,
+                              );
+                            },
+                          )
+                        else if (participant.winner)
+                          const Icon(Icons.emoji_events, color: Colors.amber),
                       ],
                     ),
                   ),

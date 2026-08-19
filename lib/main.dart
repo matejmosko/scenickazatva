@@ -26,7 +26,7 @@ import 'package:scenickazatva_app/pages/LocationDetailPage.dart';
 import 'package:scenickazatva_app/pages/LocationEditPage.dart';
 import 'package:scenickazatva_app/pages/FavoritesPage.dart';
 import 'package:scenickazatva_app/pages/ReadLaterPage.dart';
-import 'package:scenickazatva_app/pages/GameWinnersPage.dart';
+
 import 'package:scenickazatva_app/pages/GamesListPage.dart';
 import 'package:scenickazatva_app/models/AppSettings.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
@@ -220,12 +220,6 @@ final _router = GoRouter(
                 GoRoute(
                   path: 'results',
                   builder: (context, state) => GameResultsPage(
-                    gameId: state.pathParameters['gameId'] ?? '',
-                  ),
-                ),
-                GoRoute(
-                  path: 'winners',
-                  builder: (context, state) => GameWinnersPage(
                     gameId: state.pathParameters['gameId'] ?? '',
                   ),
                 ),

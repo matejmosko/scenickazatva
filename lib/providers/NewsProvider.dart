@@ -75,6 +75,7 @@ class NewsProvider extends ChangeNotifier {
   int? get selectedMagazineCategoryId => _selectedMagazineCategoryId;
   int? get selectedNewsCategoryId => _selectedNewsCategoryId;
   int get unreadMagazineCount => _wparticles.where((p) => !_readArticleIds.contains(p.id)).length;
+  int get unreadNewsCount => _wpnews.where((p) => !_readArticleIds.contains(p.id)).length;
   String? get newsSearchQuery => _newsSearchQuery;
   String? get magazineSearchQuery => _magazineSearchQuery;
 
@@ -153,6 +154,14 @@ class NewsProvider extends ChangeNotifier {
 
   void markAllMagazineAsRead() {
     for (var post in _wparticles) {
+      _readArticleIds.add(post.id);
+    }
+    _readArticlesBox?.put('ids', _readArticleIds.toList());
+    notifyListeners();
+  }
+
+  void markAllNewsAsRead() {
+    for (var post in _wpnews) {
       _readArticleIds.add(post.id);
     }
     _readArticlesBox?.put('ids', _readArticleIds.toList());

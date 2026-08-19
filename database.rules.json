@@ -70,7 +70,6 @@
     "users": {
       "$uid": {
         ".read": "auth != null && auth.uid == $uid",
-        ".validate": "newData.hasChildren(['id'])",
         "id": {
           ".validate": "newData.isString() && newData.val() == $uid"
         },

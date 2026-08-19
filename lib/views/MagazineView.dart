@@ -5,15 +5,12 @@ import 'package:lazy_load_scrollview/lazy_load_scrollview.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
-import 'package:scenickazatva_app/models/PostExtension.dart';
-import 'package:scenickazatva_app/utils/StringUtils.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/models/Event.dart';
-//import 'package:scenickazatva_app/models/Ad.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
-import 'package:scenickazatva_app/widgets/PostThumbnail.dart';
 import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
+import 'package:scenickazatva_app/widgets/NewsListItem.dart';
 import 'package:scenickazatva_app/utils/DeepLinks.dart';
 
 class MagazineView extends StatefulWidget {
@@ -168,95 +165,20 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                           itemBuilder: (BuildContext context, int index) {
                             final item = newsProvider.wparticles[index];
                             final label = newsProvider.getPostLabel(item.link);
-                            final isSaved = newsProvider.isReadLater(item.link);
-                            return Card(
-                              child: GestureDetector(
-                                  child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Expanded(
-                                          child: ListTile(
-                                            title: Row(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                if (!newsProvider.isRead(item.id))
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(top: 6.0, right: 8.0),
-                                                    child: Container(
-                                                      width: 8,
-                                                      height: 8,
-                                                      decoration: BoxDecoration(
-                                                        color: Theme.of(context).colorScheme.primary,
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      if (label.isNotEmpty)
-                                                        Padding(
-                                                          padding: const EdgeInsets.only(bottom: 4.0),
-                                                          child: Container(
-                                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                            decoration: BoxDecoration(
-                                                              color: Theme.of(context).colorScheme.secondaryContainer,
-                                                              borderRadius: BorderRadius.circular(4),
-                                                            ),
-                                                            child: Text(
-                                                              label.toUpperCase(),
-                                                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                                                fontSize: 10,
-                                                                fontWeight: FontWeight.bold,
-                                                                color: Theme.of(context).colorScheme.onSecondaryContainer,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      Text(
-                                                        item.title?.rendered?.replaceAll('&amp;', '&') ?? "",
-                                                        style: Theme.of(context).textTheme.titleMedium,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            isThreeLine: true,
-                                            subtitle: Builder(
-                                              builder: (context) {
-                                                final stripped = StringUtils.stripHtml(item.excerpt?.rendered ?? "");
-                                                return Text(
-                                                  stripped.length > 100
-                                                      ? "${stripped.substring(0, 100)}..."
-                                                      : stripped,
-                                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14.0),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        IconButton(
-                                          icon: Icon(
-                                            isSaved ? Icons.bookmark : Icons.bookmark_outline,
-                                            color: isSaved ? const Color(0xffCCA965) : null,
-                                          ),
-                                          onPressed: () => newsProvider.toggleReadLater(item,
-                                              route: "/magazine/${item.id}"),
-                                        ),
-                                        PostThumbnail(
-                                          imageUrl: item.featuredImageSourceUrl(),
-                                        ),
-                                      ]),
-                                  onTap: () {
-                                    newsProvider.markAsRead(item.id);
-                                    Analytics().logEvent(AnalyticsEvents.articleOpened, parameters: {
-                                      AnalyticsEvents.paramItemId: item.id.toString(),
-                                      AnalyticsEvents.paramTitle: item.title!.rendered ?? '',
-                                    });
-                                    context.go("/magazine/" + item.id.toString());
-                                  }),
+
+                            return NewsListItem(
+                              item: item,
+                              isSaved: newsProvider.isReadLater(item.link),
+                              isRead: newsProvider.isRead(item.id),
+                              routePrefix: "/magazine",
+                              label: label,
+                              onToggleBookmark: () =>
+                                  newsProvider.toggleReadLater(item,
+                                      route: "/magazine/${item.id}"),
+                              onTap: () {
+                                newsProvider.markAsRead(item.id);
+                                context.go("/magazine/${item.id}");
+                              },
                             );
                           },
                         ),

@@ -2,12 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scenickazatva_app/providers/NewsProvider.dart';
 import 'package:provider/provider.dart';
-import 'package:scenickazatva_app/requests/SystemServices.dart';
-import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:lazy_load_scrollview/lazy_load_scrollview.dart';
-import 'package:scenickazatva_app/models/PostExtension.dart';
-import 'package:scenickazatva_app/utils/StringUtils.dart';
-import 'package:scenickazatva_app/widgets/PostThumbnail.dart';
+import 'package:scenickazatva_app/widgets/NewsListItem.dart';
 
 class NewsView extends StatefulWidget {
   @override
@@ -130,6 +126,26 @@ class _NewsViewState extends State<NewsView> with AutomaticKeepAliveClientMixin 
                 ),
               Column(
                 children: [
+                  if (newsProvider.unreadNewsCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "${newsProvider.unreadNewsCount} neprečítaných",
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          TextButton(
+                            onPressed: () => newsProvider.markAllNewsAsRead(),
+                            child: Text(
+                              "Označiť všetky ako prečítané",
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Expanded(
                     child: LazyLoadScrollView(
                       onEndOfPage: () => newsProvider.fetchWpNews(fetchMore: true),
@@ -142,51 +158,19 @@ class _NewsViewState extends State<NewsView> with AutomaticKeepAliveClientMixin 
                           itemCount: newsProvider.wpnews.length,
                           itemBuilder: (BuildContext context, int index) {
                             final item = newsProvider.wpnews[index];
-                            final isSaved = newsProvider.isReadLater(item.link);
 
-                            return Card(
-                              child: GestureDetector(
-                                  child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Expanded(
-                                          child: ListTile(
-                                            title: Text(
-                                              item.title!.rendered!.replaceAll('&amp;', '&'),
-                                              style: Theme.of(context).textTheme.titleMedium,
-                                            ),
-                                            subtitle: Builder(
-                                              builder: (context) {
-                                                final stripped = StringUtils.stripHtml(item.excerpt?.rendered ?? "");
-                                                return Text(
-                                                  stripped.length > 100
-                                                      ? "${stripped.substring(0, 100)}..."
-                                                      : stripped,
-                                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14.0),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        IconButton(
-                                          icon: Icon(
-                                            isSaved ? Icons.bookmark : Icons.bookmark_outline,
-                                            color: isSaved ? const Color(0xffCCA965) : null,
-                                          ),
-                                          onPressed: () => newsProvider.toggleReadLater(item,
-                                              route: "/news/${item.id}"),
-                                        ),
-                                        PostThumbnail(
-                                          imageUrl: item.featuredImageSourceUrl(),
-                                        ),
-                                      ]),
-                                  onTap: () {
-                                    Analytics().logEvent(AnalyticsEvents.articleOpened, parameters: {
-                                      AnalyticsEvents.paramItemId: item.id.toString(),
-                                      AnalyticsEvents.paramTitle: item.title!.rendered ?? '',
-                                    });
-                                    context.go("/news/" + item.id.toString());
-                                  }),
+                            return NewsListItem(
+                              item: item,
+                              isSaved: newsProvider.isReadLater(item.link),
+                              isRead: newsProvider.isRead(item.id),
+                              routePrefix: "/news",
+                              onToggleBookmark: () =>
+                                  newsProvider.toggleReadLater(item,
+                                      route: "/news/${item.id}"),
+                              onTap: () {
+                                newsProvider.markAsRead(item.id);
+                                context.go("/news/${item.id}");
+                              },
                             );
                           },
                         ),

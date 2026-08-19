@@ -36,8 +36,8 @@ class GameCard extends StatelessWidget {
         ),
         subtitle: Text(
           canEdit
-              ? "Zapojte sa do festivalových hier či kvízov alebo nám nechajte spätnú väzbu. Spolu je ich tu: $gameCount"
-              : "Zapojte sa do festivalových hier či kvízov alebo nám nechajte spätnú väzbu. Spolu je ich tu: $gameCount",
+              ? "Zapojte sa do festivalových hier či kvízov, alebo nám nechajte spätnú väzbu. Spolu je ich tu: $gameCount"
+              : "Zapojte sa do festivalových hier či kvízov, alebo nám nechajte spätnú väzbu. Spolu je ich tu: $gameCount",
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         trailing: const Icon(Icons.chevron_right),

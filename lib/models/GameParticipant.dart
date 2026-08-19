@@ -56,6 +56,6 @@ class GameParticipant {
   String get displayName {
     if (fullName.isNotEmpty) return fullName;
     if (email.isNotEmpty) return email;
-    return uid;
+    return "Neznámy hráč";
   }
 }

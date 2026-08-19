@@ -78,7 +78,7 @@ class GamesListPage extends StatelessWidget {
                             final id = await provider.createGame();
                             if (id != null && context.mounted) {
                               Analytics().logEvent(AnalyticsEvents.gameCreateOpened);
-                              context.go('/game/$id');
+                              context.go('/game/$id/edit');
                             }
                           },
                           icon: const Icon(Icons.add),
@@ -158,7 +158,7 @@ class GamesListPage extends StatelessWidget {
                 final id = await provider.createGame();
                 if (id != null && context.mounted) {
                   Analytics().logEvent(AnalyticsEvents.gameCreateOpened);
-                  context.go('/game/$id');
+                  context.go('/game/$id/edit');
                 }
               },
               child: const Icon(Icons.add),

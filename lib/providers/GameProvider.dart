@@ -350,15 +350,14 @@ class GameProvider extends ChangeNotifier {
 
   Future<void> deleteGame() async {
     if (!_canEdit || _currentFestivalId == null || _selectedGameId == null) return;
+    final gameId = _selectedGameId!;
     try {
       await FirebaseDatabase.instance
-          .ref("festivals/$_currentFestivalId/games/$_selectedGameId")
+          .ref("festivals/$_currentFestivalId/games/$gameId")
           .remove();
-      _games.remove(_selectedGameId);
-      _selectedGameId = _games.isNotEmpty ? _games.keys.first : null;
-      _participants = [];
-      _submissions = {};
-      notifyListeners();
+      // The _gamesSubscription onValue callback will fire automatically,
+      // re-populate _games (minus the deleted one), auto-select the first
+      // remaining game, and call notifyListeners().
     } catch (e) {
       AppLog.error("Firebase deleteGame error", error: e);
     }

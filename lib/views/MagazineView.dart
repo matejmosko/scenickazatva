@@ -559,6 +559,27 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
+                                if (game.status == "draft" || game.status == "ended")
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4.0),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: game.status == "draft"
+                                            ? Colors.orange
+                                            : Colors.grey,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        game.status == "draft" ? "Koncept" : "Ukončená",
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 Text(
                                   game.title.isNotEmpty ? game.title : "Festivalová hra",
                                   style: TextStyle(

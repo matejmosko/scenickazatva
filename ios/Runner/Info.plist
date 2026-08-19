@@ -49,16 +49,16 @@
 		<array>
 			<dict>
 				<key>CFBundleURLName</key>
-				<string>javiko</string>
+				<string>javisko</string>
 				<key>CFBundleURLSchemes</key>
 				<array>
-					<string>javiko</string>
+					<string>javisko</string>
 				</array>
 			</dict>
 		</array>
 		<key>LSApplicationQueriesSchemes</key>
 		<array>
-			<string>javiko</string>
+			<string>javisko</string>
 			<string>http</string>
 			<string>https</string>
 		</array>

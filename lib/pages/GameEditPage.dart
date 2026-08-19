@@ -126,6 +126,33 @@ class _GameEditPageState extends State<GameEditPage> {
     }
   }
 
+  void _confirmDeleteGame() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Zmazať hru?"),
+        content: const Text(
+          "Naozaj chcete zmazať túto hru? Táto akcia je nevratná a vymaže všetky otázky a odpovede účastníkov.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text("Zrušiť"),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              final provider = Provider.of<GameProvider>(context, listen: false);
+              await provider.deleteGame();
+              if (mounted) context.go('/games');
+            },
+            child: const Text("Zmazať", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _confirmDelete(GameQuestion question) {
     showDialog(
       context: context,
@@ -297,6 +324,17 @@ class _GameEditPageState extends State<GameEditPage> {
                       title: const Text("Zobraziť v reklamách"),
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _confirmDeleteGame,
+                      icon: const Icon(Icons.delete_forever, color: Colors.red),
+                      label: const Text("Zmazať hru", style: TextStyle(color: Colors.red)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.red),
+                      ),
                     ),
                   ],
                 ),

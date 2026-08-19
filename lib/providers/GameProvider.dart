@@ -348,6 +348,22 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> deleteGame() async {
+    if (!_canEdit || _currentFestivalId == null || _selectedGameId == null) return;
+    try {
+      await FirebaseDatabase.instance
+          .ref("festivals/$_currentFestivalId/games/$_selectedGameId")
+          .remove();
+      _games.remove(_selectedGameId);
+      _selectedGameId = _games.isNotEmpty ? _games.keys.first : null;
+      _participants = [];
+      _submissions = {};
+      notifyListeners();
+    } catch (e) {
+      AppLog.error("Firebase deleteGame error", error: e);
+    }
+  }
+
   @override
   void dispose() {
     _gamesSubscription?.cancel();

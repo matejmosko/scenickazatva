@@ -11,7 +11,7 @@ class DeepLinkButton extends StatelessWidget {
   final String? pathOverride;
   const DeepLinkButton({super.key, this.pathOverride});
 
-  static const String _baseUrl = 'javiko://';
+  static const String _baseUrl = 'javisko://';
 
   @override
   Widget build(BuildContext context) {

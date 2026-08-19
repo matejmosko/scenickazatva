@@ -306,6 +306,15 @@ void main() async {
     }
   });
 
+  // Retry auth when connectivity is restored (e.g. first run offline).
+  ConnectivityService.instance.addListener(() {
+    if (ConnectivityService.instance.isOnline &&
+        fauth.FirebaseAuth.instance.currentUser == null) {
+      AppLog.info('Connectivity restored, retrying anonymous auth');
+      authService().authFirebase();
+    }
+  });
+
   await Hive.initFlutter();
   Hive.registerAdapter(FestivalAdapter());
   Hive.registerAdapter(AppSettingsAdapter());

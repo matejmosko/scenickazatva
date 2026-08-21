@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/models/GameConfig.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
+import 'package:scenickazatva_app/models/GameType.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
@@ -52,6 +53,7 @@ class _GameEditPageState extends State<GameEditPage> {
               description: game.description,
               endsAt: game.endsAt,
               status: game.status,
+              type: game.type,
               imageUrl: game.imageUrl,
               ctaText: game.ctaText,
               showInAds: game.showInAds,
@@ -310,6 +312,33 @@ class _GameEditPageState extends State<GameEditPage> {
                       },
                     ),
                     const SizedBox(height: 12),
+                    DropdownButtonFormField<GameType>(
+                      initialValue: _edited.type,
+                      decoration: const InputDecoration(
+                        labelText: "Typ hry",
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: GameType.game, child: Text("Festivalová hra")),
+                        DropdownMenuItem(value: GameType.quiz, child: Text("Kvíz")),
+                        DropdownMenuItem(value: GameType.form, child: Text("Formulár")),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) setState(() => _edited.type = value);
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2, bottom: 8),
+                      child: Text(
+                        _typeDescription(_edited.type),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
                     TextFormField(
                       initialValue: _edited.ctaText,
                       onSaved: (value) => _edited.ctaText = value ?? "",
@@ -434,6 +463,17 @@ class _GameEditPageState extends State<GameEditPage> {
         return Icons.link;
       case GameQuestionType.textarea:
         return Icons.notes;
+    }
+  }
+
+  static String _typeDescription(GameType type) {
+    switch (type) {
+      case GameType.quiz:
+        return "Všetky otázky naraz, odpovede sa kontrolujú až po odovzdaní.";
+      case GameType.game:
+        return "Otázky jedna po druhej, okamžitá spätná väzba, oprava pri zlej odpovedi.";
+      case GameType.form:
+        return "Všetky otázky naraz, bez kontroly odpovedí — na spätnú väzbu.";
     }
   }
 }

@@ -7,6 +7,7 @@ import 'package:scenickazatva_app/models/GameConfig.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
 import 'package:scenickazatva_app/models/GameSubmission.dart';
 import 'package:scenickazatva_app/models/GameParticipant.dart';
+import 'package:scenickazatva_app/models/GameType.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/models/UserData.dart';
 import 'package:scenickazatva_app/requests/ConnectivityService.dart';
@@ -26,6 +27,8 @@ class GameProvider extends ChangeNotifier {
 
   StreamSubscription<DatabaseEvent>? _gamesSubscription;
   StreamSubscription<DatabaseEvent>? _submissionsSubscription;
+  StreamSubscription<DatabaseEvent>? _liveStateSubscription;
+  Map<String, dynamic>? _liveState;
 
   GameProvider();
 
@@ -66,6 +69,11 @@ class GameProvider extends ChangeNotifier {
 
   bool isAnswered(String questionId) => _submissions.containsKey(questionId);
   GameSubmission? submissionFor(String questionId) => _submissions[questionId];
+
+  /// Live quiz state (current question, isOpen, openedAt, etc.).
+  Map<String, dynamic>? get liveState => _liveState;
+  bool get isLiveActive => _liveState != null && (_liveState!['isOpen'] == true);
+  String? get currentQuestionId => _liveState?['currentQuestionId']?.toString();
 
   /// Games visible to the current user (admin sees all, others see published/ended).
   List<GameConfig> get visibleGames {
@@ -233,25 +241,32 @@ class GameProvider extends ChangeNotifier {
     if (isGameClosed) return null;
     if (!question.validateAnswer(answer)) return null;
 
+    final gameType = game?.type ?? GameType.game;
     final correct = question.checkAnswer(answer);
     final isTextarea = question.type == GameQuestionType.textarea;
+    final isForm = gameType == GameType.form;
     final submission = GameSubmission(
       questionId: question.id,
       answer: answer,
-      correct: isTextarea ? false : correct,
-      points: isTextarea ? 0 : (correct ? question.points : 0),
+      correct: isTextarea || isForm ? false : correct,
+      points: isTextarea || isForm ? 0 : (correct ? question.points : 0),
       answeredAt: DateTime.now(),
     );
 
-    // Textarea submissions are always saved; quiz submissions only when correct.
-    if (isTextarea || correct) {
+    // Game type: persist only correct or textarea.
+    // Quiz type: submitAnswer is not used (use submitQuizAll instead).
+    // Form type: always persist.
+    final shouldPersist = isForm || isTextarea || correct;
+    if (shouldPersist) {
       _submissions[question.id] = submission;
       notifyListeners();
 
       try {
+        final data = submission.toJson();
+        if (isForm) data.remove('correct');
         await FirebaseDatabase.instance
             .ref("users/$uid/game/$_currentFestivalId/$gameId/${question.id}")
-            .set(submission.toJson());
+            .set(data);
       } catch (e) {
         AppLog.error("Firebase answer save error", error: e);
         ConnectivityService.instance.showTemporaryBanner(
@@ -260,6 +275,102 @@ class GameProvider extends ChangeNotifier {
     }
 
     return submission;
+  }
+
+  /// Batch submit all answers for quiz type.
+  /// Returns the list of submissions (one per question).
+  Future<List<GameSubmission>> submitQuizAll(
+      Map<String, GameQuestion> questions, Map<String, Map<String, dynamic>> answers) async {
+    final uid = _uid.isEmpty
+        ? FirebaseAuth.instance.currentUser?.uid ?? ""
+        : _uid;
+    final gameId = _selectedGameId;
+    if (_currentFestivalId == null || uid.isEmpty || gameId == null) return [];
+    if (isGameClosed) return [];
+
+    final results = <GameSubmission>[];
+    final updates = <String, dynamic>{};
+
+    for (final entry in answers.entries) {
+      final question = questions[entry.key];
+      if (question == null) continue;
+      if (!question.validateAnswer(entry.value)) continue;
+
+      final correct = question.checkAnswer(entry.value);
+      final submission = GameSubmission(
+        questionId: entry.key,
+        answer: entry.value,
+        correct: correct,
+        points: correct ? question.points : 0,
+        answeredAt: DateTime.now(),
+      );
+      _submissions[entry.key] = submission;
+      results.add(submission);
+      updates[entry.key] = submission.toJson();
+    }
+
+    if (updates.isNotEmpty) {
+      notifyListeners();
+      try {
+        await FirebaseDatabase.instance
+            .ref("users/$uid/game/$_currentFestivalId/$gameId")
+            .update(updates);
+      } catch (e) {
+        AppLog.error("Firebase quiz batch save error", error: e);
+        ConnectivityService.instance.showTemporaryBanner(
+            "Odpovede sa nepodarilo uložiť — skúste znova");
+      }
+    }
+
+    return results;
+  }
+
+  /// Batch submit all answers for form type (no correctness check).
+  Future<List<GameSubmission>> submitFormAll(
+      Map<String, GameQuestion> questions, Map<String, Map<String, dynamic>> answers) async {
+    final uid = _uid.isEmpty
+        ? FirebaseAuth.instance.currentUser?.uid ?? ""
+        : _uid;
+    final gameId = _selectedGameId;
+    if (_currentFestivalId == null || uid.isEmpty || gameId == null) return [];
+    if (isGameClosed) return [];
+
+    final results = <GameSubmission>[];
+    final updates = <String, dynamic>{};
+
+    for (final entry in answers.entries) {
+      final question = questions[entry.key];
+      if (question == null) continue;
+      if (!question.validateAnswer(entry.value)) continue;
+
+      final submission = GameSubmission(
+        questionId: entry.key,
+        answer: entry.value,
+        correct: false,
+        points: 0,
+        answeredAt: DateTime.now(),
+      );
+      _submissions[entry.key] = submission;
+      results.add(submission);
+      final data = submission.toJson();
+      data.remove('correct');
+      updates[entry.key] = data;
+    }
+
+    if (updates.isNotEmpty) {
+      notifyListeners();
+      try {
+        await FirebaseDatabase.instance
+            .ref("users/$uid/game/$_currentFestivalId/$gameId")
+            .update(updates);
+      } catch (e) {
+        AppLog.error("Firebase form batch save error", error: e);
+        ConnectivityService.instance.showTemporaryBanner(
+            "Odpovede sa nepodarilo uložiť — skúste znova");
+      }
+    }
+
+    return results;
   }
 
   Future<void> setWinner(String uid, {required bool winner}) async {

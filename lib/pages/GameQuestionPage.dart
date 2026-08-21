@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
 import 'package:scenickazatva_app/models/GameSubmission.dart';
+import 'package:scenickazatva_app/models/GameType.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
@@ -137,6 +138,17 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<GameProvider>(context);
+    final gameType = provider.game?.type ?? GameType.game;
+
+    // Quiz/form types use inline presentation on GamePage — redirect away.
+    if (gameType == GameType.quiz || gameType == GameType.form) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.go('/game/${widget.gameId}');
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     final question = _question(context);
 
     return Scaffold(

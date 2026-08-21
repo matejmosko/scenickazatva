@@ -269,11 +269,17 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  const appCheckDebugToken = String.fromEnvironment('APP_CHECK_DEBUG_TOKEN');
+
   // Parallelize independent initializations
   await Future.wait([
     FirebaseAppCheck.instance.activate(
-      providerAndroid: AndroidDebugProvider(),
-      providerApple: AppleDebugProvider(),
+      providerAndroid: appCheckDebugToken.isNotEmpty
+          ? AndroidDebugProvider(debugToken: appCheckDebugToken)
+          : AndroidDebugProvider(),
+      providerApple: appCheckDebugToken.isNotEmpty
+          ? AppleDebugProvider(debugToken: appCheckDebugToken)
+          : AppleDebugProvider(),
       providerWeb: ReCaptchaV3Provider('6Lcj-R8qAAAAABpZ_O_U_9_Z_Z_Z_Z_Z_Z_Z_Z'),
     ),
     ConnectivityService.instance.init(),

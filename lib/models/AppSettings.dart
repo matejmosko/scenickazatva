@@ -32,6 +32,9 @@ class AppSettings {
   @HiveField(8)
   int themeModeIndex = 0; // 0: System, 1: Light, 2: Dark
 
+  @HiveField(9)
+  String magazineSrc = "";
+
   AppSettings({
     this.defaultfestival = "sutaze",
     this.festivals = const {},
@@ -42,6 +45,7 @@ class AppSettings {
     this.interceptLinks = true,
     this.ads = const [],
     this.themeModeIndex = 0,
+    this.magazineSrc = "",
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -81,6 +85,7 @@ class AppSettings {
       interceptLinks: json['interceptLinks'] ?? true,
       ads: adsList,
       themeModeIndex: json['themeModeIndex'] ?? 0,
+      magazineSrc: json['magazine_src'] ?? "",
     );
   }
 
@@ -95,6 +100,7 @@ class AppSettings {
       'interceptLinks': interceptLinks,
       'ads': ads.map((ad) => ad.toJson()).toList(),
       'themeModeIndex': themeModeIndex,
+      'magazine_src': magazineSrc,
     };
   }
 }

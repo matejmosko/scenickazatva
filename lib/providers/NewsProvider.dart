@@ -172,48 +172,52 @@ class NewsProvider extends ChangeNotifier {
     bool festivalChanged = _currentFestivalId != festival.id;
     bool newsUpdated = _lastNewsPostId != festival.lastNewsPostId;
 
-    if (festivalChanged || newsUpdated) {
-      AppLog.info("NewsProvider: Update triggered. Festival changed: $festivalChanged, News updated: $newsUpdated");
+    if (festivalChanged) {
+      AppLog.info("NewsProvider: Festival changed: ${festival.id}");
       
-      if (festivalChanged) {
-        _currentFestivalId = festival.id;
-        _newsSrc = festival.news_src;
-        
-        _magazineSrc = festival.magazine_src;
-        _secondaryMagazineUrls = festival.magazine_blog_srcs
-            .split(',')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
+      _currentFestivalId = festival.id;
+      
+      _newsSrc = festival.news_src;
+      _magazineSrc = festival.magazine_src;
+      _secondaryMagazineUrls = festival.magazine_blog_srcs
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
 
-        // Clear data when festival changes
-        _wpnews = [];
-        _wparticles = [];
-        _magazineCategories = [];
-        _newsCategories = [];
-        _selectedMagazineCategoryId = null;
-        _selectedNewsCategoryId = null;
-        newspage = 1;
-        magazinepage = 1;
-        allnews = false;
-        allarticles = false;
-      }
+      // Clear all data when festival changes
+      _wpnews = [];
+      _wparticles = [];
+      _magazineCategories = [];
+      _newsCategories = [];
+      _selectedMagazineCategoryId = null;
+      _selectedNewsCategoryId = null;
+      newspage = 1;
+      magazinepage = 1;
+      allnews = false;
+      allarticles = false;
 
-      _lastNewsPostId = festival.lastNewsPostId;
       newsLoading = false;
       articlesLoading = false;
 
       notifyListeners();
 
-      // Initial fetch for new festival or when news are updated
-      fetchWpNews(refresh: newsUpdated || festivalChanged); 
-      fetchWpMagazine(refresh: festivalChanged); 
+      fetchWpNews(refresh: true);
+      fetchWpMagazine(refresh: true);
       fetchMagazineCategories();
       fetchNewsCategories();
+    } else if (newsUpdated) {
+      // Signal: new article published (Cloud Function updated festival.lastNewsPostId)
+      AppLog.info("NewsProvider: News update signal received. ID: ${festival.lastNewsPostId}");
+      _lastNewsPostId = festival.lastNewsPostId;
+      if (_newsSrc != null && _newsSrc!.isNotEmpty) {
+        fetchWpNews(refresh: true);
+      }
     }
   }
 
   void updateFromSettings(AppSettings settings) {
+    // Signal: new magazine article (Cloud Function updated lastMagazinePostId)
     if (_lastMagazinePostId != settings.lastMagazinePostId) {
       AppLog.info("NewsProvider: Magazine updated signal received.");
       _lastMagazinePostId = settings.lastMagazinePostId;
@@ -246,8 +250,9 @@ class NewsProvider extends ChangeNotifier {
         }
       }
 
-      // 2. Check if cache is already up-to-date with Firestore update signal
-      if (_newsSearchQuery == null &&
+      // 2. Skip network if already up-to-date (unless explicit refresh)
+      if (!refresh &&
+          _newsSearchQuery == null &&
           _selectedNewsCategoryId == null &&
           _wpnews.isNotEmpty &&
           _wpnews.first.id == _lastNewsPostId) {

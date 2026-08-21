@@ -155,27 +155,56 @@ exports.recomputeParticipant = onValueWritten(
     });
 
 exports.checkNewArticles = onSchedule("every 30 minutes", async (event) => {
-  const magazineUrl = "https://javisko.sk/wp-json/wp/v2/posts?per_page=1";
-  const dbRef = admin.database().ref("appsettings/lastMagazinePostId");
+  const settingsRef = admin.database().ref("appsettings");
+  const festivalsRef = admin.database().ref("festivals");
 
   try {
-    const response = await axios.get(magazineUrl);
+    // Read magazine_src from appsettings
+    const settingsSnap = await settingsRef.get();
+    const settings = settingsSnap.val() || {};
+    const magazineSrc = settings.magazine_src ||
+        "https://javisko.sk/wp-json/wp/v2/posts?per_page=1";
+    const url = magazineSrc.includes("per_page") ?
+        magazineSrc :
+        `${magazineSrc}&per_page=1`;
+
+    const response = await axios.get(url);
     const latestPost = response.data[0];
 
     if (!latestPost) {
       return;
     }
 
-    const snapshot = await dbRef.get();
-    const lastId = snapshot.val();
+    const lastMagazineId = settings.lastMagazinePostId;
 
-    if (shouldNotify(lastId, latestPost.id)) {
+    // Update magazine signal (per-app, global)
+    if (shouldNotify(lastMagazineId, latestPost.id)) {
       const message = buildArticlePayload(latestPost);
-
       await admin.messaging().send(message);
       console.log("Notification sent for article:", latestPost.id);
+      await settingsRef.update({
+        lastMagazinePostId: latestPost.id,
+      });
+    }
 
-      await dbRef.set(latestPost.id);
+    // Update news signal (per-festival)
+    const festivalsSnap = await festivalsRef.get();
+    if (festivalsSnap.exists()) {
+      const festivals = festivalsSnap.val();
+      const newsUpdates = {};
+      for (const [id, festival] of Object.entries(festivals)) {
+        const festivalLastId = festival.lastNewsPostId || 0;
+        if (shouldNotify(festivalLastId, latestPost.id)) {
+          newsUpdates[`festivals/${id}/lastNewsPostId`] = latestPost.id;
+        }
+      }
+      if (Object.keys(newsUpdates).length > 0) {
+        await admin.database().ref().update(newsUpdates);
+        console.log(
+            "Updated lastNewsPostId for festivals:",
+            Object.keys(newsUpdates).join(", "),
+        );
+      }
     }
   } catch (error) {
     console.error("Error checking WordPress articles:", error);

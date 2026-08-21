@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/models/GameParticipant.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
+import 'package:scenickazatva_app/models/GameType.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 
@@ -21,15 +22,31 @@ class GameResultsPage extends StatefulWidget {
 class _GameResultsPageState extends State<GameResultsPage> {
   bool _showAll = false;
 
-  List<GameParticipant> _sortedParticipants(List<GameParticipant> participants) {
+  List<GameParticipant> _sortedParticipants(
+      List<GameParticipant> participants, GameType gameType) {
     final list = [...participants];
-    list.sort((a, b) {
-      if (a.score != b.score) return b.score.compareTo(a.score);
-      if (a.correctCount != b.correctCount) return b.correctCount.compareTo(a.correctCount);
-      final t1 = a.lastAnsweredAt ?? DateTime(9999);
-      final t2 = b.lastAnsweredAt ?? DateTime(9999);
-      return t1.compareTo(t2);
-    });
+    if (gameType == GameType.form) {
+      // Form: rank by number of submissions (most active first), then time.
+      list.sort((a, b) {
+        if (a.correctCount != b.correctCount) {
+          return b.correctCount.compareTo(a.correctCount);
+        }
+        final t1 = a.lastAnsweredAt ?? DateTime(9999);
+        final t2 = b.lastAnsweredAt ?? DateTime(9999);
+        return t1.compareTo(t2);
+      });
+    } else {
+      // Quiz/Game: rank by score, then correctCount, then time.
+      list.sort((a, b) {
+        if (a.score != b.score) return b.score.compareTo(a.score);
+        if (a.correctCount != b.correctCount) {
+          return b.correctCount.compareTo(a.correctCount);
+        }
+        final t1 = a.lastAnsweredAt ?? DateTime(9999);
+        final t2 = b.lastAnsweredAt ?? DateTime(9999);
+        return t1.compareTo(t2);
+      });
+    }
     return list;
   }
 
@@ -37,19 +54,31 @@ class _GameResultsPageState extends State<GameResultsPage> {
   Widget build(BuildContext context) {
     final provider = Provider.of<GameProvider>(context);
     final canEdit = Provider.of<UserProvider>(context).canEdit;
+    final gameType = provider.game?.type ?? GameType.game;
+    final isForm = gameType == GameType.form;
 
-    final quizQuestionCount = provider.questions
+    final scoredQuestionCount = provider.questions
         .where((q) => q.type != GameQuestionType.textarea)
         .length;
 
-    var sorted = _sortedParticipants(provider.participants);
+    final totalQuestionCount = provider.questions.length;
 
-    final allSolved = quizQuestionCount > 0 &&
-        sorted.every((p) => p.correctCount >= quizQuestionCount);
+    var sorted = _sortedParticipants(provider.participants, gameType);
 
-    if (!_showAll && quizQuestionCount > 0 && !allSolved) {
-      sorted = sorted.where((p) => p.correctCount >= quizQuestionCount).toList();
+    final allSolved = scoredQuestionCount > 0 &&
+        sorted.every((p) => p.correctCount >= scoredQuestionCount);
+
+    // Form type: "show all" toggle doesn't apply (no correctness concept).
+    // Quiz/Game: filter to only perfect scores unless "show all".
+    if (!isForm && !_showAll && scoredQuestionCount > 0 && !allSolved) {
+      sorted = sorted.where((p) => p.correctCount >= scoredQuestionCount).toList();
     }
+
+    final subtitleLabel = isForm
+        ? "Počet odpovedí"
+        : "Správne";
+
+    final countDenom = isForm ? totalQuestionCount : scoredQuestionCount;
 
     return Scaffold(
       appBar: AppBar(
@@ -57,7 +86,7 @@ class _GameResultsPageState extends State<GameResultsPage> {
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => context.go('/game/${widget.gameId}'),
         ),
-        title: Text(canEdit ? "Výsledky a víťaz" : "Úspešní riešitelia"),
+        title: Text(canEdit ? "Výsledky a víťaz" : (isForm ? "Účastníci" : "Úspešní riešitelia")),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white70),
@@ -78,7 +107,7 @@ class _GameResultsPageState extends State<GameResultsPage> {
             )
           : Column(
               children: [
-                if (provider.participants.isNotEmpty && quizQuestionCount > 0)
+                if (provider.participants.isNotEmpty && !isForm)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                     child: Row(
@@ -101,15 +130,27 @@ class _GameResultsPageState extends State<GameResultsPage> {
                       ],
                     ),
                   ),
+                if (isForm)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Text(
+                      "Všetci účastníci (${provider.participants.length})",
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
                 Expanded(
                   child: sorted.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Padding(
-                            padding: EdgeInsets.all(24),
+                            padding: const EdgeInsets.all(24),
                             child: Text(
-                              "Zatiaľ nikto nezodpovedal všetky otázky správne. Buď prvý!",
+                              isForm
+                                  ? "Zatiaľ sa nikto nezúčastnil."
+                                  : "Zatiaľ nikto nezodpovedal všetky otázky správne. Buď prvý!",
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontStyle: FontStyle.italic),
+                              style: const TextStyle(fontStyle: FontStyle.italic),
                             ),
                           ),
                         )
@@ -130,9 +171,14 @@ class _GameResultsPageState extends State<GameResultsPage> {
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      "Skóre: ${participant.score}  •  Správne: ${participant.correctCount}/$quizQuestionCount",
-                                    ),
+                                    if (isForm)
+                                      Text(
+                                        "$subtitleLabel: ${participant.correctCount}/$countDenom",
+                                      )
+                                    else
+                                      Text(
+                                        "Skóre: ${participant.score}  •  $subtitleLabel: ${participant.correctCount}/$countDenom",
+                                      ),
                                     if (participant.lastAnsweredAt != null)
                                       Text(
                                         "Posledná odpoveď: ${DateFormat('d.M.yyyy HH:mm').format(participant.lastAnsweredAt!.toLocal())}",

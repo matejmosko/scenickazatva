@@ -29,6 +29,12 @@
             "status": {
               ".validate": "newData.isString() && (newData.val() == 'draft' || newData.val() == 'published' || newData.val() == 'ended')"
             },
+            "type": {
+              ".validate": "!newData.exists() || newData.isString() && (newData.val() == 'quiz' || newData.val() == 'game' || newData.val() == 'form' || newData.val() == 'live')"
+            },
+            "timeLimitSeconds": {
+              ".validate": "!newData.exists() || newData.isNumber()"
+            },
             "questions": {
               "$questionId": {
                 ".validate": "newData.hasChildren(['type', 'text'])",
@@ -62,6 +68,24 @@
                   ".validate": "newData.isBoolean() && (root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor')"
                 }
               }
+            },
+            "liveState": {
+              ".write": "root.child('users').child(auth.uid).child('userRole').val() == 'admin' || root.child('users').child(auth.uid).child('userRole').val() == 'editor'",
+              "currentQuestionId": {
+                ".validate": "newData.isString()"
+              },
+              "isOpen": {
+                ".validate": "newData.isBool()"
+              },
+              "openedAt": {
+                ".validate": "newData.isString()"
+              },
+              "timeLimitSeconds": {
+                ".validate": "!newData.exists() || newData.isNumber()"
+              },
+              "controlledBy": {
+                ".validate": "!newData.exists() || newData.isString()"
+              }
             }
           }
         }
@@ -88,7 +112,7 @@
         "game": {
           "$festivalId": {
             "$gameId": {
-              ".validate": "!newData.exists() || newData.hasChildren(['answer', 'correct', 'answeredAt'])",
+              ".validate": "!newData.exists() || newData.hasChildren(['answer', 'answeredAt'])",
               "answer": {
                 ".validate": "!newData.isString() && !newData.isNumber() && !newData.isBoolean()"
               },

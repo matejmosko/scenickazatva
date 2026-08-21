@@ -54,6 +54,7 @@ class _GameEditPageState extends State<GameEditPage> {
               endsAt: game.endsAt,
               status: game.status,
               type: game.type,
+              timeLimitSeconds: game.timeLimitSeconds,
               imageUrl: game.imageUrl,
               ctaText: game.ctaText,
               showInAds: game.showInAds,
@@ -322,6 +323,7 @@ class _GameEditPageState extends State<GameEditPage> {
                         DropdownMenuItem(value: GameType.game, child: Text("Festivalová hra")),
                         DropdownMenuItem(value: GameType.quiz, child: Text("Kvíz")),
                         DropdownMenuItem(value: GameType.form, child: Text("Formulár")),
+                        DropdownMenuItem(value: GameType.live, child: Text("Živý kvíz")),
                       ],
                       onChanged: (value) {
                         if (value != null) setState(() => _edited.type = value);
@@ -338,6 +340,21 @@ class _GameEditPageState extends State<GameEditPage> {
                         ),
                       ),
                     ),
+                    if (_edited.type == GameType.live) ...[
+                      const SizedBox(height: 4),
+                      TextFormField(
+                        initialValue: _edited.timeLimitSeconds.toString(),
+                        keyboardType: TextInputType.number,
+                        onSaved: (value) {
+                          _edited.timeLimitSeconds = int.tryParse(value ?? '') ?? 0;
+                        },
+                        decoration: const InputDecoration(
+                          labelText: "Časový limit na otázku (sekundy)",
+                          hintText: "0 = bez limitu",
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 4),
                     TextFormField(
                       initialValue: _edited.ctaText,
@@ -474,6 +491,8 @@ class _GameEditPageState extends State<GameEditPage> {
         return "Otázky jedna po druhej, okamžitá spätná väzba, oprava pri zlej odpovedi.";
       case GameType.form:
         return "Všetky otázky naraz, bez kontroly odpovedí — na spätnú väzbu.";
+      case GameType.live:
+        return "Režisér ovláda otázky v reálnom čase, hráči vidia len aktuálnu otázku.";
     }
   }
 }

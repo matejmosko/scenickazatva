@@ -10,6 +10,9 @@ abstract final class AnalyticsEvents {
   static const String gameCreateOpened = 'game_create_opened';
   static const String gameQuestionOpened = 'game_question_opened';
   static const String gameAnswerSubmitted = 'game_answer_submitted';
+  static const String liveGameStarted = 'live_game_started';
+  static const String liveGameQuestionChanged = 'live_game_question_changed';
+  static const String liveGameEnded = 'live_game_ended';
   static const String notificationTapped = 'notification_tapped';
 
   static const String paramItemId = 'item_id';

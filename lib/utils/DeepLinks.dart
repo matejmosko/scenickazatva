@@ -106,6 +106,8 @@ class DeepLinks {
               return '/game/$gameId/edit';
             case 'results':
               return '/game/$gameId/results';
+            case 'live':
+              return '/game/$gameId/live';
             default:
               // /game/:gameId/:questionId
               final qid = _validId(third);

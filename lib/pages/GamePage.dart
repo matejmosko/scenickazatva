@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
 import 'package:scenickazatva_app/models/GameSubmission.dart';
@@ -11,7 +10,15 @@ import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:scenickazatva_app/widgets/DeepLinkButton.dart';
-import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
+import 'package:scenickazatva_app/widgets/DraftBanner.dart';
+import 'package:scenickazatva_app/widgets/GameBottomBar.dart';
+import 'package:scenickazatva_app/widgets/GameInfoCard.dart';
+import 'package:scenickazatva_app/widgets/GameNameField.dart';
+import 'package:scenickazatva_app/widgets/GameProgressBar.dart';
+import 'package:scenickazatva_app/widgets/QuestionHeader.dart';
+import 'package:scenickazatva_app/widgets/QuizSummary.dart';
+import 'package:scenickazatva_app/widgets/FormSummary.dart';
+import 'package:scenickazatva_app/widgets/QuestionSummaryCard.dart';
 
 /// Overview of a specific festival game: shows every question and lets the user
 /// pick one to solve. Completed questions are marked in the list.
@@ -40,16 +47,26 @@ class GamePage extends StatefulWidget {
 
 class _GamePageState extends State<GamePage> {
   final TextEditingController _nameController = TextEditingController();
-  bool _isEditingName = false;
-  Timer? _debounce;
 
   // Quiz/form inline state: per-question local answers
   final Map<String, TextEditingController> _textControllers = {};
   final Map<String, Set<int>> _selectedIndexes = {};
   final Map<String, List<String>> _sortItems = {};
-  final Map<String, Map<String, String?>> _matchSelection = {};
+  final Map<String, Map<String, String?>> _matchPlaced = {};
+  final Map<String, List<String>> _matchAvailable = {};
   bool _submitting = false;
   bool _submitted = false;
+
+  // Start screen state
+  bool _gameStarted = false;
+
+  // Quiz slide state
+  int _quizSlideIndex = 0;
+
+  // Live quiz state
+  Timer? _liveCountdown;
+  int _liveSecondsRemaining = 0;
+  String? _liveSubmittedQuestionId;
 
   @override
   void initState() {
@@ -64,8 +81,8 @@ class _GamePageState extends State<GamePage> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _nameController.dispose();
+    _liveCountdown?.cancel();
     for (final c in _textControllers.values) {
       c.dispose();
     }
@@ -77,11 +94,6 @@ class _GamePageState extends State<GamePage> {
     final provider = Provider.of<GameProvider>(context);
     final userProvider = Provider.of<UserProvider>(context);
     final canEdit = userProvider.canEdit;
-
-    // Keep controller in sync with provider if not currently typing
-    if (!_isEditingName && _nameController.text != userProvider.userData.fullName) {
-      _nameController.text = userProvider.userData.fullName;
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -151,7 +163,19 @@ class _GamePageState extends State<GamePage> {
     }
 
     final gameType = provider.game?.type ?? GameType.game;
-    if (gameType == GameType.quiz || gameType == GameType.form) {
+    if (gameType == GameType.live) {
+      return _buildLiveBody(context, provider);
+    }
+
+    // Start screen for game/quiz/form
+    if (!_gameStarted && !provider.isGameClosed) {
+      return _buildStartScreen(context, provider, gameType);
+    }
+
+    if (gameType == GameType.quiz) {
+      return _buildQuizBody(context, provider);
+    }
+    if (gameType == GameType.form) {
       return _buildQuizFormBody(context, provider, gameType);
     }
 
@@ -191,83 +215,139 @@ class _GamePageState extends State<GamePage> {
     );
   }
 
-  Widget _buildQuizFormBody(BuildContext context, GameProvider provider, GameType gameType) {
-    final questions = provider.questions;
-    final canEdit = Provider.of<UserProvider>(context).canEdit;
-    final isForm = gameType == GameType.form;
-    final allAnswered = questions.every((q) =>
-        provider.isAnswered(q.id) || _hasLocalAnswer(q.id));
-    final allCorrect = provider.score == provider.totalPoints &&
-        provider.totalPoints > 0;
+  // ── Start screen ────────────────────────────────────────────────────
+
+  Widget _buildStartScreen(BuildContext context, GameProvider provider, GameType gameType) {
+    final game = provider.game!;
+    final hasName = _nameController.text.trim().isNotEmpty;
+
+    String buttonText;
+    switch (gameType) {
+      case GameType.quiz:
+        buttonText = "Spustiť kvíz";
+        break;
+      case GameType.form:
+        buttonText = "Začať formulár";
+        break;
+      default:
+        buttonText = "Začať hru";
+    }
 
     return ListView(
       children: [
-        _buildHeaderCard(context, provider, provider.answeredCount, questions.length, canEdit),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Text(
-            isForm ? "Formulár" : "Kvíz",
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-          ),
-        ),
-        for (var i = 0; i < questions.length; i++)
-          _buildInlineQuestion(context, questions[i], i, provider),
-        const SizedBox(height: 16),
-        if (!provider.isGameClosed) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ElevatedButton.icon(
-              onPressed: (_submitting || !allAnswered)
-                  ? null
-                  : () => _submitAll(context, provider, gameType),
-              icon: _submitting
-                  ? const SizedBox(
-                      width: 18, height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send),
-              label: Text(isForm ? "Uložiť odpovede" : "Odovzdať všetko"),
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (!allAnswered)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                "Vyplňte všetky otázky pred odovzdaním.",
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-        ],
-        if (provider.isGameClosed && !isForm) ...[
-          if (allCorrect)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Card(
-                color: Colors.green,
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Icon(Icons.check_circle, color: Colors.white),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          "Všetky odpovede sú správne!",
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
+        if (provider.isGameDraft) const DraftBanner(),
+        Card(
+          margin: const EdgeInsets.all(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GameInfoCard(game: game),
+                const Divider(),
+                GameNameField(controller: _nameController),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: hasName
+                        ? () => setState(() => _gameStarted = true)
+                        : null,
+                    icon: const Icon(Icons.play_arrow),
+                    label: Text(buttonText),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      textStyle: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
                 ),
-              ),
+                if (!hasName)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      "Zadaj svoje meno pre pokračovanie.",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-        ],
-        const SizedBox(height: 80),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Quiz: one question per slide ─────────────────────────────────────
+
+  Widget _buildQuizBody(BuildContext context, GameProvider provider) {
+    final questions = provider.questions;
+    final canEdit = Provider.of<UserProvider>(context).canEdit;
+    final total = questions.length;
+    if (total == 0) {
+      return const Center(child: Text("Žiadne otázky."));
+    }
+
+    if (_submitted) {
+      return QuizSummary(
+        questions: questions,
+        submissions: provider.submissions,
+        score: provider.score,
+        totalPoints: provider.totalPoints,
+        header: _buildHeaderCard(context, provider, provider.answeredCount, total, canEdit),
+      );
+    }
+
+    final index = _quizSlideIndex.clamp(0, total - 1);
+    final q = questions[index];
+    final allAnswered = questions.every((q) =>
+        provider.isAnswered(q.id) || _hasLocalAnswer(q.id));
+
+    return Column(
+      children: [
+        _buildHeaderCard(context, provider, provider.answeredCount, total, canEdit),
+        // Slide indicator
+        SlideIndicator(current: index, total: total),
+        Expanded(
+          child: _buildInlineQuestion(context, q, index, provider),
+        ),
+        // Navigation bar
+        GameBottomBar(
+          child: Row(
+            children: [
+              if (index > 0)
+                OutlinedButton.icon(
+                  onPressed: () => setState(() => _quizSlideIndex--),
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text("Späť"),
+                )
+              else
+                const Spacer(),
+              const Spacer(),
+              if (index < total - 1)
+                FilledButton.icon(
+                  onPressed: () => setState(() => _quizSlideIndex++),
+                  icon: const Text("Ďalej"),
+                  label: const Icon(Icons.arrow_forward, size: 18),
+                )
+              else
+                FilledButton.icon(
+                  onPressed: (_submitting || !allAnswered)
+                      ? null
+                      : () => _submitAll(context, provider, GameType.quiz),
+                  icon: _submitting
+                      ? const SizedBox(
+                          width: 18, height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send),
+                  label: const Text("Odovzdať všetko"),
+                ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -282,8 +362,9 @@ class _GamePageState extends State<GamePage> {
     if (_sortItems.containsKey(questionId)) {
       return _sortItems[questionId]!.isNotEmpty;
     }
-    if (_matchSelection.containsKey(questionId)) {
-      return _matchSelection[questionId]!.values.every((v) => v != null);
+    if (_matchPlaced.containsKey(questionId)) {
+      final placed = _matchPlaced[questionId]!;
+      return placed.values.every((v) => v != null);
     }
     return false;
   }
@@ -296,8 +377,12 @@ class _GamePageState extends State<GamePage> {
     } else if (q.type == GameQuestionType.sort) {
       _sortItems.putIfAbsent(q.id, () => [...q.sortOrder]);
     } else if (q.type == GameQuestionType.match) {
-      _matchSelection.putIfAbsent(q.id, () => {
+      _matchPlaced.putIfAbsent(q.id, () => {
         for (final pair in q.pairs) pair.left: null,
+      });
+      _matchAvailable.putIfAbsent(q.id, () {
+        final rights = q.pairs.map((p) => p.right).toList()..shuffle();
+        return rights;
       });
     }
   }
@@ -320,11 +405,11 @@ class _GamePageState extends State<GamePage> {
         if (items == null || items.isEmpty) return null;
         return {'order': items};
       case GameQuestionType.match:
-        final selection = _matchSelection[q.id];
-        if (selection == null) return null;
+        final placed = _matchPlaced[q.id];
+        if (placed == null) return null;
         final mapping = <String, String>{};
         for (final pair in q.pairs) {
-          final value = selection[pair.left];
+          final value = placed[pair.left];
           if (value == null || value.isEmpty) return null;
           mapping[pair.left] = value;
         }
@@ -378,13 +463,94 @@ class _GamePageState extends State<GamePage> {
     }
   }
 
+  Widget _buildQuizFormBody(BuildContext context, GameProvider provider, GameType gameType) {
+    final questions = provider.questions;
+    final canEdit = Provider.of<UserProvider>(context).canEdit;
+    final isForm = gameType == GameType.form;
+    final isClosed = provider.isGameClosed;
+    final showResult = isClosed || _submitted;
+
+    if (showResult) {
+      if (isForm) {
+        return FormSummary(
+          questions: questions,
+          submissions: provider.submissions,
+          header: _buildHeaderCard(context, provider, provider.answeredCount, questions.length, canEdit),
+        );
+      } else {
+        return QuizSummary(
+          questions: questions,
+          submissions: provider.submissions,
+          score: provider.score,
+          totalPoints: provider.totalPoints,
+          header: _buildHeaderCard(context, provider, provider.answeredCount, questions.length, canEdit),
+        );
+      }
+    }
+
+    final allAnswered = questions.every((q) =>
+        provider.isAnswered(q.id) || _hasLocalAnswer(q.id));
+
+    return ListView(
+      children: [
+        _buildHeaderCard(context, provider, provider.answeredCount, questions.length, canEdit),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Text(
+            isForm ? "Formulár" : "Kvíz",
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        for (var i = 0; i < questions.length; i++)
+          _buildInlineQuestion(context, questions[i], i, provider),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ElevatedButton.icon(
+            onPressed: (_submitting || !allAnswered)
+                ? null
+                : () => _submitAll(context, provider, gameType),
+            icon: _submitting
+                ? const SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send),
+            label: Text(isForm ? "Uložiť odpovede" : "Odovzdať všetko"),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (!allAnswered)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              "Vyplňte všetky otázky pred odovzdaním.",
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        const SizedBox(height: 80),
+      ],
+    );
+  }
+
   Widget _buildInlineQuestion(BuildContext context, GameQuestion q, int index, GameProvider provider) {
     _ensureLocalState(q);
     final submission = provider.submissionFor(q.id);
-    final isTextarea = q.type == GameQuestionType.textarea;
     final isClosed = provider.isGameClosed;
-    final isForm = provider.game?.type == GameType.form;
     final showResult = isClosed || _submitted;
+
+    if (showResult) {
+      return QuestionSummaryCard(
+        question: q,
+        submission: submission,
+        index: index,
+        showCorrectness: !provider.game!.isForm,
+      );
+    }
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -393,31 +559,9 @@ class _GamePageState extends State<GamePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(GamePage.typeIcon(q.type), size: 20, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    "${index + 1}. ${q.title}",
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                if (!isTextarea)
-                  Text("${q.points} b", style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-            if (q.description.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(q.description, style: Theme.of(context).textTheme.bodySmall),
-            ],
+            QuestionHeader(question: q, index: index),
             const SizedBox(height: 12),
-            if (showResult && submission != null)
-              _buildInlineResult(context, q, submission)
-            else if (showResult && isForm && _hasLocalAnswer(q.id))
-              _buildInlineSubmittedAnswer(context, q)
-            else
-              _buildInlineInput(context, q),
+            _buildInlineInput(context, q),
           ],
         ),
       ),
@@ -500,98 +644,424 @@ class _GamePageState extends State<GamePage> {
           ],
         );
       case GameQuestionType.match:
-        final selection = _matchSelection[q.id] ?? {};
-        final shuffledRights = q.pairs.map((p) => p.right).toList()..shuffle();
+        final placed = _matchPlaced[q.id] ?? {};
+        final available = _matchAvailable[q.id] ?? [];
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Drop targets
             for (final pair in q.pairs)
-              ListTile(
-                dense: true,
-                title: Text(pair.left, style: Theme.of(context).textTheme.bodyMedium),
-                trailing: DropdownButton<String?>(
-                  value: selection[pair.left],
-                  hint: const Text("Vybrať"),
-                  items: [
-                    for (final right in shuffledRights)
-                      DropdownMenuItem<String?>(value: right, child: Text(right)),
-                  ],
-                  onChanged: (value) {
-                    setState(() => selection[pair.left] = value);
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: DragTarget<String>(
+                  onAcceptWithDetails: (details) {
+                    setState(() {
+                      placed[pair.left] = details.data;
+                      available.remove(details.data);
+                    });
+                  },
+                  builder: (context, candidateData, rejectedData) {
+                    final isHovering = candidateData.isNotEmpty;
+                    final currentPlaced = placed[pair.left];
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: isHovering
+                              ? Theme.of(context).colorScheme.primary
+                              : (currentPlaced != null
+                                  ? Colors.green.shade300
+                                  : Colors.grey.shade400),
+                          width: currentPlaced != null ? 2 : 1,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        color: isHovering
+                            ? Theme.of(context).colorScheme.primaryContainer.withAlpha(80)
+                            : (currentPlaced != null ? Colors.green.shade50 : null),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              pair.left,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (currentPlaced != null)
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  available.add(currentPlaced);
+                                  placed[pair.left] = null;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      currentPlaced,
+                                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.close, size: 14, color: Colors.white),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else
+                            Text(
+                              isHovering ? "Pustiť sem" : "Sem presuň odpoveď",
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontStyle: FontStyle.italic,
+                                fontSize: 13,
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
                   },
                 ),
               ),
+            // Available pool
+            if (available.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                "Dostupné odpovede:",
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final right in available)
+                    Draggable<String>(
+                      data: right,
+                      feedback: Material(
+                        elevation: 4,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(right, style: const TextStyle(color: Colors.white)),
+                        ),
+                      ),
+                      childWhenDragging: Opacity(
+                        opacity: 0.3,
+                        child: Chip(label: Text(right)),
+                      ),
+                      child: Chip(
+                        label: Text(right),
+                        avatar: const Icon(Icons.drag_indicator, size: 18),
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ],
         );
     }
   }
 
-  Widget _buildInlineResult(BuildContext context, GameQuestion q, GameSubmission submission) {
-    final correct = submission.correct;
-    final isTextarea = q.type == GameQuestionType.textarea;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isTextarea
-            ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
-            : (correct ? Colors.green.shade50 : Colors.orange.shade50),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
+  Widget _buildLiveBody(BuildContext context, GameProvider provider) {
+    final canEdit = Provider.of<UserProvider>(context).canEdit;
+    final liveState = provider.liveState;
+
+    // No live state yet — waiting for speaker to start
+    if (liveState == null) {
+      final isPublished = provider.game?.status == "published";
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isPublished) ...[
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text(
+                "Čakanie na spustenie kvízu...",
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ] else
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  "Žiadna hra momentálne nie je aktívna.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontStyle: FontStyle.italic),
+                ),
+              ),
+            if (canEdit) ...[
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => context.go('/game/${widget.gameId}/live'),
+                icon: const Icon(Icons.play_arrow),
+                label: const Text("Ovládanie kvízu"),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    final isOpen = liveState['isOpen'] == true;
+    final currentQuestionId = liveState['currentQuestionId']?.toString();
+    final openedAtStr = liveState['openedAt']?.toString();
+    final timeLimit = (liveState['timeLimitSeconds'] ?? provider.game?.timeLimitSeconds ?? 0) as int;
+
+    // Find the current question
+    GameQuestion? currentQuestion;
+    int currentIndex = -1;
+    if (currentQuestionId != null) {
+      for (var i = 0; i < provider.questions.length; i++) {
+        if (provider.questions[i].id == currentQuestionId) {
+          currentQuestion = provider.questions[i];
+          currentIndex = i;
+          break;
+        }
+      }
+    }
+
+    // Track whether we already submitted for this question
+    final alreadySubmitted = provider.isAnswered(currentQuestionId ?? '');
+    final locallySubmitted = _liveSubmittedQuestionId == currentQuestionId;
+
+    // Manage countdown timer
+    _manageLiveTimer(openedAtStr, timeLimit, currentQuestionId);
+
+    return Column(
+      children: [
+        _buildHeaderCard(
+          context,
+          provider,
+          provider.answeredCount,
+          provider.questions.length,
+          canEdit,
+        ),
+        Expanded(
+          child: !isOpen || currentQuestion == null
+              ? _buildLiveWaiting(context, provider)
+              : _buildLiveQuestion(
+                  context,
+                  provider,
+                  currentQuestion,
+                  currentIndex,
+                  alreadySubmitted || locallySubmitted,
+                ),
+        ),
+        if (isOpen && currentQuestion != null && !alreadySubmitted && !locallySubmitted)
+          _buildLiveSubmitBar(context, provider, currentQuestion),
+      ],
+    );
+  }
+
+  Widget _buildLiveWaiting(BuildContext context, GameProvider provider) {
+    final liveState = provider.liveState;
+    final isOpen = liveState?['isOpen'] == true;
+    final message = isOpen
+        ? "Načítavam otázku..."
+        : "Čakajte na ďalšiu otázku...";
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            isTextarea ? Icons.check_circle : (correct ? Icons.check_circle : Icons.cancel),
-            color: isTextarea ? Theme.of(context).colorScheme.primary : (correct ? Colors.green : Colors.orange),
+            isOpen ? Icons.hourglass_top : Icons.timer_outlined,
+            size: 48,
+            color: Theme.of(context).colorScheme.primary,
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              isFormData(q, submission) ? "Odpoveď uložená" : (correct ? "Správne!" : "Nesprávne."),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontStyle: FontStyle.italic,
             ),
           ),
+          if (_liveSecondsRemaining > 0) ...[
+            const SizedBox(height: 12),
+            Text(
+              _formatDuration(_liveSecondsRemaining),
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  bool isFormData(GameQuestion q, GameSubmission submission) {
-    return q.type == GameQuestionType.textarea;
+  Widget _buildLiveQuestion(
+      BuildContext context, GameProvider provider, GameQuestion question,
+      int index, bool alreadySubmitted) {
+    _ensureLocalState(question);
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (_liveSecondsRemaining > 0) ...[
+          LinearProgressIndicator(
+            value: provider.game!.timeLimitSeconds > 0
+                ? _liveSecondsRemaining / provider.game!.timeLimitSeconds
+                : 1.0,
+            backgroundColor: Colors.grey[300],
+            color: _liveSecondsRemaining <= 5 ? Colors.red : Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(height: 4),
+          Center(
+            child: Text(
+              _formatDuration(_liveSecondsRemaining),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: _liveSecondsRemaining <= 5 ? Colors.red : null,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                QuestionHeader(question: question, index: index),
+                const SizedBox(height: 12),
+                if (alreadySubmitted) ...[
+                  if (provider.submissionFor(question.id) != null)
+                    QuestionSummaryCard(
+                      question: question,
+                      submission: provider.submissionFor(question.id)!,
+                      index: index,
+                    ),
+                ] else
+                  _buildInlineInput(context, question),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
-  Widget _buildInlineSubmittedAnswer(BuildContext context, GameQuestion q) {
-    final answer = _buildAnswerForQuestion(q);
-    if (answer == null) return const SizedBox.shrink();
-    String text;
-    switch (q.type) {
-      case GameQuestionType.text:
-      case GameQuestionType.textarea:
-        text = answer['text']?.toString() ?? "";
-        break;
-      case GameQuestionType.abc:
-        final indexes = (answer['indexes'] as List).whereType<int>().toList()..sort();
-        text = indexes.map((i) => q.options[i]).join(", ");
-        break;
-      case GameQuestionType.sort:
-        text = (answer['order'] as List).whereType<String>().join(" → ");
-        break;
-      case GameQuestionType.match:
-        final mapping = answer['mapping'] as Map;
-        text = q.pairs.map((p) => "${p.left} → ${mapping[p.left]}").join(", ");
-        break;
-    }
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(8),
+  Widget _buildLiveSubmitBar(
+      BuildContext context, GameProvider provider, GameQuestion question) {
+    return GameBottomBar(
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _submitting
+              ? null
+              : () => _submitLiveAnswer(context, provider, question),
+          icon: _submitting
+              ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.send),
+          label: const Text("Odoslať odpoveď"),
+        ),
       ),
-      child: Text("Tvoja odpoveď: $text", style: Theme.of(context).textTheme.bodyMedium),
     );
+  }
+
+  Future<void> _submitLiveAnswer(
+      BuildContext context, GameProvider provider, GameQuestion question) async {
+    final answer = _buildAnswerForQuestion(question);
+    if (answer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Vyplň prosím odpoveď.")),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    final result = await provider.submitAnswer(question, answer);
+    if (!mounted) return;
+    setState(() {
+      _submitting = false;
+      if (result != null) _liveSubmittedQuestionId = question.id;
+    });
+
+    if (result != null) {
+      Analytics().logEvent(AnalyticsEvents.gameAnswerSubmitted, parameters: {
+        'gameType': 'live',
+      });
+    }
+  }
+
+  void _manageLiveTimer(String? openedAtStr, int timeLimit, String? questionId) {
+    // Cancel old timer if question changed
+    if (questionId != _liveSubmittedQuestionId && _liveCountdown != null) {
+      // Don't cancel — let it run for the current question
+    }
+
+    if (timeLimit <= 0 || openedAtStr == null || questionId == null) {
+      _liveCountdown?.cancel();
+      _liveCountdown = null;
+      _liveSecondsRemaining = 0;
+      return;
+    }
+
+    final openedAt = DateTime.tryParse(openedAtStr);
+    if (openedAt == null) {
+      _liveSecondsRemaining = 0;
+      return;
+    }
+
+    final elapsed = DateTime.now().difference(openedAt).inSeconds;
+    final remaining = (timeLimit - elapsed).clamp(0, timeLimit);
+
+    if (remaining != _liveSecondsRemaining) {
+      setState(() => _liveSecondsRemaining = remaining);
+    }
+
+    // Start/restart timer if not already running for this question
+    if (_liveCountdown == null || remaining <= 0) {
+      _liveCountdown?.cancel();
+      if (remaining > 0) {
+        _liveCountdown = Timer.periodic(const Duration(seconds: 1), (timer) {
+          if (!mounted) {
+            timer.cancel();
+            return;
+          }
+          final now = DateTime.now();
+          final sec = (timeLimit - now.difference(openedAt).inSeconds)
+              .clamp(0, timeLimit);
+          setState(() => _liveSecondsRemaining = sec);
+          if (sec <= 0) {
+            timer.cancel();
+            _liveCountdown = null;
+          }
+        });
+      }
+    }
+  }
+
+  static String _formatDuration(int totalSeconds) {
+    final m = totalSeconds ~/ 60;
+    final s = totalSeconds % 60;
+    return "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
   }
 
   Widget _buildHeaderCard(BuildContext context, GameProvider provider, int answered, int total, bool canEdit) {
     final game = provider.game!;
-    final progress = total == 0 ? 0.0 : answered / total;
 
     return Card(
       margin: const EdgeInsets.all(12),
@@ -601,25 +1071,7 @@ class _GamePageState extends State<GamePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (provider.isGameDraft) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.edit_note, size: 18, color: Colors.orange[700]),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        "Toto je koncept – vidia ho len administrátori.",
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.orange[700]),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              const DraftBanner(),
               const SizedBox(height: 12),
             ],
             if (provider.isGameClosed) ...[
@@ -639,81 +1091,17 @@ class _GamePageState extends State<GamePage> {
               ),
               const SizedBox(height: 12),
             ],
-            if (game.imageUrl.isNotEmpty) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: FirebaseImage(
-                    url: game.imageUrl,
-                    fit: BoxFit.cover,
-                    errorPlaceholder: const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            if (game.description.isNotEmpty) ...[
-              Text(game.description),
-              const SizedBox(height: 12),
-            ],
-            if (game.endsAt != null) ...[
-              Row(
-                children: [
-                  Icon(Icons.emoji_events,
-                      size: 18, color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    "Vyžrebovanie víťaza: ${DateFormat('d.M.yyyy').format(game.endsAt!)}",
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
+            GameInfoCard(game: game),
             if (!provider.isGameClosed || canEdit) ...[
               const Divider(),
-              Text(
-                "Tvoje meno pre hru",
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              TextField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  hintText: "Zadaj svoje meno...",
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 8),
-                ),
-                style: Theme.of(context).textTheme.bodyLarge,
-                onTap: () => setState(() => _isEditingName = true),
-                onChanged: (value) {
-                  if (_debounce?.isActive ?? false) _debounce!.cancel();
-                  _debounce = Timer(const Duration(milliseconds: 500), () {
-                    if (mounted) {
-                      Provider.of<UserProvider>(context, listen: false).updateFullName(value);
-                    }
-                  });
-                },
-                onSubmitted: (value) => setState(() => _isEditingName = false),
-                onTapOutside: (_) {
-                  FocusScope.of(context).unfocus();
-                  setState(() => _isEditingName = false);
-                },
-              ),
+              GameNameField(controller: _nameController),
             ],
             const SizedBox(height: 16),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(value: progress, minHeight: 8),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text("Zodpovedané: $answered / $total"),
-                Text("Skóre: ${provider.score} / ${provider.totalPoints}"),
-              ],
+            GameProgressBar(
+              answered: answered,
+              total: total,
+              score: provider.score,
+              totalPoints: provider.totalPoints,
             ),
             if (total > 0) ...[
               const Divider(height: 24),

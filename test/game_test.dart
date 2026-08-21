@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scenickazatva_app/models/GameConfig.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
+import 'package:scenickazatva_app/models/GameType.dart';
 import 'package:scenickazatva_app/utils/GameUtils.dart';
 
 void main() {
@@ -285,6 +286,61 @@ void main() {
       final restored = GameConfig.fromJson(config.toJson());
       expect(restored.ctaText, 'Odpovedať');
       expect(restored.showInAds, isFalse);
+    });
+  });
+
+  group('GameType', () {
+    test('fromId resolves live', () {
+      expect(GameType.fromId('live'), GameType.live);
+      expect(GameType.fromId('quiz'), GameType.quiz);
+      expect(GameType.fromId('game'), GameType.game);
+      expect(GameType.fromId('form'), GameType.form);
+    });
+
+    test('fromId falls back to game for unknown', () {
+      expect(GameType.fromId('nonsense'), GameType.game);
+      expect(GameType.fromId(null), GameType.game);
+    });
+
+    test('live has correct id and label', () {
+      expect(GameType.live.id, 'live');
+      expect(GameType.live.label, 'Živý kvíz');
+    });
+  });
+
+  group('game config live quiz', () {
+    test('fromJson defaults timeLimitSeconds to 0', () {
+      final config = GameConfig.fromJson({});
+      expect(config.timeLimitSeconds, 0);
+    });
+
+    test('fromJson reads timeLimitSeconds', () {
+      final config = GameConfig.fromJson({
+        'timeLimitSeconds': 30,
+        'type': 'live',
+      });
+      expect(config.timeLimitSeconds, 30);
+      expect(config.type, GameType.live);
+    });
+
+    test('round-trips timeLimitSeconds', () {
+      final config = GameConfig(
+        type: GameType.live,
+        timeLimitSeconds: 45,
+      );
+      final restored = GameConfig.fromJson(config.toJson());
+      expect(restored.timeLimitSeconds, 45);
+      expect(restored.type, GameType.live);
+    });
+
+    test('toJson writes type and timeLimitSeconds', () {
+      final config = GameConfig(
+        type: GameType.live,
+        timeLimitSeconds: 60,
+      );
+      final json = config.toJson();
+      expect(json['type'], 'live');
+      expect(json['timeLimitSeconds'], 60);
     });
   });
 }

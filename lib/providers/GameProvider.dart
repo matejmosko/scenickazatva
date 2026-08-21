@@ -74,6 +74,7 @@ class GameProvider extends ChangeNotifier {
   Map<String, dynamic>? get liveState => _liveState;
   bool get isLiveActive => _liveState != null && (_liveState!['isOpen'] == true);
   String? get currentQuestionId => _liveState?['currentQuestionId']?.toString();
+  String? get currentFestivalId => _currentFestivalId;
 
   /// Games visible to the current user (admin sees all, others see published/ended).
   List<GameConfig> get visibleGames {
@@ -107,11 +108,17 @@ class GameProvider extends ChangeNotifier {
   /// Select a specific game and fetch its submissions.
   void selectGame(String gameId) {
     if (_selectedGameId == gameId) return;
+    _stopLiveStateListener();
     _selectedGameId = gameId;
     _participants = [];
     _submissions = {};
     if (_currentFestivalId != null && _uid.isNotEmpty) {
       _fetchSubmissions(_currentFestivalId!, _uid, gameId);
+    }
+    // Start live state listener if this is a live quiz.
+    final g = _games[gameId];
+    if (g != null && g.type == GameType.live && _currentFestivalId != null) {
+      _listenToLiveState(_currentFestivalId!, gameId);
     }
     notifyListeners();
   }
@@ -194,6 +201,14 @@ class GameProvider extends ChangeNotifier {
         _fetchSubmissions(festivalId, _uid, _selectedGameId!);
       }
 
+      // Start live state listener if the selected game is live.
+      if (_selectedGameId != null) {
+        final g = _games[_selectedGameId];
+        if (g != null && g.type == GameType.live) {
+          _listenToLiveState(festivalId, _selectedGameId!);
+        }
+      }
+
       _loading = false;
       notifyListeners();
     }, onError: (err) {
@@ -229,6 +244,30 @@ class GameProvider extends ChangeNotifier {
     });
   }
 
+  void _listenToLiveState(String festivalId, String gameId) async {
+    await _liveStateSubscription?.cancel();
+    _liveState = null;
+    final ref = FirebaseDatabase.instance.ref("festivals/$festivalId/games/$gameId/liveState");
+
+    _liveStateSubscription = ref.onValue.listen((DatabaseEvent event) {
+      final Object? raw = event.snapshot.value;
+      if (raw is Map) {
+        _liveState = Map<String, dynamic>.from(raw);
+      } else {
+        _liveState = null;
+      }
+      notifyListeners();
+    }, onError: (err) {
+      AppLog.error("Firebase LiveState Error", error: err);
+    });
+  }
+
+  void _stopLiveStateListener() {
+    _liveStateSubscription?.cancel();
+    _liveStateSubscription = null;
+    _liveState = null;
+  }
+
   // ── User actions ─────────────────────────────────────────────────────
 
   Future<GameSubmission?> submitAnswer(
@@ -245,6 +284,7 @@ class GameProvider extends ChangeNotifier {
     final correct = question.checkAnswer(answer);
     final isTextarea = question.type == GameQuestionType.textarea;
     final isForm = gameType == GameType.form;
+    final isLive = gameType == GameType.live;
     final submission = GameSubmission(
       questionId: question.id,
       answer: answer,
@@ -256,7 +296,8 @@ class GameProvider extends ChangeNotifier {
     // Game type: persist only correct or textarea.
     // Quiz type: submitAnswer is not used (use submitQuizAll instead).
     // Form type: always persist.
-    final shouldPersist = isForm || isTextarea || correct;
+    // Live type: always persist (no retry, speaker controls the flow).
+    final shouldPersist = isForm || isTextarea || isLive || correct;
     if (shouldPersist) {
       _submissions[question.id] = submission;
       notifyListeners();
@@ -483,6 +524,7 @@ class GameProvider extends ChangeNotifier {
   void dispose() {
     _gamesSubscription?.cancel();
     _submissionsSubscription?.cancel();
+    _liveStateSubscription?.cancel();
     super.dispose();
   }
 }

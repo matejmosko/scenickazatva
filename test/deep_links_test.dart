@@ -62,6 +62,11 @@ void main() {
           DeepLinks.normalizeDeepLink('javisko://game/-OzqFBxvxs_sHCKDWL0Y/results'),
           '/game/-OzqFBxvxs_sHCKDWL0Y/results');
     });
+    test('game live control', () {
+      expect(
+          DeepLinks.normalizeDeepLink('javisko://game/-OzqFBxvxs_sHCKDWL0Y/live'),
+          '/game/-OzqFBxvxs_sHCKDWL0Y/live');
+    });
     test('game question', () {
       expect(
           DeepLinks.normalizeDeepLink('javisko://game/-OzqFBxvxs_sHCKDWL0Y/-OzqFFGza6ZqhE0eBoqL'),

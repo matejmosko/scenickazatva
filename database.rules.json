@@ -37,8 +37,8 @@
             },
             "questions": {
               "$questionId": {
-                ".validate": "newData.hasChildren(['type', 'text'])",
-                "text": {
+                ".validate": "newData.hasChildren(['type', 'title'])",
+                "title": {
                   ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 1000"
                 },
                 "type": {
@@ -75,7 +75,7 @@
                 ".validate": "newData.isString()"
               },
               "isOpen": {
-                ".validate": "newData.isBool()"
+                ".validate": "newData.isBoolean()"
               },
               "openedAt": {
                 ".validate": "newData.isString()"

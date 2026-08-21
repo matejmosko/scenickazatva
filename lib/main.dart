@@ -40,6 +40,7 @@ import 'package:scenickazatva_app/pages/GameQuestionPage.dart';
 import 'package:scenickazatva_app/pages/GameResultsPage.dart';
 import 'package:scenickazatva_app/pages/GameEditPage.dart';
 import 'package:scenickazatva_app/pages/GameQuestionEditPage.dart';
+import 'package:scenickazatva_app/pages/LiveGameControlPage.dart';
 import 'package:scenickazatva_app/requests/NotificationService.dart';
 import 'package:scenickazatva_app/requests/ConnectivityService.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
@@ -237,6 +238,12 @@ final _router = GoRouter(
                       ),
                     ),
                   ],
+                ),
+                GoRoute(
+                  path: 'live',
+                  builder: (context, state) => LiveGameControlPage(
+                    gameId: state.pathParameters['gameId'] ?? '',
+                  ),
                 ),
                 GoRoute(
                   path: ':questionId',

@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
-import 'package:scenickazatva_app/models/GameSubmission.dart';
 import 'package:scenickazatva_app/models/GameType.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
+import 'package:scenickazatva_app/widgets/QuestionSummaryCard.dart';
 
 /// Solves a single quiz question. Renders the input UI according to the
 /// question type and locks the question once the answer is submitted.
@@ -26,8 +26,8 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
   final TextEditingController _textController = TextEditingController();
   Set<int> _selectedIndexes = {};
   List<String> _sortItems = [];
-  List<String> _shuffledRights = [];
-  Map<String, String?> _matchSelection = {};
+  Map<String, String?> _matchPlaced = {};
+  List<String> _matchAvailable = [];
   bool _initialized = false;
   bool _submitting = false;
 
@@ -64,9 +64,9 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
         }
         break;
       case GameQuestionType.match:
-        _shuffledRights = question.pairs.map((p) => p.right).toList()..shuffle(random);
+        _matchAvailable = question.pairs.map((p) => p.right).toList()..shuffle(random);
         for (final pair in question.pairs) {
-          _matchSelection[pair.left] = null;
+          _matchPlaced[pair.left] = null;
         }
         break;
       default:
@@ -91,9 +91,9 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
       case GameQuestionType.match:
         final mapping = <String, String>{};
         for (final pair in question.pairs) {
-          final selection = _matchSelection[pair.left];
-          if (selection == null || selection.isEmpty) return null;
-          mapping[pair.left] = selection;
+          final placed = _matchPlaced[pair.left];
+          if (placed == null || placed.isEmpty) return null;
+          mapping[pair.left] = placed;
         }
         return {'mapping': mapping};
     }
@@ -175,6 +175,23 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
     final provider = Provider.of<GameProvider>(context);
     final submission = provider.submissionFor(question.id);
     final isTextarea = question.type == GameQuestionType.textarea;
+    final questions = provider.questions;
+    final index = questions.indexWhere((q) => q.id == question.id);
+
+    if (submission != null) {
+      return ListView(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        children: [
+          QuestionSummaryCard(
+            question: question,
+            submission: submission,
+            index: index >= 0 ? index : 0,
+            showCorrectness: !provider.game!.isForm,
+          ),
+          const SizedBox(height: 32),
+        ],
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -215,9 +232,7 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
           ),
           const SizedBox(height: 16),
         ],
-        if (submission != null)
-          _buildResult(context, question, submission)
-        else if (provider.isGameClosed) ...[
+        if (provider.isGameClosed) ...[
           const Card(
             child: Padding(
               padding: EdgeInsets.all(16),
@@ -332,140 +347,161 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
         );
       case GameQuestionType.match:
         return Card(
-          child: Column(
-            children: [
-              for (final pair in question.pairs)
-                ListTile(
-                  title: Text(pair.left),
-                  trailing: DropdownButton<String?>(
-                    value: _matchSelection[pair.left],
-                    hint: const Text("Vybrať"),
-                    items: [
-                      for (final right in _shuffledRights)
-                        DropdownMenuItem<String?>(
-                          value: right,
-                          child: Text(right),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drop targets
+                for (final pair in question.pairs)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: DragTarget<String>(
+                      onAcceptWithDetails: (details) {
+                        setState(() {
+                          _matchPlaced[pair.left] = details.data;
+                          _matchAvailable.remove(details.data);
+                        });
+                      },
+                      builder: (context, candidateData, rejectedData) {
+                        final isHovering = candidateData.isNotEmpty;
+                        final currentPlaced = _matchPlaced[pair.left];
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: isHovering
+                                  ? Theme.of(context).colorScheme.primary
+                                  : (currentPlaced != null
+                                      ? Colors.green.shade300
+                                      : Colors.grey.shade400),
+                              width: currentPlaced != null ? 2 : 1,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            color: isHovering
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .primaryContainer
+                                    .withAlpha(80)
+                                : (currentPlaced != null
+                                    ? Colors.green.shade50
+                                    : null),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  pair.left,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                              if (currentPlaced != null)
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _matchAvailable.add(currentPlaced);
+                                      _matchPlaced[pair.left] = null;
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary,
+                                      borderRadius:
+                                          BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          currentPlaced,
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(Icons.close,
+                                            size: 14,
+                                            color: Colors.white),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else
+                                Text(
+                                  isHovering
+                                      ? "Pustiť sem"
+                                      : "Sem presuň odpoveď",
+                                  style: TextStyle(
+                                    color: Colors.grey[500],
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                // Available pool
+                if (_matchAvailable.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    "Dostupné odpovede:",
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final right in _matchAvailable)
+                        Draggable<String>(
+                          data: right,
+                          feedback: Material(
+                            elevation: 4,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color:
+                                    Theme.of(context).colorScheme.primary,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(right,
+                                  style: const TextStyle(
+                                      color: Colors.white)),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.3,
+                            child: Chip(label: Text(right)),
+                          ),
+                          child: Chip(
+                            label: Text(right),
+                            avatar:
+                                const Icon(Icons.drag_indicator, size: 18),
+                          ),
                         ),
                     ],
-                    onChanged: (value) {
-                      setState(() => _matchSelection[pair.left] = value);
-                    },
                   ),
-                ),
-            ],
-          ),
-        );
-    }
-  }
-
-  Widget _buildResult(BuildContext context, GameQuestion question, GameSubmission submission) {
-    final correct = submission.correct;
-    final isTextarea = question.type == GameQuestionType.textarea;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Card(
-          color: isTextarea
-              ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
-              : (correct ? Colors.green.shade50 : Colors.orange.shade50),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Icon(
-                  isTextarea ? Icons.check_circle : (correct ? Icons.check_circle : Icons.cancel),
-                  color: isTextarea ? Theme.of(context).colorScheme.primary : (correct ? Colors.green : Colors.orange),
-                  size: 32,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isTextarea ? "Ďakujeme za spätnú väzbu!" : (correct ? "Správne!" : "Nesprávne."),
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      if (!isTextarea)
-                        Text(correct ? "Získal si ${submission.points} bodov." : "Skóre sa nezmenilo."),
-                    ],
-                  ),
-                ),
+                ],
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        if (!isTextarea) ...[
-          _buildCorrectAnswer(context, question),
-          const SizedBox(height: 16),
-        ],
-        _buildSubmittedAnswer(context, question, submission.answer),
-      ],
-    );
-  }
-
-  Widget _buildCorrectAnswer(BuildContext context, GameQuestion question) {
-    String text;
-    switch (question.type) {
-      case GameQuestionType.text:
-      case GameQuestionType.textarea:
-        final corrects = [question.answer, ...question.acceptableAnswers]
-            .where((a) => a.isNotEmpty)
-            .toSet()
-            .toList();
-        text = "Správna odpoveď: ${corrects.join(" / ")}";
-        break;
-      case GameQuestionType.abc:
-        final correct = question.correctIndexes
-            .map((i) => question.options[i])
-            .join(", ");
-        text = "Správne: $correct";
-        break;
-      case GameQuestionType.sort:
-        text = "Správne poradie: ${question.sortOrder.join(" → ")}";
-        break;
-      case GameQuestionType.match:
-        text = "Správne dvojice: ${question.pairs.map((p) => "${p.left} → ${p.right}").join(", ")}";
-        break;
+        );
     }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(text),
-      ),
-    );
-  }
-
-  Widget _buildSubmittedAnswer(BuildContext context, GameQuestion question, Map<String, dynamic> answer) {
-    String text;
-    switch (question.type) {
-      case GameQuestionType.text:
-      case GameQuestionType.textarea:
-        text = "Tvoja odpoveď: ${answer['text']}";
-        break;
-      case GameQuestionType.abc:
-        final indexes = (answer['indexes'] as List).whereType<int>().toList()..sort();
-        text = "Tvoja odpoveď: ${indexes.map((i) => question.options[i]).join(", ")}";
-        break;
-      case GameQuestionType.sort:
-        final order = (answer['order'] as List).whereType<String>().toList();
-        text = "Tvoje poradie: ${order.join(" → ")}";
-        break;
-      case GameQuestionType.match:
-        final mapping = answer['mapping'] as Map;
-        text = "Tvoje dvojice: ${question.pairs.map((p) => "${p.left} → ${mapping[p.left]}").join(", ")}";
-        break;
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(text),
-      ),
-    );
   }
 
   Widget buildSubmitButton(BuildContext context, GameQuestion question) {

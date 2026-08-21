@@ -118,4 +118,9 @@ class GameConfig {
 
   int get totalPoints =>
       questions.fold(0, (sum, q) => sum + q.points);
+
+  bool get isForm => type == GameType.form;
+  bool get isQuiz => type == GameType.quiz;
+  bool get isLive => type == GameType.live;
+  bool get isStandardGame => type == GameType.game;
 }

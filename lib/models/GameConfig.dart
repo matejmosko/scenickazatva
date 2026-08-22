@@ -32,6 +32,9 @@ class GameConfig {
   /// Whether to show this game in the magazine top carousel ads.
   bool showInAds;
 
+  /// Whether the player can restart and play the game again.
+  bool replayable;
+
   List<GameQuestion> questions;
 
   GameConfig({
@@ -45,6 +48,7 @@ class GameConfig {
     this.imageUrl = "",
     this.ctaText = "",
     this.showInAds = true,
+    this.replayable = true,
     this.questions = const [],
   });
 
@@ -92,6 +96,7 @@ class GameConfig {
       imageUrl: json['imageUrl'] ?? "",
       ctaText: json['ctaText'] ?? "",
       showInAds: json['showInAds'] ?? true,
+      replayable: json['replayable'] ?? true,
       questions: questions,
     );
   }
@@ -113,6 +118,7 @@ class GameConfig {
       'imageUrl': imageUrl,
       'ctaText': ctaText,
       'showInAds': showInAds,
+      'replayable': replayable,
     };
   }
 

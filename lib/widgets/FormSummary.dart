@@ -7,12 +7,14 @@ class FormSummary extends StatelessWidget {
   final List<GameQuestion> questions;
   final Map<String, GameSubmission> submissions;
   final Widget? header;
+  final VoidCallback? onRestart;
 
   const FormSummary({
     Key? key,
     required this.questions,
     required this.submissions,
     this.header,
+    this.onRestart,
   }) : super(key: key);
 
   @override
@@ -48,6 +50,18 @@ class FormSummary extends StatelessWidget {
             ),
           ),
         ),
+        if (onRestart != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: OutlinedButton.icon(
+              onPressed: onRestart,
+              icon: const Icon(Icons.refresh),
+              label: const Text("Vyplniť znova"),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+              ),
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Text(

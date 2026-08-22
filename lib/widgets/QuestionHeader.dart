@@ -9,12 +9,15 @@ class QuestionHeader extends StatelessWidget {
   final int index;
   final IconData? statusIcon;
   final Color? statusColor;
+  final bool showPoints;
+
   const QuestionHeader({
     Key? key,
     required this.question,
     required this.index,
     this.statusIcon,
     this.statusColor,
+    this.showPoints = true,
   }) : super(key: key);
 
   @override
@@ -40,7 +43,7 @@ class QuestionHeader extends StatelessWidget {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
-            if (!isTextarea)
+            if (!isTextarea && showPoints)
               Text("${question.points} b",
                   style: Theme.of(context).textTheme.bodySmall),
           ],

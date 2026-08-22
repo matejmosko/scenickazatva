@@ -140,28 +140,40 @@ class GameProvider extends ChangeNotifier {
       _games.clear();
       final Object? raw = event.snapshot.value;
       if (raw is Map) {
-        raw.forEach((key, value) {
-          if (value is Map) {
-            final map = Map<String, dynamic>.from(value);
-            final config = GameConfig.fromJson(map);
-            config.id = key.toString();
-            _games[config.id] = config;
+        try {
+          raw.forEach((key, value) {
+            if (value is Map) {
+              try {
+                final map = Map<String, dynamic>.from(value);
+                final config = GameConfig.fromJson(map);
+                config.id = key.toString();
+                _games[config.id] = config;
 
-            // Parse participants nested inside each game node
-            final rawParticipants = map['participants'];
-            if (rawParticipants is Map && config.id == _selectedGameId) {
-              _participants = rawParticipants.entries.map((entry) {
-                final participant = GameParticipant.fromJson(
-                  Map<String, dynamic>.from(entry.value as Map),
-                );
-                if (participant.uid.isEmpty) {
-                  participant.uid = entry.key.toString();
+                // Parse participants nested inside each game node
+                final rawParticipants = map['participants'];
+                if (rawParticipants is Map && config.id == _selectedGameId) {
+                  try {
+                    _participants = rawParticipants.entries.map((entry) {
+                      final participant = GameParticipant.fromJson(
+                        Map<String, dynamic>.from(entry.value),
+                      );
+                      if (participant.uid.isEmpty) {
+                        participant.uid = entry.key.toString();
+                      }
+                      return participant;
+                    }).toList();
+                  } catch (e) {
+                    AppLog.warn("Failed to parse participants for ${config.id}: $e");
+                  }
                 }
-                return participant;
-              }).toList();
+              } catch (e) {
+                AppLog.warn("Failed to parse game config for $key: $e");
+              }
             }
-          }
-        });
+          });
+        } catch (e) {
+          AppLog.error("Error parsing games list", error: e);
+        }
       }
 
       // Auto-select first game if none selected
@@ -179,15 +191,19 @@ class GameProvider extends ChangeNotifier {
             if (gameData is Map) {
               final rawParticipants = gameData['participants'];
               if (rawParticipants is Map) {
-                _participants = rawParticipants.entries.map((entry) {
-                  final participant = GameParticipant.fromJson(
-                    Map<String, dynamic>.from(entry.value as Map),
-                  );
-                  if (participant.uid.isEmpty) {
-                    participant.uid = entry.key.toString();
-                  }
-                  return participant;
-                }).toList();
+                try {
+                  _participants = rawParticipants.entries.map((entry) {
+                    final participant = GameParticipant.fromJson(
+                      Map<String, dynamic>.from(entry.value),
+                    );
+                    if (participant.uid.isEmpty) {
+                      participant.uid = entry.key.toString();
+                    }
+                    return participant;
+                  }).toList();
+                } catch (e) {
+                  AppLog.error("Error parsing participants", error: e);
+                }
               } else {
                 _participants = [];
               }
@@ -227,20 +243,28 @@ class GameProvider extends ChangeNotifier {
       _submissions = {};
       final Object? raw = event.snapshot.value;
       if (raw is Map) {
-        raw.forEach((key, value) {
-          if (value is Map) {
-            final submission =
-                GameSubmission.fromJson(Map<String, dynamic>.from(value));
-            if (submission.questionId.isEmpty) {
-              submission.questionId = key.toString();
+        try {
+          raw.forEach((key, value) {
+            if (value is Map) {
+              try {
+                final submission =
+                    GameSubmission.fromJson(Map<String, dynamic>.from(value));
+                if (submission.questionId.isEmpty) {
+                  submission.questionId = key.toString();
+                }
+                _submissions[key.toString()] = submission;
+              } catch (e) {
+                AppLog.warn("Failed to parse single submission for $key: $e");
+              }
             }
-            _submissions[key.toString()] = submission;
-          }
-        });
+          });
+        } catch (e) {
+          AppLog.error("Error parsing submissions for $uid", error: e);
+        }
       }
       notifyListeners();
     }, onError: (err) {
-      AppLog.error("Firebase Submissions Error", error: err);
+      AppLog.error("Firebase Submissions Error for $uid: $err", error: err);
     });
   }
 
@@ -412,6 +436,27 @@ class GameProvider extends ChangeNotifier {
     }
 
     return results;
+  }
+
+  /// Clears user submissions for the current game.
+  Future<void> restartGame() async {
+    final uid = _uid.isEmpty
+        ? FirebaseAuth.instance.currentUser?.uid ?? ""
+        : _uid;
+    final gameId = _selectedGameId;
+    if (_currentFestivalId == null || uid.isEmpty || gameId == null) return;
+
+    try {
+      await FirebaseDatabase.instance
+          .ref("users/$uid/game/$_currentFestivalId/$gameId")
+          .remove();
+      _submissions = {};
+      notifyListeners();
+    } catch (e) {
+      AppLog.error("Firebase restartGame error", error: e);
+      ConnectivityService.instance.showTemporaryBanner(
+          "Nepodarilo sa reštartovať hru — skúste znova");
+    }
   }
 
   Future<void> setWinner(String uid, {required bool winner}) async {

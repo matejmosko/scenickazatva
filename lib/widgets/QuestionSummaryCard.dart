@@ -40,6 +40,7 @@ class QuestionSummaryCard extends StatelessWidget {
                   ? Icons.check_circle
                   : (correct ? Icons.check_circle : Icons.cancel),
               statusColor: statusColor,
+              showPoints: showCorrectness,
             ),
             const SizedBox(height: 16),
             if (submission != null)

@@ -58,6 +58,7 @@ class _GameEditPageState extends State<GameEditPage> {
               imageUrl: game.imageUrl,
               ctaText: game.ctaText,
               showInAds: game.showInAds,
+              replayable: game.replayable,
             )
           : GameConfig(id: widget.gameId);
       _authorized = true;
@@ -372,6 +373,16 @@ class _GameEditPageState extends State<GameEditPage> {
                         setState(() => _edited.showInAds = value ?? true);
                       },
                       title: const Text("Zobraziť v reklamách"),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                    CheckboxListTile(
+                      value: _edited.replayable,
+                      onChanged: (value) {
+                        setState(() => _edited.replayable = value ?? true);
+                      },
+                      title: const Text("Hráč môže hrať opakovane"),
+                      subtitle: const Text("Ak nie je zaškrtnuté, hráč uvidí po dokončení len súhrn."),
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
                     ),

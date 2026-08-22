@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:scenickazatva_app/models/Festival.dart';
 import 'package:scenickazatva_app/widgets/EventListItem.dart';
+import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
 import 'package:go_router/go_router.dart';
 
 // Calendar view displays data from EventsProvider in a calendar. It observes all Providers to be able to do that.
@@ -91,41 +92,54 @@ class _CalendarViewState extends State<CalendarView> with TickerProviderStateMix
       });
     }
 
-    return Column(
-      children: <Widget>[
-        _buildTableCalendarWithBuilders(festivalProvider, fest),
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-          child: Row(
-            children: [
-              Expanded(child: _buildLocationDropdown()),
-              if (context.watch<UserProvider>().canEdit)
-                IconButton(
-                  icon: const Icon(Icons.add_location_alt, size: 20),
-                  tooltip: "Nová lokalita",
-                  onPressed: () => context.go('/locations/new'),
-                ),
-              const SizedBox(width: 8),
-              Text(
-                "Iba obľúbené",
-                style: TextStyle(
-                  color: isDark ? Colors.white54 : Colors.black,
-                  fontSize: 12,
-                ),
-              ),
-              Switch(
-                value: _showFavoritesOnly,
-                activeThumbColor: isDark ? Colors.white54 : Colors.black,
-                onChanged: (val) {
-                  setState(() {
-                    _showFavoritesOnly = val;
-                  });
-                },
-              ),
-            ],
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: FirebaseImage(
+            url: fest.background,
+            fit: BoxFit.cover,
           ),
         ),
-        Expanded(child: _buildEventList(fest)),
+        Column(
+          children: <Widget>[
+            _buildTableCalendarWithBuilders(festivalProvider, fest),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+              decoration: BoxDecoration(
+                color: Theme.of(context).canvasColor.withValues(alpha: 0.8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(child: _buildLocationDropdown()),
+                  if (context.watch<UserProvider>().canEdit)
+                    IconButton(
+                      icon: const Icon(Icons.add_location_alt, size: 20),
+                      tooltip: "Nová lokalita",
+                      onPressed: () => context.go('/locations/new'),
+                    ),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Iba obľúbené",
+                    style: TextStyle(
+                      color: isDark ? Colors.white54 : Colors.black,
+                      fontSize: 12,
+                    ),
+                  ),
+                  Switch(
+                    value: _showFavoritesOnly,
+                    activeThumbColor: isDark ? Colors.white54 : Colors.black,
+                    onChanged: (val) {
+                      setState(() {
+                        _showFavoritesOnly = val;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: _buildEventList(fest)),
+          ],
+        ),
       ],
     );
   }

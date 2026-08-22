@@ -6,12 +6,15 @@ class GameProgressBar extends StatelessWidget {
   final int total;
   final int score;
   final int totalPoints;
+  final bool showScore;
+
   const GameProgressBar({
     Key? key,
     required this.answered,
     required this.total,
     required this.score,
     required this.totalPoints,
+    this.showScore = true,
   }) : super(key: key);
 
   @override
@@ -28,7 +31,7 @@ class GameProgressBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text("Zodpovedané: $answered / $total"),
-            Text("Skóre: $score / $totalPoints"),
+            if (showScore) Text("Skóre: $score / $totalPoints"),
           ],
         ),
       ],

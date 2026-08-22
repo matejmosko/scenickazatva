@@ -71,16 +71,29 @@ class _GamePageState extends State<GamePage> {
   @override
   void initState() {
     super.initState();
+    _nameController.addListener(_onNameChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final gameProvider = Provider.of<GameProvider>(context, listen: false);
       gameProvider.selectGame(widget.gameId);
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      _nameController.text = userProvider.userData.fullName;
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final userProvider = Provider.of<UserProvider>(context);
+    if (_nameController.text.isEmpty && userProvider.userData.fullName.isNotEmpty) {
+      _nameController.text = userProvider.userData.fullName;
+    }
+  }
+
+  void _onNameChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _nameController.removeListener(_onNameChanged);
     _nameController.dispose();
     _liveCountdown?.cancel();
     for (final c in _textControllers.values) {
@@ -163,8 +176,32 @@ class _GamePageState extends State<GamePage> {
     }
 
     final gameType = provider.game?.type ?? GameType.game;
+    final isFinished = provider.questions.isNotEmpty && provider.answeredCount == provider.questions.length;
+    final isReplayable = provider.game?.replayable ?? true;
+
     if (gameType == GameType.live) {
       return _buildLiveBody(context, provider);
+    }
+
+    // If already played, show summary directly
+    if (isFinished || _submitted) {
+      if (gameType == GameType.form) {
+        return FormSummary(
+          questions: provider.questions,
+          submissions: provider.submissions,
+          header: _buildHeaderCard(context, provider, provider.answeredCount, provider.questions.length, canEdit),
+          onRestart: isReplayable ? () => _handleRestart(provider) : null,
+        );
+      } else if (gameType == GameType.quiz || gameType == GameType.game) {
+        return QuizSummary(
+          questions: provider.questions,
+          submissions: provider.submissions,
+          score: provider.score,
+          totalPoints: provider.totalPoints,
+          header: _buildHeaderCard(context, provider, provider.answeredCount, provider.questions.length, canEdit),
+          onRestart: isReplayable ? () => _handleRestart(provider) : null,
+        );
+      }
     }
 
     // Start screen for game/quiz/form
@@ -548,7 +585,7 @@ class _GamePageState extends State<GamePage> {
         question: q,
         submission: submission,
         index: index,
-        showCorrectness: !provider.game!.isForm,
+        showCorrectness: provider.game?.isForm == false,
       );
     }
 
@@ -559,7 +596,11 @@ class _GamePageState extends State<GamePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            QuestionHeader(question: q, index: index),
+            QuestionHeader(
+              question: q,
+              index: index,
+              showPoints: provider.game?.isForm == false,
+            ),
             const SizedBox(height: 12),
             _buildInlineInput(context, q),
           ],
@@ -981,6 +1022,35 @@ class _GamePageState extends State<GamePage> {
     );
   }
 
+  Future<void> _handleRestart(GameProvider provider) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Spustiť znova?"),
+        content: const Text("Tvoje doterajšie odpovede budú vymazané a môžeš začať odznova."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Zrušiť")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Áno, spustiť znova")),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await provider.restartGame();
+      setState(() {
+        _submitted = false;
+        _gameStarted = false;
+        _quizSlideIndex = 0;
+        // Reset local answer state
+        _textControllers.clear();
+        _selectedIndexes.clear();
+        _sortItems.clear();
+        _matchPlaced.clear();
+        _matchAvailable.clear();
+      });
+    }
+  }
+
   Future<void> _submitLiveAnswer(
       BuildContext context, GameProvider provider, GameQuestion question) async {
     final answer = _buildAnswerForQuestion(question);
@@ -1102,6 +1172,7 @@ class _GamePageState extends State<GamePage> {
               total: total,
               score: provider.score,
               totalPoints: provider.totalPoints,
+              showScore: provider.game?.isForm == false,
             ),
             if (total > 0) ...[
               const Divider(height: 24),
@@ -1128,10 +1199,10 @@ class _GamePageState extends State<GamePage> {
 
     final IconData statusIcon;
     final Color statusColor;
-    if (!answered) {
+    if (!answered || submission == null) {
       statusIcon = isTextarea ? Icons.notes : Icons.radio_button_unchecked;
       statusColor = Colors.grey;
-    } else if (submission!.correct) {
+    } else if (submission.correct) {
       statusIcon = Icons.check_circle;
       statusColor = Colors.green;
     } else {
@@ -1154,10 +1225,11 @@ class _GamePageState extends State<GamePage> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              isTextarea ? "Spätná väzba" : "${q.points} b",
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            if (provider.game?.isForm == false)
+              Text(
+                isTextarea ? "Spätná väzba" : "${q.points} b",
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             const SizedBox(width: 8),
             Icon(statusIcon, color: statusColor),
           ],

@@ -156,7 +156,6 @@ exports.recomputeParticipant = onValueWritten(
 
 exports.checkNewArticles = onSchedule("every 30 minutes", async (event) => {
   const settingsRef = admin.database().ref("appsettings");
-  const festivalsRef = admin.database().ref("festivals");
 
   try {
     // Read magazine_src from appsettings
@@ -188,20 +187,19 @@ exports.checkNewArticles = onSchedule("every 30 minutes", async (event) => {
     }
 
     // Update news signal (per-festival)
-    const festivalsSnap = await festivalsRef.get();
-    if (festivalsSnap.exists()) {
-      const festivals = festivalsSnap.val();
+    if (settings.festivals && typeof settings.festivals === "object") {
       const newsUpdates = {};
-      for (const [id, festival] of Object.entries(festivals)) {
+      for (const [id, festival] of Object.entries(settings.festivals)) {
         const festivalLastId = festival.lastNewsPostId || 0;
         if (shouldNotify(festivalLastId, latestPost.id)) {
-          newsUpdates[`festivals/${id}/lastNewsPostId`] = latestPost.id;
+          newsUpdates[`appsettings/festivals/${id}/lastNewsPostId`] =
+              latestPost.id;
         }
       }
       if (Object.keys(newsUpdates).length > 0) {
         await admin.database().ref().update(newsUpdates);
         console.log(
-            "Updated lastNewsPostId for festivals:",
+            "Updated lastNewsPostId for festivals in appsettings:",
             Object.keys(newsUpdates).join(", "),
         );
       }

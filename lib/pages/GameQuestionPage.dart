@@ -179,6 +179,8 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
     final index = questions.indexWhere((q) => q.id == question.id);
 
     if (submission != null) {
+      final nextQuestion = (index >= 0 && index < questions.length - 1) ? questions[index + 1] : null;
+
       return ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
@@ -186,8 +188,18 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
             question: question,
             submission: submission,
             index: index >= 0 ? index : 0,
-            showCorrectness: !provider.game!.isForm,
+            showCorrectness: provider.game?.isForm == false,
           ),
+          if (nextQuestion != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: FilledButton.icon(
+                onPressed: () =>
+                    context.pushReplacement("/game/${widget.gameId}/${nextQuestion.id}"),
+                icon: const Text("Ďalšia otázka"),
+                label: const Icon(Icons.arrow_forward, size: 18),
+              ),
+            ),
           const SizedBox(height: 32),
         ],
       );
@@ -213,7 +225,7 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
             ),
           ),
         const SizedBox(height: 8),
-        if (!isTextarea) ...[
+        if (!isTextarea && provider.game?.isForm == false) ...[
           Row(
             children: [
               const Icon(Icons.stars, size: 18),
@@ -222,7 +234,7 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
             ],
           ),
           const SizedBox(height: 16),
-        ] else ...[
+        ] else if (isTextarea) ...[
           Row(
             children: [
               const Icon(Icons.notes, size: 18),

@@ -10,6 +10,7 @@ class QuizSummary extends StatelessWidget {
   final int score;
   final int totalPoints;
   final Widget? header;
+  final VoidCallback? onRestart;
 
   const QuizSummary({
     Key? key,
@@ -18,6 +19,7 @@ class QuizSummary extends StatelessWidget {
     required this.score,
     required this.totalPoints,
     this.header,
+    this.onRestart,
   }) : super(key: key);
 
   @override
@@ -34,6 +36,18 @@ class QuizSummary extends StatelessWidget {
           score: score,
           totalPoints: totalPoints,
         ),
+        if (onRestart != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: OutlinedButton.icon(
+              onPressed: onRestart,
+              icon: const Icon(Icons.refresh),
+              label: const Text("Hrať znova"),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+              ),
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Text(

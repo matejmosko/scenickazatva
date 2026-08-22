@@ -28,8 +28,8 @@ class _GameResultsPageState extends State<GameResultsPage> {
     if (gameType == GameType.form) {
       // Form: rank by number of submissions (most active first), then time.
       list.sort((a, b) {
-        if (a.correctCount != b.correctCount) {
-          return b.correctCount.compareTo(a.correctCount);
+        if (a.answeredCount != b.answeredCount) {
+          return b.answeredCount.compareTo(a.answeredCount);
         }
         final t1 = a.lastAnsweredAt ?? DateTime(9999);
         final t2 = b.lastAnsweredAt ?? DateTime(9999);
@@ -173,7 +173,7 @@ class _GameResultsPageState extends State<GameResultsPage> {
                                   children: [
                                     if (isForm)
                                       Text(
-                                        "$subtitleLabel: ${participant.correctCount}/$countDenom",
+                                        "$subtitleLabel: ${participant.answeredCount}/$countDenom",
                                       )
                                     else
                                       Text(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:scenickazatva_app/providers/InfoProvider.dart';
+import 'package:scenickazatva_app/providers/FestivalProvider.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
@@ -8,6 +9,7 @@ import 'package:scenickazatva_app/utils/StringUtils.dart';
 import 'package:scenickazatva_app/widgets/DynamicIcon.dart';
 import 'package:scenickazatva_app/widgets/GameCard.dart';
 import 'package:scenickazatva_app/widgets/FestivalInfoCard.dart';
+import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
 
 class InfoView extends StatefulWidget {
   @override
@@ -22,9 +24,16 @@ class _InfoViewState extends State<InfoView> with AutomaticKeepAliveClientMixin 
   Widget build(BuildContext context) {
     super.build(context);
     final InfoProvider infoProvider = Provider.of<InfoProvider>(context);
+    final fest = Provider.of<FestivalProvider>(context).festival;
 
     return Stack(
       children: [
+        Positioned.fill(
+          child: FirebaseImage(
+            url: fest.background,
+            fit: BoxFit.cover,
+          ),
+        ),
         Center(
           child: AnimatedOpacity(
             opacity: infoProvider.loading ? 1.0 : 0.0,

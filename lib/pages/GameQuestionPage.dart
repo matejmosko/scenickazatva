@@ -1,15 +1,15 @@
-import 'dart:math';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
 import 'package:scenickazatva_app/models/GameType.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
+import 'package:scenickazatva_app/providers/QuizDraftProvider.dart';
 import 'package:scenickazatva_app/requests/SystemServices.dart';
 import 'package:scenickazatva_app/requests/AnalyticsEvents.dart';
 import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
 import 'package:scenickazatva_app/widgets/QuestionSummaryCard.dart';
+import 'package:scenickazatva_app/widgets/game/QuestionInput.dart';
 
 /// Solves a single quiz question. Renders the input UI according to the
 /// question type and locks the question once the answer is submitted.
@@ -23,11 +23,6 @@ class GameQuestionPage extends StatefulWidget {
 }
 
 class _GameQuestionPageState extends State<GameQuestionPage> {
-  final TextEditingController _textController = TextEditingController();
-  Set<int> _selectedIndexes = {};
-  List<String> _sortItems = [];
-  Map<String, String?> _matchPlaced = {};
-  List<String> _matchAvailable = [];
   bool _initialized = false;
   bool _submitting = false;
 
@@ -37,7 +32,7 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
     if (!_initialized) {
       final question = _question(context);
       if (question != null) {
-        _initFor(question);
+        Provider.of<QuizDraftProvider>(context, listen: false).init(widget.gameId, [question]);
       }
       _initialized = true;
     }
@@ -50,57 +45,10 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
         .firstWhere((q) => q?.id == widget.questionId, orElse: () => null);
   }
 
-  void _initFor(GameQuestion question) {
-    final random = Random();
-    switch (question.type) {
-      case GameQuestionType.sort:
-        _sortItems = [...question.sortOrder]..shuffle(random);
-        var attempts = 0;
-        while (listEquals(_sortItems, question.sortOrder) &&
-            question.sortOrder.length > 1 &&
-            attempts < 10) {
-          _sortItems = [...question.sortOrder]..shuffle(random);
-          attempts++;
-        }
-        break;
-      case GameQuestionType.match:
-        _matchAvailable = question.pairs.map((p) => p.right).toList()..shuffle(random);
-        for (final pair in question.pairs) {
-          _matchPlaced[pair.left] = null;
-        }
-        break;
-      default:
-        break;
-    }
-  }
-
-  Map<String, dynamic>? _buildAnswer(GameQuestion question) {
-    switch (question.type) {
-      case GameQuestionType.text:
-      case GameQuestionType.textarea:
-        final text = _textController.text.trim();
-        if (text.isEmpty) return null;
-        return {'text': text};
-      case GameQuestionType.abc:
-        if (_selectedIndexes.isEmpty) return null;
-        final indexes = _selectedIndexes.toList()..sort();
-        return {'indexes': indexes};
-      case GameQuestionType.sort:
-        if (_sortItems.isEmpty) return null;
-        return {'order': _sortItems};
-      case GameQuestionType.match:
-        final mapping = <String, String>{};
-        for (final pair in question.pairs) {
-          final placed = _matchPlaced[pair.left];
-          if (placed == null || placed.isEmpty) return null;
-          mapping[pair.left] = placed;
-        }
-        return {'mapping': mapping};
-    }
-  }
-
   Future<void> _submit(GameQuestion question) async {
-    final answer = _buildAnswer(question);
+    final draft = Provider.of<QuizDraftProvider>(context, listen: false);
+    final answer = draft.buildAnswer(question);
+
     if (answer == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Vyplň prosím odpoveď.")),
@@ -180,6 +128,7 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
 
     if (submission != null) {
       final nextQuestion = (index >= 0 && index < questions.length - 1) ? questions[index + 1] : null;
+      final prevQuestion = (index > 0) ? questions[index - 1] : null;
 
       return ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -190,14 +139,54 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
             index: index >= 0 ? index : 0,
             showCorrectness: provider.game?.isForm == false,
           ),
-          if (nextQuestion != null)
+          if (index == questions.length - 1) ...[
+            const SizedBox(height: 16),
+            if (prevQuestion != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      context.pushReplacement("/game/${widget.gameId}/${prevQuestion.id}"),
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text("Predošlá otázka"),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: FilledButton.icon(
-                onPressed: () =>
-                    context.pushReplacement("/game/${widget.gameId}/${nextQuestion.id}"),
-                icon: const Text("Ďalšia otázka"),
-                label: const Icon(Icons.arrow_forward, size: 18),
+                onPressed: () => context.go('/game/${widget.gameId}/results'),
+                icon: const Icon(Icons.emoji_events),
+                label: const Text("Zobraziť výsledky"),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+              ),
+            ),
+          ] else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+              child: Row(
+                children: [
+                  if (prevQuestion != null)
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          context.pushReplacement("/game/${widget.gameId}/${prevQuestion.id}"),
+                      icon: const Icon(Icons.arrow_back, size: 18),
+                      label: const Text("Predošlá"),
+                    ),
+                  const Spacer(),
+                  if (nextQuestion != null)
+                    FilledButton.icon(
+                      onPressed: () =>
+                          context.pushReplacement("/game/${widget.gameId}/${nextQuestion.id}"),
+                      label: const Icon(Icons.arrow_forward, size: 18),
+                      icon: const Text("Ďalšia otázka"),
+                    ),
+                ],
               ),
             ),
           const SizedBox(height: 32),
@@ -270,250 +259,12 @@ class _GameQuestionPageState extends State<GameQuestionPage> {
   }
 
   Widget _buildInput(BuildContext context, GameQuestion question) {
-    switch (question.type) {
-      case GameQuestionType.text:
-      case GameQuestionType.textarea:
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _textController,
-              maxLines: null,
-              minLines: question.type == GameQuestionType.textarea ? 4 : 1,
-              decoration: InputDecoration(
-                labelText: question.type == GameQuestionType.textarea
-                    ? "Tvoja spätná väzba"
-                    : "Tvoja odpoveď",
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ),
-        );
-      case GameQuestionType.abc:
-        return Card(
-          child: Column(
-            children: [
-              for (var i = 0; i < question.options.length; i++)
-                ListTile(
-                  leading: Icon(
-                    _selectedIndexes.contains(i)
-                        ? Icons.check_circle
-                        : (question.correctIndexes.length <= 1
-                            ? Icons.radio_button_unchecked
-                            : Icons.check_box_outline_blank),
-                    color: _selectedIndexes.contains(i)
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                  ),
-                  title: Text(question.options[i]),
-                  onTap: () {
-                    setState(() {
-                      if (question.correctIndexes.length <= 1) {
-                        _selectedIndexes = {i};
-                      } else {
-                        _selectedIndexes.contains(i)
-                            ? _selectedIndexes.remove(i)
-                            : _selectedIndexes.add(i);
-                      }
-                    });
-                  },
-                ),
-            ],
-          ),
-        );
-      case GameQuestionType.sort:
-        return Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  "Zoraď správne (potiahni a pusti):",
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-              SizedBox(
-                height: _sortItems.length * 56.0,
-                child: ReorderableListView(
-                  buildDefaultDragHandles: true,
-                  shrinkWrap: true,
-                  onReorderItem: (oldIndex, newIndex) {
-                    setState(() {
-                      final item = _sortItems.removeAt(oldIndex);
-                      _sortItems.insert(newIndex, item);
-                    });
-                  },
-                  children: [
-                    for (var i = 0; i < _sortItems.length; i++)
-                      ListTile(
-                        key: ValueKey('sort-item-$i'),
-                        leading: const Icon(Icons.drag_handle),
-                        title: Text(_sortItems[i]),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      case GameQuestionType.match:
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Drop targets
-                for (final pair in question.pairs)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: DragTarget<String>(
-                      onAcceptWithDetails: (details) {
-                        setState(() {
-                          _matchPlaced[pair.left] = details.data;
-                          _matchAvailable.remove(details.data);
-                        });
-                      },
-                      builder: (context, candidateData, rejectedData) {
-                        final isHovering = candidateData.isNotEmpty;
-                        final currentPlaced = _matchPlaced[pair.left];
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: isHovering
-                                  ? Theme.of(context).colorScheme.primary
-                                  : (currentPlaced != null
-                                      ? Colors.green.shade300
-                                      : Colors.grey.shade400),
-                              width: currentPlaced != null ? 2 : 1,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                            color: isHovering
-                                ? Theme.of(context)
-                                    .colorScheme
-                                    .primaryContainer
-                                    .withAlpha(80)
-                                : (currentPlaced != null
-                                    ? Colors.green.shade50
-                                    : null),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  pair.left,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(fontWeight: FontWeight.w500),
-                                ),
-                              ),
-                              if (currentPlaced != null)
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _matchAvailable.add(currentPlaced);
-                                      _matchPlaced[pair.left] = null;
-                                    });
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary,
-                                      borderRadius:
-                                          BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          currentPlaced,
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 13),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        const Icon(Icons.close,
-                                            size: 14,
-                                            color: Colors.white),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              else
-                                Text(
-                                  isHovering
-                                      ? "Pustiť sem"
-                                      : "Sem presuň odpoveď",
-                                  style: TextStyle(
-                                    color: Colors.grey[500],
-                                    fontStyle: FontStyle.italic,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                // Available pool
-                if (_matchAvailable.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    "Dostupné odpovede:",
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final right in _matchAvailable)
-                        Draggable<String>(
-                          data: right,
-                          feedback: Material(
-                            elevation: 4,
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color:
-                                    Theme.of(context).colorScheme.primary,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(right,
-                                  style: const TextStyle(
-                                      color: Colors.white)),
-                            ),
-                          ),
-                          childWhenDragging: Opacity(
-                            opacity: 0.3,
-                            child: Chip(label: Text(right)),
-                          ),
-                          child: Chip(
-                            label: Text(right),
-                            avatar:
-                                const Icon(Icons.drag_indicator, size: 18),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: QuestionInput(question: question),
+      ),
+    );
   }
 
   Widget buildSubmitButton(BuildContext context, GameQuestion question) {

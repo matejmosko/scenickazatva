@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/models/GameConfig.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
 import 'package:scenickazatva_app/models/GameType.dart';
-import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
-import 'package:scenickazatva_app/requests/ImageUploadService.dart';
 import 'package:scenickazatva_app/utils/AppLog.dart';
 import 'package:scenickazatva_app/widgets/DeepLinkButton.dart';
 import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
+import 'package:scenickazatva_app/widgets/admin/AdminFormSection.dart';
+import 'package:scenickazatva_app/widgets/admin/AdminImagePicker.dart';
 
 /// Admin page: edits the game meta (title, description, draw date) and
 /// manages the question list.
@@ -29,9 +28,6 @@ class _GameEditPageState extends State<GameEditPage> {
   final _formKey = GlobalKey<FormState>();
   late GameConfig _edited;
   bool _authorized = false;
-  bool _uploadingImage = false;
-  final ImagePicker _picker = ImagePicker();
-  final ImageUploadService _uploader = ImageUploadService();
 
   @override
   void didChangeDependencies() {
@@ -80,35 +76,6 @@ class _GameEditPageState extends State<GameEditPage> {
     );
     if (picked != null) {
       setState(() => _edited.endsAt = picked);
-    }
-  }
-
-  Future<void> _pickAndUploadImage() async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final picked = await _picker.pickImage(source: ImageSource.gallery);
-      if (picked == null) return;
-      setState(() => _uploadingImage = true);
-      final bytes = await picked.readAsBytes();
-      final festivalId =
-          Provider.of<AppSettingsProvider>(context, listen: false).defaultfestival;
-      final url = await _uploader.uploadBytes(bytes, festivalId: festivalId);
-      if (!mounted) return;
-      if (url == null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Nepodarilo sa nahrať obrázok')),
-        );
-        return;
-      }
-      setState(() => _edited.imageUrl = url);
-    } catch (e) {
-      AppLog.error('GameEditPage: image upload failed', error: e);
-      if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Nepodarilo sa nahrať obrázok')),
-      );
-    } finally {
-      if (mounted) setState(() => _uploadingImage = false);
     }
   }
 
@@ -207,13 +174,13 @@ class _GameEditPageState extends State<GameEditPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+          Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AdminFormSection(
+                  title: "Základné informácie",
                   children: [
                     TextFormField(
                       initialValue: _edited.title,
@@ -222,8 +189,7 @@ class _GameEditPageState extends State<GameEditPage> {
                         labelText: "Názov hry",
                         border: OutlineInputBorder(),
                       ),
-                      validator: (value) =>
-                          (value == null || value.isEmpty) ? 'Prosím zadajte názov' : null,
+                      validator: (value) => (value == null || value.isEmpty) ? 'Prosím zadajte názov' : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -235,53 +201,17 @@ class _GameEditPageState extends State<GameEditPage> {
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    if (_edited.imageUrl.isNotEmpty)
-                      Stack(
-                        alignment: Alignment.topRight,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: AspectRatio(
-                              aspectRatio: 16 / 9,
-                              child: FirebaseImage(
-                                url: _edited.imageUrl,
-                                fit: BoxFit.cover,
-                                errorPlaceholder: const SizedBox.shrink(),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: GestureDetector(
-                              onTap: () => setState(() => _edited.imageUrl = ''),
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.black54,
-                                  shape: BoxShape.circle,
-                                ),
-                                padding: const EdgeInsets.all(4),
-                                child: const Icon(Icons.close, size: 18, color: Colors.white),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    if (_edited.imageUrl.isNotEmpty) const SizedBox(height: 12),
-                    if (_uploadingImage)
-                      const LinearProgressIndicator()
-                    else
-                      OutlinedButton.icon(
-                        onPressed: _pickAndUploadImage,
-                        icon: const Icon(Icons.add_photo_alternate_outlined),
-                        label: Text(
-                          _edited.imageUrl.isEmpty
-                              ? 'Pridať hlavný obrázok hry'
-                              : 'Zmeniť hlavný obrázok',
-                        ),
-                      ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+                    AdminImagePicker(
+                      url: _edited.imageUrl,
+                      label: "hlavný obrázok",
+                      onChanged: (url) => setState(() => _edited.imageUrl = url),
+                    ),
+                  ],
+                ),
+                AdminFormSection(
+                  title: "Nastavenia a stav",
+                  children: [
                     InkWell(
                       onTap: _pickDate,
                       child: InputDecorator(
@@ -291,9 +221,7 @@ class _GameEditPageState extends State<GameEditPage> {
                           suffixIcon: Icon(Icons.event),
                         ),
                         child: Text(
-                          _edited.endsAt != null
-                              ? DateFormat('d.M.yyyy').format(_edited.endsAt!)
-                              : "Nezadané",
+                          _edited.endsAt != null ? DateFormat('d.M.yyyy').format(_edited.endsAt!) : "Nezadané",
                         ),
                       ),
                     ),
@@ -336,9 +264,9 @@ class _GameEditPageState extends State<GameEditPage> {
                       child: Text(
                         _typeDescription(_edited.type),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                          fontStyle: FontStyle.italic,
-                        ),
+                              color: Colors.grey[600],
+                              fontStyle: FontStyle.italic,
+                            ),
                       ),
                     ),
                     if (_edited.type == GameType.live) ...[
@@ -356,7 +284,11 @@ class _GameEditPageState extends State<GameEditPage> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 4),
+                  ],
+                ),
+                AdminFormSection(
+                  title: "Propagácia",
+                  children: [
                     TextFormField(
                       initialValue: _edited.ctaText,
                       onSaved: (value) => _edited.ctaText = value ?? "",
@@ -366,7 +298,6 @@ class _GameEditPageState extends State<GameEditPage> {
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 8),
                     CheckboxListTile(
                       value: _edited.showInAds,
                       onChanged: (value) {
@@ -386,20 +317,18 @@ class _GameEditPageState extends State<GameEditPage> {
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: _confirmDeleteGame,
-                      icon: const Icon(Icons.delete_forever, color: Colors.red),
-                      label: const Text("Zmazať hru", style: TextStyle(color: Colors.red)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red),
-                      ),
-                    ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _confirmDeleteGame,
+                  icon: const Icon(Icons.delete_forever, color: Colors.red),
+                  label: const Text("Zmazať hru", style: TextStyle(color: Colors.red)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                ),
+              ],
             ),
           ),
           Padding(

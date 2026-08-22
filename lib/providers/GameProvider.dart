@@ -29,6 +29,8 @@ class GameProvider extends ChangeNotifier {
   StreamSubscription<DatabaseEvent>? _submissionsSubscription;
   StreamSubscription<DatabaseEvent>? _liveStateSubscription;
   Map<String, dynamic>? _liveState;
+  Timer? _liveCountdown;
+  int _liveSecondsRemaining = 0;
 
   GameProvider();
 
@@ -75,6 +77,7 @@ class GameProvider extends ChangeNotifier {
   bool get isLiveActive => _liveState != null && (_liveState!['isOpen'] == true);
   String? get currentQuestionId => _liveState?['currentQuestionId']?.toString();
   String? get currentFestivalId => _currentFestivalId;
+  int get liveSecondsRemaining => _liveSecondsRemaining;
 
   /// Games visible to the current user (admin sees all, others see published/ended).
   List<GameConfig> get visibleGames {
@@ -277,8 +280,10 @@ class GameProvider extends ChangeNotifier {
       final Object? raw = event.snapshot.value;
       if (raw is Map) {
         _liveState = Map<String, dynamic>.from(raw);
+        _manageLiveTimer();
       } else {
         _liveState = null;
+        _stopLiveCountdown();
       }
       notifyListeners();
     }, onError: (err) {
@@ -286,10 +291,61 @@ class GameProvider extends ChangeNotifier {
     });
   }
 
+  void _manageLiveTimer() {
+    final state = _liveState;
+    if (state == null) return;
+
+    final openedAtStr = state['openedAt']?.toString();
+    final timeLimit = (state['timeLimitSeconds'] ?? game?.timeLimitSeconds ?? 0) as int;
+
+    if (timeLimit <= 0 || openedAtStr == null) {
+      _stopLiveCountdown();
+      return;
+    }
+
+    final openedAt = DateTime.tryParse(openedAtStr);
+    if (openedAt == null) {
+      _stopLiveCountdown();
+      return;
+    }
+
+    final elapsed = DateTime.now().difference(openedAt).inSeconds;
+    final remaining = (timeLimit - elapsed).clamp(0, timeLimit);
+
+    _liveSecondsRemaining = remaining;
+
+    // Start/restart timer if not already running
+    if (_liveCountdown == null || !_liveCountdown!.isActive) {
+      _liveCountdown?.cancel();
+      _liveCountdown = Timer.periodic(const Duration(seconds: 1), (timer) {
+        final now = DateTime.now();
+        final sec = (timeLimit - now.difference(openedAt).inSeconds)
+            .clamp(0, timeLimit);
+        
+        if (sec != _liveSecondsRemaining) {
+          _liveSecondsRemaining = sec;
+          notifyListeners();
+        }
+        
+        if (sec <= 0) {
+          timer.cancel();
+          _liveCountdown = null;
+        }
+      });
+    }
+  }
+
+  void _stopLiveCountdown() {
+    _liveCountdown?.cancel();
+    _liveCountdown = null;
+    _liveSecondsRemaining = 0;
+  }
+
   void _stopLiveStateListener() {
     _liveStateSubscription?.cancel();
     _liveStateSubscription = null;
     _liveState = null;
+    _stopLiveCountdown();
   }
 
   // ── User actions ─────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ import 'package:scenickazatva_app/models/Ad.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
 import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
+import 'package:scenickazatva_app/providers/QuizDraftProvider.dart';
 import 'package:scenickazatva_app/pages/GamePage.dart';
 import 'package:scenickazatva_app/pages/GameQuestionPage.dart';
 import 'package:scenickazatva_app/pages/GameResultsPage.dart';
@@ -421,6 +422,7 @@ class MyApp extends StatelessWidget {
             return gameProvider..updateFromFestival(festivalProvider.festival);
           },
         ),
+        ChangeNotifierProvider(create: (_) => QuizDraftProvider()),
       ],
 
       child: Consumer<AppSettingsProvider>(

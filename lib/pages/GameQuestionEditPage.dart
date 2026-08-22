@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:scenickazatva_app/models/GameQuestion.dart';
-import 'package:scenickazatva_app/providers/AppSettingsProvider.dart';
 import 'package:scenickazatva_app/providers/GameProvider.dart';
 import 'package:scenickazatva_app/providers/UserProvider.dart';
-import 'package:scenickazatva_app/requests/ImageUploadService.dart';
-import 'package:scenickazatva_app/utils/AppLog.dart';
-import 'package:scenickazatva_app/widgets/FirebaseImage.dart';
+import 'package:scenickazatva_app/widgets/admin/AdminFormSection.dart';
+import 'package:scenickazatva_app/widgets/admin/AdminImagePicker.dart';
 
 /// Admin page: creates or edits a single quiz question, with per-type editors.
 class GameQuestionEditPage extends StatefulWidget {
@@ -34,9 +31,6 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
   final List<bool> _optionCorrect = [];
   final List<TextEditingController> _leftControllers = [];
   final List<TextEditingController> _rightControllers = [];
-  final ImagePicker _picker = ImagePicker();
-  final ImageUploadService _uploader = ImageUploadService();
-  bool _uploadingImage = false;
 
   @override
   void didChangeDependencies() {
@@ -137,35 +131,6 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
     });
   }
 
-  Future<void> _pickAndUploadImage() async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final picked = await _picker.pickImage(source: ImageSource.gallery);
-      if (picked == null) return;
-      setState(() => _uploadingImage = true);
-      final bytes = await picked.readAsBytes();
-      final festivalId =
-          Provider.of<AppSettingsProvider>(context, listen: false).defaultfestival;
-      final url = await _uploader.uploadBytes(bytes, festivalId: festivalId);
-      if (!mounted) return;
-      if (url == null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Nepodarilo sa nahrať obrázok')),
-        );
-        return;
-      }
-      setState(() => _edited.imageUrl = url);
-    } catch (e) {
-      AppLog.error('GameQuestionEditPage: image upload failed', error: e);
-      if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Nepodarilo sa nahrať obrázok')),
-      );
-    } finally {
-      if (mounted) setState(() => _uploadingImage = false);
-    }
-  }
-
   List<String> _lines(TextEditingController controller) {
     return controller.text
         .split(RegExp(r'[\n,;]'))
@@ -251,13 +216,13 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+          Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AdminFormSection(
+                  title: "Znenie a obrázok",
                   children: [
                     TextFormField(
                       initialValue: _edited.title,
@@ -266,8 +231,7 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
                         labelText: "Znenie otázky",
                         border: OutlineInputBorder(),
                       ),
-                      validator: (value) =>
-                          (value == null || value.isEmpty) ? 'Prosím zadajte otázku' : null,
+                      validator: (value) => (value == null || value.isEmpty) ? 'Prosím zadajte otázku' : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -279,50 +243,16 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    if (_edited.imageUrl.isNotEmpty)
-                      Stack(
-                        alignment: Alignment.topRight,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: FirebaseImage(
-                              url: _edited.imageUrl,
-                              fit: BoxFit.cover,
-                              errorPlaceholder: const SizedBox.shrink(),
-                            ),
-                          ),
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: GestureDetector(
-                              onTap: () => setState(() => _edited.imageUrl = ''),
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.black54,
-                                  shape: BoxShape.circle,
-                                ),
-                                padding: const EdgeInsets.all(4),
-                                child: const Icon(Icons.close, size: 18, color: Colors.white),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    if (_edited.imageUrl.isNotEmpty) const SizedBox(height: 12),
-                    if (_uploadingImage)
-                      const LinearProgressIndicator()
-                    else
-                      OutlinedButton.icon(
-                        onPressed: _pickAndUploadImage,
-                        icon: const Icon(Icons.add_photo_alternate_outlined),
-                        label: Text(
-                          _edited.imageUrl.isEmpty
-                              ? 'Pridať obrázok'
-                              : 'Zmeniť obrázok',
-                        ),
-                      ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+                    AdminImagePicker(
+                      url: _edited.imageUrl,
+                      onChanged: (url) => setState(() => _edited.imageUrl = url),
+                    ),
+                  ],
+                ),
+                AdminFormSection(
+                  title: "Typ a body",
+                  children: [
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -352,12 +282,9 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
                         Expanded(
                           flex: 1,
                           child: TextFormField(
-                            initialValue: _edited.type == GameQuestionType.textarea
-                                ? "0"
-                                : _edited.points.toString(),
+                            initialValue: _edited.type == GameQuestionType.textarea ? "0" : _edited.points.toString(),
                             keyboardType: TextInputType.number,
-                            onSaved: (value) =>
-                                _edited.points = int.tryParse(value ?? "") ?? 10,
+                            onSaved: (value) => _edited.points = int.tryParse(value ?? "") ?? 10,
                             decoration: const InputDecoration(
                               labelText: "Body",
                               border: OutlineInputBorder(),
@@ -368,16 +295,16 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
                     ),
                   ],
                 ),
-              ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
           switch (_edited.type) {
-            GameQuestionType.text => _buildTextEditor(),
-            GameQuestionType.textarea => _buildTextareaEditor(),
-            GameQuestionType.abc => _buildAbcEditor(context),
-            GameQuestionType.sort => _buildSortEditor(),
-            GameQuestionType.match => _buildMatchEditor(context),
+            GameQuestionType.text => AdminFormSection(title: "Editor odpovede", children: [_buildTextEditor()]),
+            GameQuestionType.textarea => AdminFormSection(title: "Voľný text", children: [_buildTextareaEditor()]),
+            GameQuestionType.abc => AdminFormSection(title: "Možnosti", children: [_buildAbcEditor(context)]),
+            GameQuestionType.sort => AdminFormSection(title: "Poradie", children: [_buildSortEditor()]),
+            GameQuestionType.match => AdminFormSection(title: "Dvojice", children: [_buildMatchEditor(context)]),
           },
           const SizedBox(height: 32),
         ],
@@ -386,191 +313,161 @@ class _GameQuestionEditPageState extends State<GameQuestionEditPage> {
   }
 
   Widget _buildTextEditor() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextFormField(
-              controller: _answerController,
-              decoration: const InputDecoration(
-                labelText: "Správna odpoveď",
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) =>
-                  (value == null || value.trim().isEmpty) ? 'Prosím zadajte odpoveď' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _acceptableController,
-              maxLines: null,
-              decoration: const InputDecoration(
-                labelText: "Akceptované varianty (každá na nový riadok)",
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextFormField(
+          controller: _answerController,
+          decoration: const InputDecoration(
+            labelText: "Správna odpoveď",
+            border: OutlineInputBorder(),
+          ),
+          validator: (value) => (value == null || value.trim().isEmpty) ? 'Prosím zadajte odpoveď' : null,
         ),
-      ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _acceptableController,
+          maxLines: null,
+          decoration: const InputDecoration(
+            labelText: "Akceptované varianty (každá na nový riadok)",
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildTextareaEditor() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Icon(Icons.notes, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    "Textové pole – používatelia sem napíšu voľný text (spätná väzba, návrhy, komentáre).",
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "Body sú automaticky nastavené na 0. Odpoveď sa nekontroluje.",
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+            Icon(Icons.notes, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "Textové pole – používatelia sem napíšu voľný text (spätná väzba, návrhy, komentáre).",
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        Text(
+          "Body sú automaticky nastavené na 0. Odpoveď sa nekontroluje.",
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+        ),
+      ],
     );
   }
 
   Widget _buildAbcEditor(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              "Možnosti a správna odpoveď:",
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            for (var i = 0; i < _optionControllers.length; i++)
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _optionControllers[i],
-                      decoration: InputDecoration(
-                        labelText: "Možnosť ${i + 1}",
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  Checkbox(
-                    value: _optionCorrect[i],
-                    onChanged: (value) =>
-                        setState(() => _optionCorrect[i] = value ?? false),
-                  ),
-                  Text(
-                    "Správna",
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: _optionControllers.length > 2
-                        ? () => _removeAbcOption(i)
-                        : null,
-                  ),
-                ],
-              ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: _addAbcOption,
-                icon: const Icon(Icons.add),
-                label: const Text("Pridať možnosť"),
-              ),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          "Možnosti a správna odpoveď:",
+          style: Theme.of(context).textTheme.titleMedium,
         ),
-      ),
+        const SizedBox(height: 8),
+        for (var i = 0; i < _optionControllers.length; i++)
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _optionControllers[i],
+                  decoration: InputDecoration(
+                    labelText: "Možnosť ${i + 1}",
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              Checkbox(
+                value: _optionCorrect[i],
+                onChanged: (value) => setState(() => _optionCorrect[i] = value ?? false),
+              ),
+              Text(
+                "Správna",
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _optionControllers.length > 2 ? () => _removeAbcOption(i) : null,
+              ),
+            ],
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _addAbcOption,
+            icon: const Icon(Icons.add),
+            label: const Text("Pridať možnosť"),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildSortEditor() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: TextFormField(
-          controller: _sortController,
-          maxLines: null,
-          decoration: const InputDecoration(
-            labelText: "Správne poradie (zhora nadol, každá položka na nový riadok)",
-            border: OutlineInputBorder(),
-          ),
-          validator: (value) =>
-              (value == null || value.trim().isEmpty) ? 'Prosím zadajte poradie' : null,
-        ),
+    return TextFormField(
+      controller: _sortController,
+      maxLines: null,
+      decoration: const InputDecoration(
+        labelText: "Správne poradie (zhora nadol, každá položka na nový riadok)",
+        border: OutlineInputBorder(),
       ),
+      validator: (value) => (value == null || value.trim().isEmpty) ? 'Prosím zadajte poradie' : null,
     );
   }
 
   Widget _buildMatchEditor(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              "Dvojice (ľavé → pravé):",
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            for (var i = 0; i < _leftControllers.length; i++)
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _leftControllers[i],
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(Icons.arrow_forward),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _rightControllers[i],
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => _removeMatchPair(i),
-                  ),
-                ],
-              ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: _addMatchPair,
-                icon: const Icon(Icons.add),
-                label: const Text("Pridať dvojicu"),
-              ),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          "Dvojice (ľavé → pravé):",
+          style: Theme.of(context).textTheme.titleMedium,
         ),
-      ),
+        const SizedBox(height: 8),
+        for (var i = 0; i < _leftControllers.length; i++)
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _leftControllers[i],
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Icon(Icons.arrow_forward),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _rightControllers[i],
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => _removeMatchPair(i),
+              ),
+            ],
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _addMatchPair,
+            icon: const Icon(Icons.add),
+            label: const Text("Pridať dvojicu"),
+          ),
+        ),
+      ],
     );
   }
 

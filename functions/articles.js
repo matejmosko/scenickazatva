@@ -17,9 +17,12 @@ function shouldNotify(lastId, latestPostId) {
 /**
  * Builds the FCM message for a newly detected article.
  * @param {Object} latestPost A WordPress post object.
+ * @param {string} topic The FCM topic to notify.
+ * @param {string} title The notification title.
  * @return {Object} The FCM message payload.
  */
-function buildArticlePayload(latestPost) {
+function buildArticlePayload(latestPost, topic = "magazine_updates",
+    title = "Nov\u00fd \u010dl\u00e1nok na javisko.sk") {
   const bodyText = String(
       (latestPost.title && latestPost.title.rendered) || "")
       .replace(/&#8211;/g, "\u2013")
@@ -27,10 +30,10 @@ function buildArticlePayload(latestPost) {
 
   return {
     notification: {
-      title: "Nov\u00fd \u010dl\u00e1nok na javisko.sk",
+      title: title,
       body: bodyText,
     },
-    topic: "magazine_updates",
+    topic: topic,
     data: {
       id: String(latestPost.id),
       type: "magazine",

@@ -154,6 +154,38 @@ exports.recomputeParticipant = onValueWritten(
       }
     });
 
+/**
+ * Updates the lastNewsPostId for a festival.
+ * Callable by any authenticated user when their app detects a newer article.
+ */
+exports.updateLatestNewsId = functions.region("europe-west1")
+    .https.onCall(async (data, context) => {
+      if (!context.auth) {
+        throw new functions.https.HttpsError(
+            "unauthenticated",
+            "Only authenticated users can update metadata.",
+        );
+      }
+
+      const {festivalId, postId} = data;
+      if (!festivalId || typeof postId !== "number") {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Missing festivalId or postId.",
+        );
+      }
+
+      const ref = admin.database()
+          .ref(`appsettings/festivals/${festivalId}/lastNewsPostId`);
+
+      return ref.transaction((current) => {
+        if (current === null || postId > current) {
+          return postId;
+        }
+        return undefined; // Abort transaction if not newer
+      });
+    });
+
 exports.checkNewArticles = onSchedule("every 30 minutes", async (event) => {
   const settingsRef = admin.database().ref("appsettings");
 
@@ -165,7 +197,7 @@ exports.checkNewArticles = onSchedule("every 30 minutes", async (event) => {
         "https://javisko.sk/wp-json/wp/v2/posts?per_page=1";
     const url = magazineSrc.includes("per_page") ?
         magazineSrc :
-        `${magazineSrc}&per_page=1`;
+        `${magazineSrc}${magazineSrc.includes("?") ? "&" : "?"}per_page=1`;
 
     const response = await axios.get(url);
     const latestPost = response.data[0];
@@ -176,32 +208,44 @@ exports.checkNewArticles = onSchedule("every 30 minutes", async (event) => {
 
     const lastMagazineId = settings.lastMagazinePostId;
 
-    // Update magazine signal (per-app, global)
+    // 1. Update magazine signal (per-app, global)
     if (shouldNotify(lastMagazineId, latestPost.id)) {
       const message = buildArticlePayload(latestPost);
       await admin.messaging().send(message);
-      console.log("Notification sent for article:", latestPost.id);
+      console.log("Notification sent for magazine article:", latestPost.id);
       await settingsRef.update({
         lastMagazinePostId: latestPost.id,
       });
     }
 
-    // Update news signal (per-festival)
-    if (settings.festivals && typeof settings.festivals === "object") {
-      const newsUpdates = {};
-      for (const [id, festival] of Object.entries(settings.festivals)) {
-        const festivalLastId = festival.lastNewsPostId || 0;
-        if (shouldNotify(festivalLastId, latestPost.id)) {
-          newsUpdates[`appsettings/festivals/${id}/lastNewsPostId`] =
-              latestPost.id;
+    // 2. Update news signal ONLY for the current active festival
+    // No push notification, just ensures the ID is up-to-date.
+    const activeId = settings.defaultfestival;
+    const festivals = settings.festivals || {};
+    const currentFest = festivals[activeId];
+
+    if (currentFest && typeof currentFest === "object" &&
+        currentFest.news_src) {
+      const newsSrc = currentFest.news_src;
+      try {
+        const fUrl = newsSrc.includes("per_page") ?
+            newsSrc :
+            `${newsSrc}${newsSrc.includes("?") ? "&" : "?"}per_page=1`;
+        const fRes = await axios.get(fUrl, {timeout: 10000});
+        const fLatest = fRes.data[0];
+
+        if (fLatest && shouldNotify(currentFest.lastNewsPostId, fLatest.id)) {
+          await admin.database()
+              .ref(`appsettings/festivals/${activeId}`)
+              .update({lastNewsPostId: fLatest.id});
+          console.log(
+              `Synced lastNewsPostId for festival ${activeId}:`,
+              fLatest.id,
+          );
         }
-      }
-      if (Object.keys(newsUpdates).length > 0) {
-        await admin.database().ref().update(newsUpdates);
-        console.log(
-            "Updated lastNewsPostId for festivals in appsettings:",
-            Object.keys(newsUpdates).join(", "),
-        );
+      } catch (e) {
+        console.error(`Error polling news for festival ${activeId}:`,
+            e.message);
       }
     }
   } catch (error) {

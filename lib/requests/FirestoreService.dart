@@ -4,7 +4,6 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:scenickazatva_app/models/UserData.dart';
 import 'package:scenickazatva_app/utils/AppLog.dart';
-import 'package:scenickazatva_app/requests/ConnectivityService.dart';
 
 /// Service for managing Firebase Authentication and user profile synchronization
 /// with the Realtime Database.
@@ -22,11 +21,6 @@ class authService {
         return _firebaseAuth.currentUser;
       }
       final userCredential = await _firebaseAuth.signInAnonymously();
-      
-      // Initialize DB record for anonymous user
-      if (userCredential.user != null) {
-        await getUserData(userCredential.user!);
-      }
       return userCredential.user;
     } on FirebaseAuthException catch (e) {
       AppLog.error("Firebase Auth FAILED: ${e.code}", error: e);
@@ -69,17 +63,15 @@ class authService {
         bool needsUpdate = false;
 
         // Sync Auth metadata to DB (userRole is excluded from the write).
-        // id must always match the auth UID (self-heals legacy records that
-        // predate the id field, which left GameProvider._uid empty).
         if (existingUser.id != user.uid) {
           existingUser.id = user.uid;
           needsUpdate = true;
         }
-        if (user.email != null && user.email != existingUser.email) {
+        if (user.email != null && user.email.toString().isNotEmpty && user.email != existingUser.email) {
           existingUser.email = user.email!;
           needsUpdate = true;
         }
-        if (user.displayName != null && user.displayName != existingUser.fullName) {
+        if (user.displayName != null && user.displayName.toString().isNotEmpty && user.displayName != existingUser.fullName) {
           existingUser.fullName = user.displayName!;
           needsUpdate = true;
         }
@@ -97,6 +89,7 @@ class authService {
           fullName: user.displayName ?? "",
           timestamp: DateTime.now().toIso8601String(),
         );
+        // We only save if we have meaningful data or it's a first run
         await saveUserData(newUser);
         return newUser;
       }
@@ -109,6 +102,8 @@ class authService {
   /// Persists user profile changes to Firebase.
   /// userRole is never written by clients; it is managed by the Cloud Function.
   Future<void> saveUserData(UserData user) async {
+    if (user.id.isEmpty) return;
+
     try {
       // Security: toSafeJson() excludes userRole to prevent role elevation
       final data = user.toSafeJson();
@@ -116,11 +111,14 @@ class authService {
       await FirebaseDatabase.instance
           .ref("users/${user.id}")
           .update(data);
-      AppLog.info("Firebase UserData save success");
+      AppLog.info("Firebase UserData save success for ${user.id}");
     } catch (error) {
-      AppLog.error("Error in saveUserData", error: error);
-      ConnectivityService.instance.showTemporaryBanner(
-          "Zmeny sa nepodarilo uložiť — skúste znova");
+      // On first run, a permission error might occur if auth hasn't propagated.
+      // We log it but avoid showing a scary banner for background syncs.
+      AppLog.error("Error in saveUserData for ${user.id}", error: error);
+      
+      // Only show banner if it's a manual edit (not implemented yet, but for safety):
+      // ConnectivityService.instance.showTemporaryBanner(...);
     }
   }
 }

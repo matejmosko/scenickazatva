@@ -10,6 +10,17 @@
     - [x] UI: Category dropdowns, bookmark overlays, and "Read Later" queue page
     - [x] Detail Page: Offline fallback + bookmark toggle
     - [x] Tests: coverage for read-later and category selection logic
+- [x] Game types: four types (`game`/`quiz`/`form`/`live`) with distinct flows, `GameType` enum, admin dropdown, RTDB rules
+- [x] Quiz flow: one-question-per-slide with SlideIndicator + prev/next, batch submit-all on last slide, summary view with correctness breakdown + correct answers for wrong submissions
+- [x] Form flow: all questions on one scrollable page, submit button, success banner in summary
+- [x] Start screen: game/quiz/form types show name input + prominent start button before questions; live type waits for speaker
+- [x] Draft state: `QuizDraftProvider` manages text controllers, selected indexes, sort order, match placed/available per `gameId`
+- [x] Live quiz: speaker-controlled via RTDB `liveState` node, `LiveGameControlPage`, countdown timer, per-question submit gated by timer
+- [x] Live quiz bug fixes: auto-select starts listener, `shouldPersist` includes `isLive`, null guard in `_buildLiveQuestion`
+- [x] Match question drag-and-drop: `DragTarget`/`Draggable` in both `GamePage.dart` and `GameQuestionPage.dart`, each right-side answer placed once
+- [x] Widget extraction: 11 reusable widgets extracted from GamePage into `lib/widgets/` — `DraftBanner`, `GameInfoCard`, `GameNameField`, `QuestionHeader`, `GameProgressBar` (+ `SlideIndicator`), `GameBottomBar`, `GameScoreCard`, `QuestionSummaryCard`, `SubmittedAnswerView`, `QuizSummary`, `FormSummary`
+- [x] Game view extraction: game views split into `lib/widgets/game/` — `QuizGameView`, `FormGameView`, `TileGameView`, `LiveGameView`, `QuestionInput` (unified input for all question types)
+- [x] GamePage refactored: thin coordinator (~438 lines), delegates to view widgets + summaries
 
 ---
 
@@ -48,3 +59,4 @@
 - [x] Move shared inline widgets out of views into `lib/widgets/` (game card, dynamic icon, event tiles) and add a widget test for them.
 - [x] Add `AGENTS.md` entries for game RTDB paths and the `--no-tree-shake-icons` web caveat.
 - [x] Document the manual staging checklist (firebase deploy, web build, tag release) in README.
+- [x] Extract reusable widgets from GamePage into `lib/widgets/` and game views into `lib/widgets/game/` — 11 widgets + 5 game views, GamePage reduced to ~438-line coordinator.

@@ -72,25 +72,28 @@ But since we use Flutter, we mostly care about the `lib`-folder.
 ```tree
 .
 ├── android
-│   ├── app
-│   └── gradle
+│   ├── app
+│   └── gradle
 ├── assets
-│   └── images
+│   └── images
 ├── build
-│   ├── flutter_assets
-│   └── ios
+│   ├── flutter_assets
+│   └── ios
+├── docs
+├── functions
 ├── ios
-│   ├── Flutter
-│   ├── Runner
-│   ├── Runner.xcodeproj
-│   └── Runner.xcworkspace
+│   ├── Flutter
+│   ├── Runner
+│   ├── Runner.xcodeproj
+│   └── Runner.xcworkspace
 ├── lib
-│   ├── models
-│   ├── pages
-│   ├── providers
-│   ├── requests
-│   ├── views
-│   └── widgets
+│   ├── models
+│   ├── pages
+│   ├── providers
+│   ├── requests
+│   ├── utils
+│   ├── views
+│   └── widgets
 ├── resources
 ├── test
 └── web
@@ -107,8 +110,10 @@ lib
 ├── pages
 ├── providers
 ├── requests
+├── utils
 ├── views
 └── widgets
+    └── game/
 ```
 
 ### Main.dart
@@ -139,6 +144,7 @@ models
 ├── GameParticipant.dart
 ├── GameQuestion.dart
 ├── GameSubmission.dart
+├── GameType.dart
 ├── HivePreferences.dart
 ├── InfoPost.dart
 ├── Location.dart
@@ -149,8 +155,9 @@ models
 
 Hive-typed models (`Festival`, `AppSettings`, `Ad`) ship generated `*.g.dart`
 adapters (regenerate with `dart run build_runner build --delete-conflicting-outputs`).
-The game models (`GameConfig`, `GameQuestion`, `GameSubmission`, `GameParticipant`)
-mirror the Realtime Database structure under `festivals/{id}/game` and `users/{uid}/game`.
+The game models (`GameConfig`, `GameQuestion`, `GameSubmission`, `GameParticipant`,
+`GameType`) mirror the Realtime Database structure under `festivals/{id}/game`
+and `users/{uid}/game`.
 
 > Tip: Use the amazing [JSON to Dart](https://javiercbk.github.io/json_to_dart/)-converter  by [Javier Lecuona](https://github.com/javiercbk) to generate dart classes from your JSON.
 
@@ -168,9 +175,15 @@ pages
 ├── GameQuestionEditPage.dart
 ├── GameQuestionPage.dart
 ├── GameResultsPage.dart
+├── GamesListPage.dart
+├── GameWinnersPage.dart
 ├── InfoDetailPage.dart
 ├── InfoEditPage.dart
+├── LiveGameControlPage.dart
+├── LocationDetailPage.dart
+├── LocationEditPage.dart
 ├── NewsDetailPage.dart
+├── ReadLaterPage.dart
 ├── SettingsPage.dart
 └── TabPage.dart
 ```
@@ -189,6 +202,7 @@ providers
 ├── GameProvider.dart
 ├── InfoProvider.dart
 ├── NewsProvider.dart
+├── QuizDraftProvider.dart
 └── UserProvider.dart
 ```
 
@@ -241,13 +255,32 @@ This is the place to keep all our custom widgets.
 ```tree
 widgets
 ├── ConnectivityBanner.dart
+├── DeepLinkButton.dart
+├── DraftBanner.dart
 ├── DynamicIcon.dart
 ├── EventListItem.dart
 ├── FestivalInfoCard.dart
 ├── FirebaseImage.dart
+├── FormSummary.dart
+├── GameBottomBar.dart
 ├── GameCard.dart
+├── GameInfoCard.dart
+├── GameNameField.dart
+├── GameProgressBar.dart    # + SlideIndicator
+├── GameScoreCard.dart
+├── NewsListItem.dart
 ├── PostThumbnail.dart
-└── RichTextEditor.dart
+├── QuestionHeader.dart
+├── QuestionSummaryCard.dart
+├── QuizSummary.dart
+├── RichTextEditor.dart
+├── SubmittedAnswerView.dart
+└── game/
+    ├── FormGameView.dart
+    ├── LiveGameView.dart
+    ├── QuestionInput.dart  # unified input for all question types
+    ├── QuizGameView.dart
+    └── TileGameView.dart
 ```
 
 All app logging goes through `lib/utils/AppLog.dart` (`info`/`warn`/`error`)

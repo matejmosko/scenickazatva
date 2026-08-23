@@ -38,6 +38,9 @@ class WordPressService {
   /// Returns a WordPress client for a specific URL, configuring cache policies
   Future<WordpressClient> _getClient(Uri baseUrl, bool refresh) async {
     final urlString = baseUrl.toString();
+    // Use a composite key so that 'refresh' and 'cached' clients are distinct.
+    // This is necessary because the interceptor policy is fixed at client creation.
+    final clientKey = "$urlString-${refresh ? 'refresh' : 'cached'}";
     
     final cacheStore = await _getCacheStore();
     final cacheOptions = CacheOptions(
@@ -51,16 +54,16 @@ class WordPressService {
       keyBuilder: CacheOptions.defaultCacheKeyBuilder,
     );
     
-    if (!_clients.containsKey(urlString)) {
+    if (!_clients.containsKey(clientKey)) {
       final client = WordpressClient(
         baseUrl: baseUrl,
         bootstrapper: (bootstrapper) => bootstrapper
             .withDioInterceptor(DioCacheInterceptor(options: cacheOptions))
             .build());
-      _clients[urlString] = client;
+      _clients[clientKey] = client;
     }
     
-    return _clients[urlString]!;
+    return _clients[clientKey]!;
   }
 
   /// Fetches a paginated list of posts from the specified WordPress URL.

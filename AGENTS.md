@@ -17,22 +17,67 @@ Flutter app (Material 3) for the Scénická žatva festival / javisko.sk. UI tex
 - **Despite its name, `FirestoreService.dart` talks to the Realtime Database, not Firestore** (the backend is entirely RTDB).
 - Realtime DB layout:
   - `festivals/{id}/games/{gameId}`: meta `title`/`description`/`endsAt`/`endsAtMs` (epoch ms — the security rule compares it to `now`; keep it in sync with `endsAt` in `GameConfig.toJson`), `status` (`"draft"` / `"published"` / `"ended"`), `questions/{id}`, `participants/{uid}` (server-computed; `winner` flag admin/editor-only). Multiple games per festival are supported.
+  - `festivals/{id}/games/{gameId}/liveState`: live quiz control (`isOpen`, `currentQuestionId`, `openedAt`). Written by admin/editor only via `LiveGameControlPage`.
   - `users/{uid}/game/{festivalId}/{gameId}/{questionId}`: user submissions (`correct`, `answeredAt`, `points`, `answer`).
   - `users/{uid}`: profiles. `appsettings/festivals` + `appsettings/defaultfestival`: festival config. The active `Festival` is selected from `AppSettings.defaultfestival`, not fetched directly.
 - Security rules live in `database.rules.json` (deployed with `firebase deploy`). RTDB rules cascade top-down — shallow rules override deeper ones, so access is granted per-node, never per-field-revoked. Game submissions are blocked after `games/{gameId}/endsAtMs`; `participants` writes are admin/editor-only. Roles (`userRole`) are assigned by Cloud Functions; clients only write profile fields via `UserData.toSafeJson()` (`lib/requests/FirestoreService.dart`) and can never write `userRole` or read `appsettings/predefinedRoles`. Game `winner` is protected by a `.validate` rule (admin/editor only).
+
+## Game types
+
+Four `GameType` values (`lib/models/GameType.dart`): `game`, `quiz`, `form`, `live`.
+
+| Type | Flow | Start screen | Submit | Persistence |
+|------|------|-------------|--------|-------------|
+| `game` | Tile list → single-question page per tap | No | Per question | Correct only |
+| `quiz` | One-question-per-slide → submit all | Yes (name input) | Batch on last slide | All answers |
+| `form` | All questions on one scrollable page | Yes (name input) | Single submit button | All answers |
+| `live` | Speaker-controlled via RTDB `liveState` node | No (waits for speaker) | Per question, timer-gated | All answers |
+
+- **Draft state** is managed by `QuizDraftProvider` (`lib/providers/QuizDraftProvider.dart`) — text controllers, selected indexes, sort order, match placed/available. Initialized once per `gameId`. Supports all question types: text/textarea (TextEditingController), abc (Set<int>), sort (shuffled List<String>), match (placed Map + available List via drag-and-drop).
+- **GamePage.dart** is a thin coordinator (~438 lines). Delegates to `QuizGameView`, `FormGameView`, `TileGameView`, `LiveGameView` (under `lib/widgets/game/`), `QuizSummary`, `FormSummary` (under `lib/widgets/`).
+- **`_gameStarted`**: game/quiz/form types show a start screen with name input + prominent start button before any questions. Skipped when game is closed.
+
+## Widget extraction
+
+Reusable widgets extracted from GamePage into `lib/widgets/`:
+
+- `DraftBanner` — orange "Toto je koncept" banner for draft games
+- `GameInfoCard` — image + description + endsAt countdown
+- `GameNameField` — text input with debounce, reads initial value from `UserProvider.fullName`
+- `QuestionHeader` — type icon + index + title + description + points, optional `statusIcon`/`statusColor`/`showPoints`
+- `GameProgressBar` — progress bar + "Zodpovedané X/Y" + "Skóre X/Y"; also contains `SlideIndicator`
+- `GameBottomBar` — shadow container for bottom action bars (quiz nav, live submit)
+- `GameScoreCard` — score summary card (icon + correct count + points)
+- `QuestionSummaryCard` — per-question result card with `showCorrectness` toggle; uses `SubmittedAnswerView` for rendering answers; shows correct answer for wrong submissions (quiz only)
+- `SubmittedAnswerView` — renders a submitted answer for any question type as formatted text
+- `QuizSummary` — full quiz summary page (score card + restart + per-question cards)
+- `FormSummary` — full form summary page (success banner + restart + per-question cards, no correctness)
+
+Game view widgets in `lib/widgets/game/`:
+
+- `QuizGameView` — one-question-per-slide with `SlideIndicator` + prev/next + "Odovzdať všetko"
+- `FormGameView` — scrollable list of all questions + submit button
+- `TileGameView` — tile list navigating to single-question pages
+- `LiveGameView` — speaker-controlled with countdown timer + waiting states
+- `QuestionInput` — unified input widget for all question types (text, abc, sort via ReorderableListView, match via DragTarget/Draggable)
 
 ## Data architecture
 
 - `lib/requests/` are the services: `FirestoreService.dart` (auth + user records; class is `authService`), `WordPressService.dart` (news/magazine via `wordpress_client` with Hive-backed HTTP cache + offline fallback), `ConnectivityService.dart` (singleton, subscribes to RTDB `.info/connected`; `debugSetOnline` for tests), `ImageUploadService.dart`, `NotificationService.dart`, `ImagePrecacheService.dart`, `SystemServices.dart` (url launching + analytics).
 - `lib/utils/` has `AppLog.dart` (structured logging replacing all `debugPrint` calls), `DeepLinks.dart` (custom-scheme + bare-path normaliser), `ThemeFactory.dart` (Material 3 themes with per-festival accent + fixed black bottom bar + 48px toolbar), `StringUtils.dart`, `TimeUtils.dart`, `HtmlUtils.dart`, `GameUtils.dart`.
-- `lib/providers/*` are `ChangeNotifier`s wired in `lib/main.dart`'s `MultiProvider`. `EventsProvider`/`NewsProvider`/`InfoProvider`/`GameProvider` depend on user role and/or festival/settings via `ChangeNotifierProxyProvider`. `GameProvider` manages multiple games per festival (selected via `selectGame(gameId)`).
-- `lib/models/` contains Hive-typed models (`Festival`, `AppSettings`, `Ad`) plus plain models (`Event`, `GameConfig` (has `id` field), `GameQuestion` (types: text/abc/sort/match/textarea), `GameSubmission`, `GameParticipant`, `UserData`, `Location`, `InfoPost`, …). `lib/models/HivePreferences.dart` writes a `schema_version` key — stale versions reset to defaults (see README).
-- `lib/widgets/` has `DynamicIcon.dart` (DB-driven icon codepoints), `PostThumbnail.dart` (120×120 thumbnail with optional bookmark overlay), `ConnectivityBanner.dart` (36px offline bar that owns the status-bar inset; no `SafeArea` wrapper in the builder), `FestivalInfoCard.dart`, `GameCard.dart` (links to `/games`), `FirebaseImage.dart`, `RichTextEditor.dart`.
+- `lib/providers/*` are `ChangeNotifier`s wired in `lib/main.dart`'s `MultiProvider`. `EventsProvider`/`NewsProvider`/`InfoProvider`/`GameProvider` depend on user role and/or festival/settings via `ChangeNotifierProxyProvider`. `GameProvider` manages multiple games per festival (selected via `selectGame(gameId)`). `QuizDraftProvider` manages local draft state for quiz/form games (text controllers, selected indexes, sort/match state).
+- `lib/models/` contains Hive-typed models (`Festival`, `AppSettings`, `Ad`) plus plain models (`Event`, `GameConfig` (has `id` field, `type` field, `timeLimitSeconds`, `replayable`, `ctaText`, `showInAds`), `GameQuestion` (types: text/abc/sort/match/textarea), `GameType` (enum: game/quiz/form/live), `GameSubmission`, `GameParticipant`, `UserData`, `Location`, `InfoPost`, …). `lib/models/HivePreferences.dart` writes a `schema_version` key — stale versions reset to defaults (see README).
+- `lib/widgets/` has reusable UI components. `DynamicIcon.dart` (DB-driven icon codepoints), `PostThumbnail.dart` (120×120 thumbnail with optional bookmark overlay), `ConnectivityBanner.dart` (36px offline bar that owns the status-bar inset; no `SafeArea` wrapper in the builder), `FestivalInfoCard.dart`, `GameCard.dart` (links to `/games`), `FirebaseImage.dart`, `RichTextEditor.dart`.
 
 ## Repo gotchas
 
 - Firebase agent skills are vendored in `.agents/skills/` (gitignored; managed by `skills-lock.json`); load them for Firebase work. If `.agents/` is absent (e.g. fresh clone), the `firebase-security-rules-auditor` skill is unavailable — audit `database.rules.json` manually.
 - CI is external (Codemagic, triggered by git tags), not configured in this repo.
+- RTDB rules don't support `in` operator, `isMap()`, or `isBool()` — use `isBoolean()` instead.
+- `update()` on a parent path is NOT covered by child-level `.write` rules — requires parent `.write` rule.
+- `newData.hasChildren([...])` at a parent level blocks writes to any child not in the list.
+- Analytics `logEvent` parameters must be `String` or `num` — booleans must be `.toString()`'d.
+- `DropdownButtonFormField` deprecation: use `initialValue` instead of `value` (Flutter 3.33+).
 
 ## Workflow
 

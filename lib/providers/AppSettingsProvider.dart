@@ -13,6 +13,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 class AppSettingsProvider extends ChangeNotifier {
   AppSettings _settings = AppSettings();
   StreamSubscription<DatabaseEvent>? _settingsSubscription;
+  StreamSubscription<User?>? _authSubscription;
   final Map<String, StreamSubscription<DatabaseEvent>> _eventSubscriptions = {};
   final Map<String, List<model.Event>> _liveEventsByFestival = {};
 
@@ -52,28 +53,34 @@ class AppSettingsProvider extends ChangeNotifier {
   AppSettingsProvider() {
     AppLog.info("DEBUG: AppSettingsProvider constructor started");
     loadSettings();
-    syncWithFirebase();
+    _initAuthListener();
+  }
+
+  void _initAuthListener() {
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        syncWithFirebase();
+      } else {
+        _settingsSubscription?.cancel();
+        _settingsSubscription = null;
+      }
+    });
   }
 
   // 1. Load from Hive first (Offline First)
   Future<void> loadSettings() async {
     try {
       Preferences prefs = await Preferences.getInstance();
-      if (!_initialized) {
-        _settings = prefs.getAppSettings();
-        _allFestivals = _settings.festivals.values.toList();
-        _allFestivals.sort((a, b) => (b.startDate ?? DateTime(0)).compareTo(a.startDate ?? DateTime(0)));
-        AppLog.info("DEBUG: Hive load complete. ID: ${_settings.defaultfestival}");
-        
-        // If we have a valid-looking ID from Hive, we can mark as initialized
-        if (_settings.defaultfestival.isNotEmpty && _settings.defaultfestival != "sutaze") {
-           _initialized = true;
-           
-           // Sync link interception state with native on startup
-           _syncInterceptLinksNative();
-           
-           notifyListeners();
-        }
+      _settings = prefs.getAppSettings();
+      _allFestivals = _settings.festivals.values.toList();
+      _allFestivals.sort((a, b) => (b.startDate ?? DateTime(0)).compareTo(a.startDate ?? DateTime(0)));
+      AppLog.info("DEBUG: Hive load complete. ID: ${_settings.defaultfestival}");
+      
+      // Mark as initialized if we have data from a previous session
+      if (_settings.defaultfestival.isNotEmpty) {
+          _initialized = true;
+          _syncInterceptLinksNative();
+          notifyListeners();
       }
     } catch (e) {
       AppLog.error("DEBUG: Hive error", error: e);
@@ -90,6 +97,8 @@ class AppSettingsProvider extends ChangeNotifier {
   }
 
   void syncWithFirebase() {
+    if (_settingsSubscription != null) return; // Already syncing
+
     DatabaseReference globalRef = FirebaseDatabase.instance.ref("appsettings");
 
     _settingsSubscription = globalRef.onValue.listen((event) async {
@@ -111,11 +120,10 @@ class AppSettingsProvider extends ChangeNotifier {
             final userSnap = await userPrefRef.get();
 
             if (userSnap.exists && userSnap.value != null) {
-              // 2. If user has setting, use it
               selectedId = userSnap.value.toString();
               AppLog.info("DEBUG: Using User Preference: $selectedId");
             } else {
-              // 1. If user doesn't have setting, use global default and CREATE it for them
+              // Only create if we are online and have a valid default
               AppLog.info("DEBUG: Creating user preference with global default: $selectedId");
               await userPrefRef.set(selectedId);
             }
@@ -319,6 +327,7 @@ class AppSettingsProvider extends ChangeNotifier {
   @override
   void dispose() {
     _settingsSubscription?.cancel();
+    _authSubscription?.cancel();
     for (final sub in _eventSubscriptions.values) {
       sub.cancel();
     }

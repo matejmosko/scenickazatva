@@ -9,6 +9,7 @@ import 'package:scenickazatva_app/utils/AppLog.dart';
 import 'package:scenickazatva_app/requests/ConnectivityService.dart';
 import 'package:scenickazatva_app/utils/StringUtils.dart';
 import 'package:scenickazatva_app/models/PostExtension.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class NewsProvider extends ChangeNotifier {
   static const int blogCategoryId = 999999;
@@ -41,6 +42,9 @@ class NewsProvider extends ChangeNotifier {
   List<String> _secondaryMagazineUrls = [];
   int _lastNewsPostId = 0;
   int _lastMagazinePostId = 0;
+
+  // Cache of metadata healing attempts in the current session to avoid redundant Cloud Function calls.
+  static final Set<String> _healedIds = {};
 
   NewsProvider() {
     _initReadArticles();
@@ -170,12 +174,13 @@ class NewsProvider extends ChangeNotifier {
 
   void updateFromFestival(Festival festival) {
     bool festivalChanged = _currentFestivalId != festival.id;
-    bool newsUpdated = _lastNewsPostId != festival.lastNewsPostId;
+    bool newsSignalReceived = _lastNewsPostId != festival.lastNewsPostId;
 
     if (festivalChanged) {
       AppLog.info("NewsProvider: Festival changed: ${festival.id}");
       
       _currentFestivalId = festival.id;
+      _lastNewsPostId = festival.lastNewsPostId;
       
       _newsSrc = festival.news_src;
       _magazineSrc = festival.magazine_src;
@@ -206,7 +211,7 @@ class NewsProvider extends ChangeNotifier {
       fetchWpMagazine(refresh: true);
       fetchMagazineCategories();
       fetchNewsCategories();
-    } else if (newsUpdated) {
+    } else if (newsSignalReceived) {
       // Signal: new article published (Cloud Function updated festival.lastNewsPostId)
       AppLog.info("NewsProvider: News update signal received. ID: ${festival.lastNewsPostId}");
       _lastNewsPostId = festival.lastNewsPostId;
@@ -241,11 +246,11 @@ class NewsProvider extends ChangeNotifier {
 
     try {
       // 1. Try to load from cache first if we are refreshing and the memory list is empty
+      // This provides a "shimmer" effect with old data while fetching.
       if (refresh && _wpnews.isEmpty) {
         final cachedData = await WordPressService().fetchWpNews(_newsSrc!, 1, false, search: _newsSearchQuery, categoryId: _selectedNewsCategoryId);
         if (cachedData.isNotEmpty) {
           _wpnews = List.from(cachedData);
-          newspage = 2;
           notifyListeners();
         }
       }
@@ -261,23 +266,49 @@ class NewsProvider extends ChangeNotifier {
         return;
       }
 
-      final data = await WordPressService().fetchWpNews(_newsSrc!, newspage, refresh, search: _newsSearchQuery, categoryId: _selectedNewsCategoryId);
+      final fetchPage = refresh ? 1 : newspage;
+      final data = await WordPressService().fetchWpNews(_newsSrc!, fetchPage, refresh, search: _newsSearchQuery, categoryId: _selectedNewsCategoryId);
+      
       if (data.isEmpty) {
-        if (newspage == 1) {
-          if (_wpnews.isEmpty) {
+        if (fetchPage == 1) {
+          if (_wpnews.isEmpty || refresh) {
+            _wpnews = [];
             allnews = true;
           }
         } else {
           allnews = true;
         }
-      }
-      
-      if (newspage == 1) {
-        _wpnews = List.from(data);
-        newspage = 2;
       } else {
-        _wpnews.addAll(data);
-        newspage++;
+        if (fetchPage == 1) {
+          _wpnews = List.from(data);
+          newspage = 2;
+
+          // Metadata Healing: Any user can trigger a global ID update signal if a newer post is found.
+          if (data.isNotEmpty && data.first.id > _lastNewsPostId) {
+            final id = data.first.id;
+            _lastNewsPostId = id; // Update locally immediately
+
+            final healKey = "$_currentFestivalId-$id";
+            if (!_healedIds.contains(healKey)) {
+              _healedIds.add(healKey); // Optimistically mark as healed
+              AppLog.info("Invoking updateLatestNewsId for $_currentFestivalId to $id");
+              FirebaseFunctions.instanceFor(region: 'europe-west1')
+                  .httpsCallable('updateLatestNewsId')
+                  .call({
+                'festivalId': _currentFestivalId,
+                'postId': id,
+              }).then((_) {
+                AppLog.info("Metadata healed successfully.");
+              }).catchError((e) {
+                AppLog.warn("Failed to heal metadata via Cloud Function: $e");
+                return null;
+              });
+            }
+          }
+        } else {
+          _wpnews.addAll(data);
+          newspage++;
+        }
       }
 
       ImagePrecacheService().precacheWpImages(data);
@@ -344,7 +375,6 @@ class NewsProvider extends ChangeNotifier {
 
         if (cachedData.isNotEmpty) {
           _wparticles = List.from(cachedData);
-          magazinepage = 2;
           notifyListeners();
         }
       }
@@ -359,10 +389,11 @@ class NewsProvider extends ChangeNotifier {
         return;
       }
 
+      final fetchPage = refresh ? 1 : magazinepage;
       List<Post> data = [];
       if (_selectedMagazineCategoryId == blogCategoryId) {
         final results = await Future.wait(
-          _secondaryMagazineUrls.map((url) => WordPressService().fetchWpNews(url, magazinepage, refresh, search: _magazineSearchQuery))
+          _secondaryMagazineUrls.map((url) => WordPressService().fetchWpNews(url, fetchPage, refresh, search: _magazineSearchQuery))
         );
         for (int i = 0; i < results.length; i++) {
           for (var p in results[i]) {
@@ -373,13 +404,13 @@ class NewsProvider extends ChangeNotifier {
         data.sort((a, b) => (b.date ?? DateTime.fromMillisecondsSinceEpoch(0))
             .compareTo(a.date ?? DateTime.fromMillisecondsSinceEpoch(0)));
       } else if (_selectedMagazineCategoryId != null) {
-        data = await WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, categoryId: _selectedMagazineCategoryId, search: _magazineSearchQuery);
+        data = await WordPressService().fetchWpNews(_magazineSrc!, fetchPage, refresh, categoryId: _selectedMagazineCategoryId, search: _magazineSearchQuery);
       } else {
-        final primaryResults = await WordPressService().fetchWpNews(_magazineSrc!, magazinepage, refresh, search: _magazineSearchQuery);
+        final primaryResults = await WordPressService().fetchWpNews(_magazineSrc!, fetchPage, refresh, search: _magazineSearchQuery);
         
         if (_secondaryMagazineUrls.isNotEmpty) {
           final secondaryResults = await Future.wait(
-            _secondaryMagazineUrls.map((url) => WordPressService().fetchWpNews(url, magazinepage, refresh, search: _magazineSearchQuery))
+            _secondaryMagazineUrls.map((url) => WordPressService().fetchWpNews(url, fetchPage, refresh, search: _magazineSearchQuery))
           );
           
           data.addAll(primaryResults);
@@ -397,21 +428,22 @@ class NewsProvider extends ChangeNotifier {
       }
 
       if (data.isEmpty) {
-        if (magazinepage == 1) {
-          if (_wparticles.isEmpty) {
+        if (fetchPage == 1) {
+          if (_wparticles.isEmpty || refresh) {
+            _wparticles = [];
             allarticles = true;
           }
         } else {
           allarticles = true;
         }
-      }
-
-      if (magazinepage == 1) {
-        _wparticles = List.from(data);
-        magazinepage = 2;
       } else {
-        _wparticles.addAll(data);
-        magazinepage++;
+        if (fetchPage == 1) {
+          _wparticles = List.from(data);
+          magazinepage = 2;
+        } else {
+          _wparticles.addAll(data);
+          magazinepage++;
+        }
       }
 
       ImagePrecacheService().precacheWpImages(data);

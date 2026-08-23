@@ -111,11 +111,13 @@ class _TabPageState extends State<TabPage> {
                       icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
                       selectedItemBuilder: (context) {
                         return settings.allFestivals.map((f) {
+                          final title = festivalProvider.festival.title;
+                          final displayTitle = (f.id == settings.defaultfestival && title.isNotEmpty)
+                                  ? title
+                                  : (f.title.isEmpty ? f.id : f.title);
                           return Center(
                             child: Text(
-                              (f.id == settings.defaultfestival && festivalProvider.festival.title.isNotEmpty)
-                                  ? festivalProvider.festival.title
-                                  : (f.title.isEmpty ? f.id : f.title),
+                              displayTitle,
                               style: const TextStyle(
                                   fontFamily: 'Space Grotesk',
                                   color: Colors.white,
@@ -213,7 +215,7 @@ class _TabPageState extends State<TabPage> {
                     ),
                     NavigationDestination(
                       icon: const Icon(Icons.date_range),
-                      label: festival.menuTitle,
+                      label: festival.displayMenuTitle,
                     ),
                     NavigationDestination(
                       icon: const Icon(Icons.notifications),

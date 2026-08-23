@@ -171,7 +171,7 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                               isSaved: newsProvider.isReadLater(item.link),
                               isRead: newsProvider.isRead(item.id),
                               routePrefix: "/magazine",
-                              label: label,
+                              label: label ?? "",
                               onToggleBookmark: () =>
                                   newsProvider.toggleReadLater(item,
                                       route: "/magazine/${item.id}"),

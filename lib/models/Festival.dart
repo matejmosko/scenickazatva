@@ -59,6 +59,8 @@ class Festival {
   @HiveField(17)
   String menuTitle;
 
+  String get displayMenuTitle => menuTitle.isNotEmpty ? menuTitle : (title.isNotEmpty ? title : "Program");
+
   @HiveField(18)
   String id;
 

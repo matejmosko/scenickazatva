@@ -284,25 +284,29 @@ class NewsProvider extends ChangeNotifier {
           newspage = 2;
 
           // Metadata Healing: Any user can trigger a global ID update signal if a newer post is found.
-          if (data.isNotEmpty && data.first.id > _lastNewsPostId) {
+          if (data.isNotEmpty && data.first.id > _lastNewsPostId && _currentFestivalId != null) {
             final id = data.first.id;
             _lastNewsPostId = id; // Update locally immediately
 
             final healKey = "$_currentFestivalId-$id";
             if (!_healedIds.contains(healKey)) {
               _healedIds.add(healKey); // Optimistically mark as healed
-              AppLog.info("Invoking updateLatestNewsId for $_currentFestivalId to $id");
-              FirebaseFunctions.instanceFor(region: 'europe-west1')
-                  .httpsCallable('updateLatestNewsId')
-                  .call({
-                'festivalId': _currentFestivalId,
-                'postId': id,
-              }).then((_) {
-                AppLog.info("Metadata healed successfully.");
-              }).catchError((e) {
-                AppLog.warn("Failed to heal metadata via Cloud Function: $e");
-                return null;
-              });
+              AppLog.info("Invoking syncLatestNewsId for $_currentFestivalId to $id");
+              
+              try {
+                final functions = FirebaseFunctions.instanceFor(region: 'europe-west1');
+                functions.httpsCallable('syncLatestNewsId').call({
+                  'festivalId': _currentFestivalId,
+                  'postId': id,
+                }).then((_) {
+                  AppLog.info("Metadata healed successfully.");
+                }).catchError((e) {
+                  AppLog.warn("Failed to heal metadata via Cloud Function: $e");
+                  return null;
+                });
+              } catch (e) {
+                AppLog.warn("Could not initialize FirebaseFunctions: $e");
+              }
             }
           }
         } else {

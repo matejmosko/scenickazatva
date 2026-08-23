@@ -6,7 +6,9 @@ const axios = require("axios");
 const {shouldNotify, buildArticlePayload} = require("./articles");
 const {isPastDeadline, computeParticipantUpdate} = require("./gameLogic");
 
-admin.initializeApp();
+admin.initializeApp({
+  databaseURL: "https://scenickazatva-343517-default-rtdb.europe-west1.firebasedatabase.app",
+});
 
 /**
  * Normalizes an email for role lookups (lowercase, trimmed).
@@ -53,7 +55,6 @@ async function findRoleForEmail(email) {
 
 /**
  * Assigns a role from predefinedRoles to a newly created user.
- * userRole is never client-writable, so this must happen server-side.
  */
 exports.assignRoleOnUserCreated =
     functions.auth.user().onCreate(async (user) => {
@@ -93,12 +94,7 @@ exports.syncRolesFromPredefinedRoles = onValueWritten(
     });
 
 /**
- * Recomputes a participant's score from their submissions whenever one
- * changes, and freezes submissions that arrive after the game deadline.
- *
- * Participant records are server-derived: the client cannot write them (the
- * rules allow only admin/editor), which prevents players from inflating their
- * own score or marking themselves as winners. The `winner` flag is preserved.
+ * Recomputes a participant's score from their submissions.
  */
 exports.recomputeParticipant = onValueWritten(
     {ref: "users/{uid}/game/{festivalId}/{gameId}/{questionId}",
@@ -109,16 +105,10 @@ exports.recomputeParticipant = onValueWritten(
 
       const [gameSnap, subSnap, partSnap, userSnap] =
           await Promise.all([
-            db.ref(
-                `festivals/${festivalId}/games/${gameId}`,
-            ).get(),
-            db.ref(
-                `users/${uid}/game/${festivalId}/${gameId}`,
-            ).get(),
-            db.ref(
-                `festivals/${festivalId}/games/${gameId}` +
-                `/participants/${uid}`,
-            ).get(),
+            db.ref(`festivals/${festivalId}/games/${gameId}`).get(),
+            db.ref(`users/${uid}/game/${festivalId}/${gameId}`).get(),
+            db.ref(`festivals/${festivalId}/games/${gameId}` +
+                `/participants/${uid}`).get(),
             db.ref(`users/${uid}`).get(),
           ]);
 
@@ -126,13 +116,9 @@ exports.recomputeParticipant = onValueWritten(
       const endsAtMs = game && game.endsAtMs;
       const userProfile = userSnap.val();
       const userFullName =
-          userProfile &&
-          typeof userProfile.fullName === "string" ?
+          userProfile && typeof userProfile.fullName === "string" ?
               userProfile.fullName : "";
 
-      // Defense in depth: the security rules already reject late writes, but
-      // roll back any that slipped through (e.g. offline writes from an old
-      // app version).
       if (isPastDeadline(endsAtMs, Date.now())) {
         await event.data.after.ref.remove();
         return;
@@ -155,10 +141,10 @@ exports.recomputeParticipant = onValueWritten(
     });
 
 /**
- * Updates the lastNewsPostId for a festival.
- * Callable by any authenticated user when their app detects a newer article.
+ * Synchronizes the lastNewsPostId for a festival.
+ * Callable by any authenticated user.
  */
-exports.updateLatestNewsId = functions.region("europe-west1")
+exports.syncLatestNewsId = functions.region("europe-west1")
     .https.onCall(async (data, context) => {
       if (!context.auth) {
         throw new functions.https.HttpsError(
@@ -169,28 +155,42 @@ exports.updateLatestNewsId = functions.region("europe-west1")
 
       const {festivalId, postId} = data;
       if (!festivalId || typeof postId !== "number") {
+        console.error("updateLatestNewsId: Invalid arguments", data);
         throw new functions.https.HttpsError(
             "invalid-argument",
             "Missing festivalId or postId.",
         );
       }
 
+      console.log(`Healing metadata for ${festivalId} to ${postId}`);
       const ref = admin.database()
           .ref(`appsettings/festivals/${festivalId}/lastNewsPostId`);
 
-      return ref.transaction((current) => {
-        if (current === null || postId > current) {
-          return postId;
-        }
-        return undefined; // Abort transaction if not newer
-      });
+      try {
+        const result = await ref.transaction((current) => {
+          if (current === null || postId > current) {
+            return postId;
+          }
+          return undefined; // Abort
+        });
+
+        return {
+          committed: result.committed,
+          newId: result.snapshot.val(),
+        };
+      } catch (error) {
+        console.error("updateLatestNewsId transaction failed:", error);
+        throw new functions.https.HttpsError(
+            "internal",
+            "Transaction failed.",
+        );
+      }
     });
 
 exports.checkNewArticles = onSchedule("every 30 minutes", async (event) => {
   const settingsRef = admin.database().ref("appsettings");
 
   try {
-    // Read magazine_src from appsettings
     const settingsSnap = await settingsRef.get();
     const settings = settingsSnap.val() || {};
     const magazineSrc = settings.magazine_src ||
@@ -202,24 +202,20 @@ exports.checkNewArticles = onSchedule("every 30 minutes", async (event) => {
     const response = await axios.get(url);
     const latestPost = response.data[0];
 
-    if (!latestPost) {
-      return;
-    }
+    if (!latestPost) return;
 
     const lastMagazineId = settings.lastMagazinePostId;
 
-    // 1. Update magazine signal (per-app, global)
     if (shouldNotify(lastMagazineId, latestPost.id)) {
       const message = buildArticlePayload(latestPost);
       await admin.messaging().send(message);
-      console.log("Notification sent for magazine article:", latestPost.id);
+      console.log("Notification sent for magazine article:",
+          latestPost.id);
       await settingsRef.update({
         lastMagazinePostId: latestPost.id,
       });
     }
 
-    // 2. Update news signal ONLY for the current active festival
-    // No push notification, just ensures the ID is up-to-date.
     const activeId = settings.defaultfestival;
     const festivals = settings.festivals || {};
     const currentFest = festivals[activeId];
@@ -238,10 +234,8 @@ exports.checkNewArticles = onSchedule("every 30 minutes", async (event) => {
           await admin.database()
               .ref(`appsettings/festivals/${activeId}`)
               .update({lastNewsPostId: fLatest.id});
-          console.log(
-              `Synced lastNewsPostId for festival ${activeId}:`,
-              fLatest.id,
-          );
+          console.log(`Synced lastNewsPostId for festival ${activeId}:`,
+              fLatest.id);
         }
       } catch (e) {
         console.error(`Error polling news for festival ${activeId}:`,

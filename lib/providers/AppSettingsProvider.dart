@@ -88,6 +88,7 @@ class AppSettingsProvider extends ChangeNotifier {
   }
 
   void _syncInterceptLinksNative() {
+    if (kIsWeb) return;
     const platform = MethodChannel('sk.panakrala.scenickazatva/settings');
     try {
       platform.invokeMethod('setInterceptLinks', {"enabled": _settings.interceptLinks});
@@ -245,11 +246,13 @@ class AppSettingsProvider extends ChangeNotifier {
     }
 
     // Call native code to enable/disable the intent filter
-    const platform = MethodChannel('sk.panakrala.scenickazatva/settings');
-    try {
-      platform.invokeMethod('setInterceptLinks', {"enabled": enabled});
-    } catch (e) {
-      AppLog.warn("Error calling native setInterceptLinks: $e");
+    if (!kIsWeb) {
+      const platform = MethodChannel('sk.panakrala.scenickazatva/settings');
+      try {
+        platform.invokeMethod('setInterceptLinks', {"enabled": enabled});
+      } catch (e) {
+        AppLog.warn("Error calling native setInterceptLinks: $e");
+      }
     }
 
     notifyListeners();

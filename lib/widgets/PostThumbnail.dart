@@ -16,6 +16,14 @@ class PostThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (imageUrl.isEmpty) {
+      return Container(
+        width: 120,
+        height: 120,
+        child: Image.asset('assets/images/icon512.png', fit: BoxFit.cover),
+      );
+    }
+
     return Container(
       width: 120.0,
       height: 120.0,

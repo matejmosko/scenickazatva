@@ -171,7 +171,7 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                               isSaved: newsProvider.isReadLater(item.link),
                               isRead: newsProvider.isRead(item.id),
                               routePrefix: "/magazine",
-                              label: label ?? "",
+                              label: label,
                               onToggleBookmark: () =>
                                   newsProvider.toggleReadLater(item,
                                       route: "/magazine/${item.id}"),
@@ -344,7 +344,9 @@ class _MagazineViewState extends State<MagazineView> with AutomaticKeepAliveClie
                       if (deepLink != null) {
                         context.go(deepLink);
                       } else {
-                        SystemServices().launchURL(ad.link);
+                        // Ads often redirect to external apps (WhatsApp, Stores, etc.)
+                        // Force external application to avoid ERR_UNKNOWN_URL_SCHEME in WebView
+                        SystemServices().launchURL(ad.link, forceExternal: true);
                       }
                     }
                   },

@@ -9,6 +9,7 @@ class SystemServices {
 
   launchURL(String url, {bool forceExternal = false}) async {
     final Uri _url = Uri.parse(url.trim());
+    final String scheme = _url.scheme.toLowerCase();
     
     // List of common document/file extensions that should open in external apps
     final fileExtensions = [
@@ -24,7 +25,11 @@ class SystemServices {
       url.toLowerCase().endsWith(ext)
     );
 
-    final LaunchMode mode = (forceExternal || isFile)
+    // Only use in-app WebView for standard http/https links.
+    // Custom schemes (whatsapp://, tel:, mailto:, etc.) must use externalApplication.
+    final bool isWeb = scheme == 'http' || scheme == 'https';
+
+    final LaunchMode mode = (forceExternal || isFile || !isWeb)
         ? LaunchMode.externalApplication
         : LaunchMode.inAppWebView;
 
